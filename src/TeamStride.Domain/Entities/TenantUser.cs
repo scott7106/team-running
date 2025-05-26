@@ -2,13 +2,13 @@ using TeamStride.Domain.Common;
 
 namespace TeamStride.Domain.Entities;
 
-public class TenantUser : BaseEntity
+public class TenantUser : AuditedEntity<Guid>
 {
     public Guid UserId { get; set; }
     public Guid TenantId { get; set; }
     public TenantRole Role { get; set; }
     public bool IsDefault { get; set; }
-    public DateTime JoinedAt { get; set; }
+    public DateTime JoinedOn { get; set; }
     
     // Navigation properties
     public virtual Tenant Tenant { get; set; } = null!;

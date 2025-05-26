@@ -2,7 +2,7 @@ using TeamStride.Domain.Common;
 
 namespace TeamStride.Domain.Entities;
 
-public class User : BaseEntity
+public class User : AuditedEntity<Guid>
 {
     public string Email { get; set; } = string.Empty;
     public string FirstName { get; set; } = string.Empty;
@@ -11,7 +11,7 @@ public class User : BaseEntity
     public bool EmailConfirmed { get; set; }
     public bool PhoneNumberConfirmed { get; set; }
     public bool TwoFactorEnabled { get; set; }
-    public DateTime? LastLoginAt { get; set; }
+    public DateTime? LastLoginOn { get; set; }
     public UserStatus Status { get; set; }
     
     // Navigation properties

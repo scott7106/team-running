@@ -2,7 +2,7 @@ using TeamStride.Domain.Common;
 
 namespace TeamStride.Domain.Entities;
 
-public class Tenant : BaseEntity
+public class Tenant : AuditedEntity<Guid>
 {
     public string Name { get; set; } = string.Empty;
     public string Subdomain { get; set; } = string.Empty;
@@ -11,8 +11,7 @@ public class Tenant : BaseEntity
     public string SecondaryColor { get; set; } = "#FFFFFF";
     public TenantStatus Status { get; set; }
     public TenantTier Tier { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime? ExpiresAt { get; set; }
+    public DateTime? ExpiresOn { get; set; }
     
     // Navigation properties
     public virtual ICollection<TenantUser> Users { get; set; } = new List<TenantUser>();
