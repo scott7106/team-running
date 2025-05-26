@@ -9,6 +9,7 @@ using TeamStride.Domain.Entities;
 using TeamStride.Domain.Identity;
 using TeamStride.Domain.Interfaces;
 using TeamStride.Infrastructure.Data;
+using TeamStride.Infrastructure.Data.Extensions;
 using TeamStride.Infrastructure.Services;
 using AthleteProfileMapping = TeamStride.Infrastructure.Mapping.AthleteProfile;
 
@@ -646,6 +647,207 @@ public class AthleteServiceTests : BaseIntegrationTest
 
     #endregion
 
+    #region Global Query Filter Tests
+
+    [Fact]
+    public async Task GlobalQueryFilter_SoftDeletedAthletes_AreNotReturnedByDefault()
+    {
+        // Arrange
+        var athlete = await CreateTestAthleteAsync();
+        
+        // Soft delete the athlete
+        await _athleteService.DeleteAsync(athlete.Id);
+
+        // Act
+        var result = await DbContext.Athletes.ToListAsync();
+
+        // Assert
+        result.ShouldNotContain(a => a.Id == athlete.Id);
+    }
+
+    [Fact]
+    public async Task GlobalQueryFilter_SoftDeletedAthletes_CanBeRetrievedWithIgnoreQueryFilters()
+    {
+        // Arrange
+        var athlete = await CreateTestAthleteAsync();
+        
+        // Soft delete the athlete
+        await _athleteService.DeleteAsync(athlete.Id);
+
+        // Act
+        var result = await DbContext.Athletes.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.Id == athlete.Id);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.IsDeleted.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task GlobalQueryFilter_OnlyDeletedExtension_ReturnsOnlySoftDeletedAthletes()
+    {
+        // Arrange
+        var activeAthlete = await CreateTestAthleteAsync("Active", "Athlete");
+        var deletedAthlete = await CreateTestAthleteAsync("Deleted", "Athlete");
+        
+        // Soft delete one athlete
+        await _athleteService.DeleteAsync(deletedAthlete.Id);
+
+        // Act
+        var result = await DbContext.Athletes.OnlyDeleted().ToListAsync();
+
+        // Assert
+        result.Count().ShouldBe(1);
+        result.First().Id.ShouldBe(deletedAthlete.Id);
+        result.First().IsDeleted.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task GlobalQueryFilter_IncludeDeletedExtension_ReturnsBothActiveAndDeletedAthletes()
+    {
+        // Arrange
+        var activeAthlete = await CreateTestAthleteAsync("Active", "Athlete");
+        var deletedAthlete = await CreateTestAthleteAsync("Deleted", "Athlete");
+        
+        // Soft delete one athlete
+        await _athleteService.DeleteAsync(deletedAthlete.Id);
+
+        // Act
+        var result = await DbContext.Athletes.IncludeDeleted().ToListAsync();
+
+        // Assert
+        result.Count().ShouldBe(2);
+        result.ShouldContain(a => a.Id == activeAthlete.Id && !a.IsDeleted);
+        result.ShouldContain(a => a.Id == deletedAthlete.Id && a.IsDeleted);
+    }
+
+    [Fact]
+    public async Task GlobalQueryFilter_AthleteProfile_SoftDeletedProfilesAreNotReturnedByDefault()
+    {
+        // Arrange
+        var athlete = await CreateTestAthleteAsync();
+        var profile = athlete.Profile;
+        
+        // Manually soft delete the profile
+        profile.IsDeleted = true;
+        profile.DeletedOn = DateTime.UtcNow;
+        profile.DeletedBy = _testUserId;
+        await DbContext.SaveChangesAsync();
+
+        // Act
+        var result = await DbContext.AthleteProfiles.ToListAsync();
+
+        // Assert
+        result.ShouldNotContain(p => p.Id == profile.Id);
+    }
+
+    [Fact]
+    public async Task GlobalQueryFilter_UserTenant_SoftDeletedUserTenantsAreNotReturnedByDefault()
+    {
+        // Arrange
+        // Create a test athlete first (which creates the necessary User and Tenant relationships)
+        var athlete = await CreateTestAthleteAsync();
+        
+        // Create a UserTenant using the existing user and tenant
+        var userTenant = new UserTenant
+        {
+            Id = Guid.NewGuid(),
+            UserId = athlete.UserId,
+            TenantId = athlete.TenantId,
+            Role = TenantRole.Athlete,
+            IsDefault = false, // Set to false to avoid conflicts with existing default
+            IsActive = true,
+            JoinedOn = DateTime.UtcNow,
+            CreatedOn = DateTime.UtcNow
+        };
+
+        DbContext.UserTenants.Add(userTenant);
+        await DbContext.SaveChangesAsync();
+
+        // Soft delete the user tenant
+        userTenant.IsDeleted = true;
+        userTenant.DeletedOn = DateTime.UtcNow;
+        userTenant.DeletedBy = athlete.UserId;
+        await DbContext.SaveChangesAsync();
+
+        // Act
+        var result = await DbContext.UserTenants.ToListAsync();
+
+        // Assert
+        result.ShouldNotContain(ut => ut.Id == userTenant.Id);
+    }
+
+    [Fact]
+    public async Task GlobalQueryFilter_Tenant_SoftDeletedTenantsAreNotReturnedByDefault()
+    {
+        // Arrange
+        // Create a test athlete first (which creates the necessary User and Tenant relationships)
+        var athlete = await CreateTestAthleteAsync();
+        
+        // Create a new tenant for testing
+        var tenant = new Tenant
+        {
+            Id = Guid.NewGuid(),
+            Name = "Test Tenant for Deletion",
+            Subdomain = "test-delete",
+            Status = TenantStatus.Active,
+            Tier = TenantTier.Free,
+            CreatedOn = DateTime.UtcNow
+        };
+
+        DbContext.Tenants.Add(tenant);
+        await DbContext.SaveChangesAsync();
+
+        // Soft delete the tenant
+        tenant.IsDeleted = true;
+        tenant.DeletedOn = DateTime.UtcNow;
+        tenant.DeletedBy = athlete.UserId;
+        await DbContext.SaveChangesAsync();
+
+        // Act
+        var result = await DbContext.Tenants.ToListAsync();
+
+        // Assert
+        result.ShouldNotContain(t => t.Id == tenant.Id);
+    }
+
+    [Fact]
+    public async Task GlobalQueryFilter_ApplicationUser_SoftDeletedUsersAreNotReturnedByDefault()
+    {
+        // Arrange
+        // Create a test athlete first to have a valid user for DeletedBy
+        var athlete = await CreateTestAthleteAsync();
+        
+        // Create a new user for testing
+        var user = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            Email = "test-delete@example.com",
+            FirstName = "Test",
+            LastName = "User",
+            UserName = "test-delete@example.com",
+            IsActive = true,
+            Status = UserStatus.Active,
+            CreatedOn = DateTime.UtcNow
+        };
+
+        DbContext.Users.Add(user);
+        await DbContext.SaveChangesAsync();
+
+        // Soft delete the user
+        user.IsDeleted = true;
+        user.DeletedOn = DateTime.UtcNow;
+        user.DeletedBy = athlete.UserId;
+        await DbContext.SaveChangesAsync();
+
+        // Act
+        var result = await DbContext.Users.ToListAsync();
+
+        // Assert
+        result.ShouldNotContain(u => u.Id == user.Id);
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private async Task<Athlete> CreateTestAthleteAsync(
@@ -653,6 +855,23 @@ public class AthleteServiceTests : BaseIntegrationTest
         string lastName = "Doe", 
         AthleteRole role = AthleteRole.Athlete)
     {
+        // Ensure the test tenant exists
+        var existingTenant = await DbContext.Tenants.FindAsync(_testTenantId);
+        if (existingTenant == null)
+        {
+            var tenant = new Tenant
+            {
+                Id = _testTenantId,
+                Name = "Test Tenant",
+                Subdomain = "test",
+                Status = TenantStatus.Active,
+                Tier = TenantTier.Free,
+                CreatedOn = DateTime.UtcNow
+            };
+            DbContext.Tenants.Add(tenant);
+            await DbContext.SaveChangesAsync();
+        }
+
         var user = new ApplicationUser
         {
             Id = Guid.NewGuid(),

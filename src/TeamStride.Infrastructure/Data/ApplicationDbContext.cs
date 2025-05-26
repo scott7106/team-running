@@ -36,10 +36,26 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     {
         base.OnModelCreating(builder);
 
-        // Configure multi-tenant entities
-        builder.Entity<Athlete>().HasQueryFilter(e => e.TenantId == _tenantService.CurrentTenantId);
-        builder.Entity<AthleteProfile>().HasQueryFilter(e => e.TenantId == _tenantService.CurrentTenantId);
-        builder.Entity<UserTenant>().HasQueryFilter(e => e.TenantId == null || e.TenantId == _tenantService.CurrentTenantId);
+        // Configure global query filters for soft deletes and multi-tenancy
+        ConfigureGlobalQueryFilters(builder);
+    }
+
+    private void ConfigureGlobalQueryFilters(ModelBuilder builder)
+    {
+        // Configure multi-tenant entities with soft delete filters
+        builder.Entity<Athlete>().HasQueryFilter(e => 
+            !e.IsDeleted && e.TenantId == _tenantService.CurrentTenantId);
+        
+        builder.Entity<AthleteProfile>().HasQueryFilter(e => 
+            !e.IsDeleted && e.TenantId == _tenantService.CurrentTenantId);
+        
+        builder.Entity<UserTenant>().HasQueryFilter(e => 
+            !e.IsDeleted && (e.TenantId == null || e.TenantId == _tenantService.CurrentTenantId));
+
+        // Configure entities with only soft delete filters
+        builder.Entity<Tenant>().HasQueryFilter(e => !e.IsDeleted);
+        
+        builder.Entity<ApplicationUser>().HasQueryFilter(e => !e.IsDeleted);
     }
 
     public override int SaveChanges()
