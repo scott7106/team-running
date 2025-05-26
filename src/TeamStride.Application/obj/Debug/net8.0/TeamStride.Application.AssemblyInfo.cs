@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TeamStride.Application")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0362fabbdb689a919d78bf8341b02a2e8b7dcf4d")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8d64138a1cb8a802809d3ea280442b702d6a464a")]
 [assembly: System.Reflection.AssemblyProductAttribute("TeamStride.Application")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TeamStride.Application")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

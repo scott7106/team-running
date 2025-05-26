@@ -6,9 +6,8 @@ using Microsoft.Extensions.Configuration;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using TeamStride.Application.Authentication;
-using TeamStride.Application.Authentication.Dtos;
 using TeamStride.Application.Authentication.Services;
+using TeamStride.Application.Authentication.Dtos;
 using TeamStride.Domain.Identity;
 using TeamStride.Infrastructure.Email;
 
@@ -238,11 +237,8 @@ public class AuthenticationService : IAuthenticationService
 
     public async Task<bool> ResetPasswordAsync(string userId, string token, string newPassword)
     {
-        var user = await _userManager.FindByIdAsync(userId);
-        if (user == null)
-        {
+        var user = await _userManager.FindByIdAsync(userId) ?? 
             throw new AuthenticationException("User not found", AuthenticationException.ErrorCodes.UserNotFound);
-        }
 
         var result = await _userManager.ResetPasswordAsync(user, token, newPassword);
         if (!result.Succeeded)
@@ -260,7 +256,7 @@ public class AuthenticationService : IAuthenticationService
         {
             refreshToken.RevokedAt = DateTime.UtcNow;
             refreshToken.ReasonRevoked = "Password changed";
-            refreshToken.RevokedByIp = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
+            refreshToken.RevokedByIp = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         }
 
         await _context.SaveChangesAsync();

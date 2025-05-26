@@ -1,6 +1,6 @@
 using TeamStride.Domain.Identity;
 
-namespace TeamStride.Infrastructure.Authentication.Authentication.Services;
+namespace TeamStride.Application.Authentication.Services;
 
 public interface IExternalAuthService
 {

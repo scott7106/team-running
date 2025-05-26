@@ -70,7 +70,7 @@ public class Program
                             maxRetryDelay: TimeSpan.FromSeconds(30),
                             errorNumbersToAdd: null);
                     }))
-            .AddIdentityServices(builder.Configuration)
+            .AddTeamStrideIdentity(builder.Configuration)
             .AddEmailService(builder.Configuration, isDevelopment);
 
         // Configure JWT authentication
@@ -81,7 +81,9 @@ public class Program
         })
         .AddJwtBearer(options =>
         {
-            var config = builder.Configuration.GetSection("Authentication").Get<AuthenticationConfiguration>();
+            var config = builder.Configuration.GetSection("Authentication").Get<AuthenticationConfiguration>() ?? 
+                throw new InvalidOperationException("Authentication configuration is missing");
+
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,

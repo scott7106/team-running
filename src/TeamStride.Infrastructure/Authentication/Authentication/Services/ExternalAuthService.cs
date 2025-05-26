@@ -7,13 +7,9 @@ using Microsoft.Extensions.Configuration;
 using TeamStride.Domain.Identity;
 using System.Net.Http.Headers;
 using System.Linq;
+using TeamStride.Application.Authentication.Services;
 
-namespace TeamStride.Application.Authentication.Services;
-
-public interface IExternalAuthService
-{
-    Task<ExternalUserInfo> GetUserInfoAsync(string provider, string accessToken);
-}
+namespace TeamStride.Infrastructure.Authentication.Services;
 
 public class ExternalAuthService : IExternalAuthService
 {
@@ -28,7 +24,7 @@ public class ExternalAuthService : IExternalAuthService
 
     public async Task<ExternalUserInfo?> GetUserInfoAsync(string provider, string accessToken)
     {
-        return provider.ToLowerInvariant() switch
+        var userInfo = provider.ToLowerInvariant() switch
         {
             "microsoft" => await GetMicrosoftUserInfoAsync(accessToken),
             "google" => await GetGoogleUserInfoAsync(accessToken),
@@ -36,6 +32,8 @@ public class ExternalAuthService : IExternalAuthService
             "twitter" => await GetTwitterUserInfoAsync(accessToken),
             _ => throw new AuthenticationException($"Unsupported provider: {provider}", AuthenticationException.ErrorCodes.ExternalAuthError)
         };
+
+        return userInfo;
     }
 
     private async Task<ExternalUserInfo?> GetMicrosoftUserInfoAsync(string accessToken)

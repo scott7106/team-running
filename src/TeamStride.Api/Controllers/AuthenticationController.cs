@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
-using TeamStride.Application.Authentication;
+using TeamStride.Application.Authentication.Services;
 using TeamStride.Application.Authentication.Dtos;
 
 namespace TeamStride.Api.Controllers;

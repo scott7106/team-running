@@ -1,7 +1,6 @@
-using System.Threading.Tasks;
 using TeamStride.Application.Authentication.Dtos;
 
-namespace TeamStride.Application.Authentication;
+namespace TeamStride.Application.Authentication.Services;
 
 public interface IAuthenticationService
 {
@@ -13,9 +12,7 @@ public interface IAuthenticationService
     Task<bool> ResetPasswordAsync(string userId, string token, string newPassword);
     Task<bool> ChangePasswordAsync(string userId, string currentPassword, string newPassword);
     Task<bool> LogoutAsync(string userId);
-
-    // External authentication methods
-    Task<AuthResponseDto> ExternalLoginAsync(ExternalAuthRequestDto request);
     Task<string> GetExternalLoginUrlAsync(string provider, string? tenantId = null);
     Task<string> GetExternalLoginCallbackUrlAsync(string provider);
+    Task<AuthResponseDto> ExternalLoginAsync(ExternalAuthRequestDto request);
 } 

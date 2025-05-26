@@ -3,8 +3,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using TeamStride.Application.Authentication;
+using TeamStride.Application.Authentication.Services;
 using TeamStride.Domain.Identity;
+using TeamStride.Infrastructure.Identity;
 
 namespace TeamStride.Infrastructure.Identity;
 
@@ -55,6 +56,12 @@ public static class IdentityServiceExtensions
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
+        return services;
+    }
+
+    public static IServiceCollection AddIdentityServices(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddScoped<TeamStride.Application.Authentication.Services.IAuthenticationService, AuthenticationService>();
         return services;
     }
 } 

@@ -8,9 +8,9 @@ C:\AppDev\Scott\team-running\src\TeamStride.Application\obj\Debug\net8.0\TeamStr
 C:\AppDev\Scott\team-running\src\TeamStride.Application\obj\Debug\net8.0\TeamStride.Application.AssemblyInfoInputs.cache
 C:\AppDev\Scott\team-running\src\TeamStride.Application\obj\Debug\net8.0\TeamStride.Application.AssemblyInfo.cs
 C:\AppDev\Scott\team-running\src\TeamStride.Application\obj\Debug\net8.0\TeamStride.Application.csproj.CoreCompileInputs.cache
+C:\AppDev\Scott\team-running\src\TeamStride.Application\obj\Debug\net8.0\TeamStride.Application.sourcelink.json
 C:\AppDev\Scott\team-running\src\TeamStride.Application\obj\Debug\net8.0\TeamStri.CF4121FA.Up2Date
 C:\AppDev\Scott\team-running\src\TeamStride.Application\obj\Debug\net8.0\TeamStride.Application.dll
 C:\AppDev\Scott\team-running\src\TeamStride.Application\obj\Debug\net8.0\refint\TeamStride.Application.dll
 C:\AppDev\Scott\team-running\src\TeamStride.Application\obj\Debug\net8.0\TeamStride.Application.pdb
 C:\AppDev\Scott\team-running\src\TeamStride.Application\obj\Debug\net8.0\ref\TeamStride.Application.dll
-C:\AppDev\Scott\team-running\src\TeamStride.Application\obj\Debug\net8.0\TeamStride.Application.sourcelink.json

@@ -1,13 +1,13 @@
 C:\AppDev\Scott\team-running\src\TeamStride.Domain\bin\Debug\net8.0\TeamStride.Domain.deps.json
 C:\AppDev\Scott\team-running\src\TeamStride.Domain\bin\Debug\net8.0\TeamStride.Domain.dll
 C:\AppDev\Scott\team-running\src\TeamStride.Domain\bin\Debug\net8.0\TeamStride.Domain.pdb
+C:\AppDev\Scott\team-running\src\TeamStride.Domain\obj\Debug\net8.0\TeamStride.Domain.csproj.AssemblyReference.cache
 C:\AppDev\Scott\team-running\src\TeamStride.Domain\obj\Debug\net8.0\TeamStride.Domain.GeneratedMSBuildEditorConfig.editorconfig
 C:\AppDev\Scott\team-running\src\TeamStride.Domain\obj\Debug\net8.0\TeamStride.Domain.AssemblyInfoInputs.cache
 C:\AppDev\Scott\team-running\src\TeamStride.Domain\obj\Debug\net8.0\TeamStride.Domain.AssemblyInfo.cs
 C:\AppDev\Scott\team-running\src\TeamStride.Domain\obj\Debug\net8.0\TeamStride.Domain.csproj.CoreCompileInputs.cache
+C:\AppDev\Scott\team-running\src\TeamStride.Domain\obj\Debug\net8.0\TeamStride.Domain.sourcelink.json
 C:\AppDev\Scott\team-running\src\TeamStride.Domain\obj\Debug\net8.0\TeamStride.Domain.dll
 C:\AppDev\Scott\team-running\src\TeamStride.Domain\obj\Debug\net8.0\refint\TeamStride.Domain.dll
 C:\AppDev\Scott\team-running\src\TeamStride.Domain\obj\Debug\net8.0\TeamStride.Domain.pdb
 C:\AppDev\Scott\team-running\src\TeamStride.Domain\obj\Debug\net8.0\ref\TeamStride.Domain.dll
-C:\AppDev\Scott\team-running\src\TeamStride.Domain\obj\Debug\net8.0\TeamStride.Domain.csproj.AssemblyReference.cache
-C:\AppDev\Scott\team-running\src\TeamStride.Domain\obj\Debug\net8.0\TeamStride.Domain.sourcelink.json

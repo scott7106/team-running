@@ -5,7 +5,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using TeamStride.Application.Authentication;
+using TeamStride.Application.Authentication.Services;
 using TeamStride.Domain.Identity;
 
 namespace TeamStride.Infrastructure.Identity;
@@ -14,7 +14,7 @@ public interface IJwtTokenService
 {
     string GenerateJwtToken(ApplicationUser user, string tenantId, string role);
     string GenerateRefreshToken();
-    ClaimsPrincipal GetPrincipalFromToken(string token);
+    ClaimsPrincipal? GetPrincipalFromToken(string token);
 }
 
 public class JwtTokenService : IJwtTokenService
@@ -64,7 +64,7 @@ public class JwtTokenService : IJwtTokenService
         return Convert.ToBase64String(randomNumber);
     }
 
-    public ClaimsPrincipal GetPrincipalFromToken(string token)
+    public ClaimsPrincipal? GetPrincipalFromToken(string token)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.ASCII.GetBytes(_config.JwtSecret);
@@ -86,7 +86,7 @@ public class JwtTokenService : IJwtTokenService
                 !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, 
                 StringComparison.InvariantCultureIgnoreCase))
             {
-                throw new SecurityTokenException("Invalid token");
+                return null;
             }
 
             return principal;

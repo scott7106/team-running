@@ -11,8 +11,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Text;
-using TeamStride.Application.Authentication.Services;
 using TeamStride.Domain.Identity;
+using TeamStride.Infrastructure.Authentication.Services;
+using TeamStride.Infrastructure.Identity;
 
 namespace TeamStride.Infrastructure.Identity;
 
@@ -23,6 +24,7 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration)
     {
         var authConfig = configuration.GetSection("Authentication").Get<AuthenticationConfiguration>();
+        ArgumentNullException.ThrowIfNull(authConfig);
         
         services.AddIdentity<ApplicationUser, IdentityRole>(options =>
         {
@@ -57,31 +59,13 @@ public static class ServiceCollectionExtensions
                     Encoding.UTF8.GetBytes(authConfig.JwtSecret))
             };
         })
-        .AddOAuthProviders(authConfig)
-        .AddMicrosoftAccount(options =>
-        {
-            options.ClientId = authConfig.Microsoft.ClientId;
-            options.ClientSecret = authConfig.Microsoft.ClientSecret;
-        })
-        .AddGoogle(options =>
-        {
-            options.ClientId = authConfig.Google.ClientId;
-            options.ClientSecret = authConfig.Google.ClientSecret;
-        })
-        .AddFacebook(options =>
-        {
-            options.ClientId = authConfig.Facebook.ClientId;
-            options.ClientSecret = authConfig.Facebook.ClientSecret;
-        })
-        .AddTwitter(options =>
-        {
-            options.ConsumerKey = authConfig.Twitter.ClientId;
-            options.ConsumerSecret = authConfig.Twitter.ClientSecret;
-        });
+        .AddOAuthProviders(authConfig);
 
-        // Register HttpClient and ExternalAuthService
+        // Register HttpClient and Services
         services.AddHttpClient();
-        services.AddScoped<IExternalAuthService, ExternalAuthService>();
+        services.AddScoped<TeamStride.Application.Authentication.Services.IExternalAuthService, ExternalAuthService>();
+        services.AddScoped<TeamStride.Application.Authentication.Services.IAuthenticationService, AuthenticationService>();
+        services.AddScoped<IJwtTokenService, JwtTokenService>();
 
         return services;
     }
@@ -122,10 +106,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddIdentityServices(this IServiceCollection services, IConfiguration configuration)
     {
         var authConfig = configuration.GetSection("Authentication").Get<AuthenticationConfiguration>();
-        if (authConfig == null)
-        {
-            throw new InvalidOperationException("Authentication configuration is missing");
-        }
+        ArgumentNullException.ThrowIfNull(authConfig);
 
         services.AddSingleton(authConfig);
 
