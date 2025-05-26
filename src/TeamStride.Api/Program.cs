@@ -83,7 +83,8 @@ public class Program
                             errorNumbersToAdd: null);
                     }))
             .AddTeamStrideIdentity(builder.Configuration)
-            .AddEmailService(builder.Configuration, isDevelopment);
+            .AddEmailService(builder.Configuration, isDevelopment)
+            .AddGlobalAdminSeeder(builder.Configuration);
 
         // Configure JWT authentication
         builder.Services.AddAuthentication(options =>

@@ -51,9 +51,10 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.Email);
         ArgumentNullException.ThrowIfNull(request.Password);
+        ArgumentNullException.ThrowIfNull(request.TenantId);
 
-        var user = await _userManager.FindByEmailAsync(request.Email) ?? 
-            throw new AuthenticationException("Invalid email or password", AuthenticationException.ErrorCodes.InvalidCredentials);
+        var user = await _userManager.FindByEmailAsync(request.Email) ??
+            throw new AuthenticationException("Invalid credentials", AuthenticationException.ErrorCodes.InvalidCredentials);
 
         if (!user.IsActive)
         {
@@ -62,7 +63,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
 
         if (!await _userManager.CheckPasswordAsync(user, request.Password))
         {
-            throw new AuthenticationException("Invalid email or password", AuthenticationException.ErrorCodes.InvalidCredentials);
+            throw new AuthenticationException("Invalid credentials", AuthenticationException.ErrorCodes.InvalidCredentials);
         }
 
         if (!user.EmailConfirmed)
@@ -71,9 +72,8 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         }
 
         // Get tenant and role
-        var tenantId = request.TenantId ?? user.DefaultTenantId;
         var userTenant = await _context.UserTenants
-            .FirstOrDefaultAsync(ut => ut.UserId == user.Id && ut.TenantId == tenantId) ??
+            .FirstOrDefaultAsync(ut => ut.UserId == user.Id && (ut.TenantId == null || ut.TenantId == request.TenantId)) ??
             throw new AuthenticationException("Invalid tenant", AuthenticationException.ErrorCodes.TenantNotFound);
 
         // Update last login
@@ -81,8 +81,8 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         await _userManager.UpdateAsync(user);
 
         // Generate tokens
-        var jwtToken = _jwtTokenService.GenerateJwtToken(user, tenantId, userTenant.Role);
-        var refreshToken = await CreateRefreshTokenAsync(user, tenantId);
+        var jwtToken = _jwtTokenService.GenerateJwtToken(user, userTenant.TenantId, userTenant.Role);
+        var refreshToken = await CreateRefreshTokenAsync(user, userTenant.TenantId ?? Guid.Empty);
 
         return new AuthResponseDto
         {
@@ -91,7 +91,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             Email = user.Email ?? string.Empty,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            TenantId = tenantId,
+            TenantId = userTenant.TenantId,
             Role = userTenant.Role,
             RequiresEmailConfirmation = false
         };
@@ -138,18 +138,20 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             UserId = user.Id,
             TenantId = request.TenantId,
             Role = request.Role,
-            IsActive = true
+            IsActive = true,
+            IsDefault = true,
+            JoinedOn = DateTime.UtcNow
         };
         _context.UserTenants.Add(userTenant);
         await _context.SaveChangesAsync();
 
         // Generate email confirmation token and send email
         var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-        var confirmationLink = $"https://{tenant.Subdomain}.teamstride.com/confirm-email?userId={user.Id}&token={Uri.EscapeDataString(token)}";
-        await _emailService.SendEmailConfirmationAsync(user.Email, confirmationLink);
+        var confirmationLink = $"https://teamstride.com/confirm-email?userId={user.Id}&token={Uri.EscapeDataString(token)}";
+        await _emailService.SendEmailConfirmationAsync(user.Email!, confirmationLink);
 
         // Generate tokens
-        var jwtToken = _jwtTokenService.GenerateJwtToken(user, request.TenantId, userTenant.Role);
+        var jwtToken = _jwtTokenService.GenerateJwtToken(user, request.TenantId, request.Role);
         var refreshToken = await CreateRefreshTokenAsync(user, request.TenantId);
 
         return new AuthResponseDto
@@ -160,7 +162,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             FirstName = user.FirstName,
             LastName = user.LastName,
             TenantId = request.TenantId,
-            Role = userTenant.Role,
+            Role = request.Role,
             RequiresEmailConfirmation = true
         };
     }
@@ -445,16 +447,76 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         return await Task.FromResult($"{baseUrl}/api/authentication/external-login/{provider.ToLowerInvariant()}/callback");
     }
 
-    private async Task<RefreshToken> CreateRefreshTokenAsync(ApplicationUser user, Guid tenantId)
+    public async Task<AuthResponseDto> CreateGlobalAdminAsync(RegisterRequestDto request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.Email);
+        ArgumentNullException.ThrowIfNull(request.Password);
+
+        // Check if email exists
+        if (await _userManager.FindByEmailAsync(request.Email) != null)
+        {
+            throw new AuthenticationException("Email already registered", AuthenticationException.ErrorCodes.EmailAlreadyExists);
+        }
+
+        var user = new ApplicationUser
+        {
+            UserName = request.Email,
+            Email = request.Email,
+            FirstName = request.FirstName,
+            LastName = request.LastName,
+            DefaultTenantId = null,
+            IsActive = true,
+            EmailConfirmed = true // Global admin doesn't need email confirmation
+        };
+
+        var result = await _userManager.CreateAsync(user, request.Password);
+        if (!result.Succeeded)
+        {
+            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+            throw new AuthenticationException($"Global admin registration failed: {errors}");
+        }
+
+        // Create global admin user-tenant relationship
+        var userTenant = new UserTenant
+        {
+            UserId = user.Id,
+            TenantId = null,
+            Role = TenantRole.GlobalAdmin,
+            IsActive = true,
+            IsDefault = true,
+            JoinedOn = DateTime.UtcNow
+        };
+        _context.UserTenants.Add(userTenant);
+        await _context.SaveChangesAsync();
+
+        // Generate tokens
+        var jwtToken = _jwtTokenService.GenerateJwtToken(user, Guid.Empty, TenantRole.GlobalAdmin);
+        var refreshToken = await CreateRefreshTokenAsync(user, Guid.Empty);
+
+        return new AuthResponseDto
+        {
+            Token = jwtToken,
+            RefreshToken = refreshToken.Token,
+            Email = user.Email ?? string.Empty,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            TenantId = null,
+            Role = TenantRole.GlobalAdmin,
+            RequiresEmailConfirmation = false
+        };
+    }
+
+    private async Task<RefreshToken> CreateRefreshTokenAsync(ApplicationUser user, Guid? tenantId)
     {
         var refreshToken = new RefreshToken
         {
-            Token = Guid.NewGuid().ToString("N"),
+            Token = _jwtTokenService.GenerateRefreshToken(),
             UserId = user.Id,
-            TenantId = tenantId,
+            TenantId = tenantId ?? Guid.Empty,
             CreatedOn = DateTime.UtcNow,
-            CreatedByIp = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "unknown",
-            ExpiresOn = DateTime.UtcNow.AddDays(7)
+            ExpiresOn = DateTime.UtcNow.AddDays(7),
+            CreatedByIp = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown"
         };
 
         _context.RefreshTokens.Add(refreshToken);

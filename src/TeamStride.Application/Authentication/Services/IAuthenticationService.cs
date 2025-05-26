@@ -6,6 +6,7 @@ public interface ITeamStrideAuthenticationService
 {
     Task<AuthResponseDto> LoginAsync(LoginRequestDto request);
     Task<AuthResponseDto> RegisterAsync(RegisterRequestDto request);
+    Task<AuthResponseDto> CreateGlobalAdminAsync(RegisterRequestDto request);
     Task<AuthResponseDto> RefreshTokenAsync(string refreshToken);
     Task<bool> ConfirmEmailAsync(Guid userId, string token);
     Task<bool> SendPasswordResetEmailAsync(string email);

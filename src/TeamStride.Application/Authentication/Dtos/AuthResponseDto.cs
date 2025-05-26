@@ -9,7 +9,7 @@ public class AuthResponseDto
     public required string Email { get; set; }
     public required string FirstName { get; set; }
     public required string LastName { get; set; }
-    public required Guid TenantId { get; set; }
+    public Guid? TenantId { get; set; }
     public required TenantRole Role { get; set; }
     public bool RequiresEmailConfirmation { get; set; }
 } 

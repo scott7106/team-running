@@ -39,7 +39,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         // Configure multi-tenant entities
         builder.Entity<Athlete>().HasQueryFilter(e => e.TenantId == _tenantService.CurrentTenantId);
         builder.Entity<AthleteProfile>().HasQueryFilter(e => e.TenantId == _tenantService.CurrentTenantId);
-        builder.Entity<UserTenant>().HasQueryFilter(e => e.TenantId == _tenantService.CurrentTenantId);
+        builder.Entity<UserTenant>().HasQueryFilter(e => e.TenantId == null || e.TenantId == _tenantService.CurrentTenantId);
     }
 
     public override int SaveChanges()

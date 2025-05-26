@@ -10,6 +10,5 @@ public class ExternalAuthRequestDto
     [Required]
     public required string AccessToken { get; set; }
 
-    [Required]
-    public required Guid TenantId { get; set; }
+    public Guid? TenantId { get; set; }
 } 

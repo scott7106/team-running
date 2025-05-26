@@ -10,7 +10,7 @@ public class ApplicationUser : IdentityUser<Guid>, IAuditedEntity
 {
     public required string FirstName { get; set; }
     public required string LastName { get; set; }
-    public required Guid DefaultTenantId { get; set; }
+    public Guid? DefaultTenantId { get; set; }
     
     // Audit fields
     public DateTime CreatedOn { get; set; }

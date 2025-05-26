@@ -23,8 +23,7 @@ public class RegisterRequestDto
     [Required]
     public required string LastName { get; set; }
 
-    [Required]
-    public required Guid TenantId { get; set; }
+    public Guid? TenantId { get; set; }
 
     [Required]
     public required TenantRole Role { get; set; }

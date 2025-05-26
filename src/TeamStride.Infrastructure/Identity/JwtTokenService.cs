@@ -13,7 +13,7 @@ namespace TeamStride.Infrastructure.Identity;
 
 public interface IJwtTokenService
 {
-    string GenerateJwtToken(ApplicationUser user, Guid tenantId, TenantRole role);
+    string GenerateJwtToken(ApplicationUser user, Guid? tenantId, TenantRole role);
     string GenerateRefreshToken();
     ClaimsPrincipal? GetPrincipalFromToken(string token);
 }
@@ -27,10 +27,9 @@ public class JwtTokenService : IJwtTokenService
         _config = config;
     }
 
-    public string GenerateJwtToken(ApplicationUser user, Guid tenantId, TenantRole role)
+    public string GenerateJwtToken(ApplicationUser user, Guid? tenantId, TenantRole role)
     {
         ArgumentNullException.ThrowIfNull(user);
-        ArgumentNullException.ThrowIfNull(tenantId);
         ArgumentNullException.ThrowIfNull(role);
 
         var claims = new List<Claim>
@@ -38,9 +37,14 @@ public class JwtTokenService : IJwtTokenService
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email ?? throw new InvalidOperationException("User email is null")),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new("tenant_id", tenantId.ToString()),
             new(ClaimTypes.Role, role.ToString())
         };
+
+        // Only add tenant_id claim if it's not null (for non-global admins)
+        if (tenantId.HasValue)
+        {
+            claims.Add(new Claim("tenant_id", tenantId.Value.ToString()));
+        }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config.JwtSecret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -53,8 +57,7 @@ public class JwtTokenService : IJwtTokenService
             signingCredentials: creds
         );
 
-        var tokenHandler = new JwtSecurityTokenHandler();
-        return tokenHandler.WriteToken(token);
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
     public string GenerateRefreshToken()
