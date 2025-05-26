@@ -1654,20 +1654,8 @@
         "type": "project",
         "framework": ".NETCoreApp,Version=v8.0",
         "dependencies": {
-          "Microsoft.AspNetCore.Authentication.Facebook": "8.0.2",
-          "Microsoft.AspNetCore.Authentication.Google": "8.0.2",
-          "Microsoft.AspNetCore.Authentication.JwtBearer": "8.0.2",
-          "Microsoft.AspNetCore.Authentication.MicrosoftAccount": "8.0.2",
-          "Microsoft.AspNetCore.Authentication.Twitter": "8.0.2",
-          "Microsoft.AspNetCore.Http.Abstractions": "2.2.0",
-          "Microsoft.AspNetCore.Http.Extensions": "2.2.0",
-          "Microsoft.AspNetCore.Identity.UI": "8.0.2",
-          "Microsoft.Extensions.Identity.Core": "8.0.2",
           "Microsoft.Extensions.Logging.Abstractions": "8.0.0",
-          "Microsoft.IdentityModel.Tokens": "7.4.0",
-          "SendGrid": "9.29.1",
-          "System.IdentityModel.Tokens.Jwt": "7.4.0",
-          "TeamStride.Infrastructure": "1.0.0"
+          "TeamStride.Domain": "1.0.0"
         },
         "compile": {
           "bin/placeholder/TeamStride.Application.dll": {}
@@ -1693,7 +1681,20 @@
         "type": "project",
         "framework": ".NETCoreApp,Version=v8.0",
         "dependencies": {
+          "Microsoft.AspNetCore.Authentication.Facebook": "8.0.2",
+          "Microsoft.AspNetCore.Authentication.Google": "8.0.2",
+          "Microsoft.AspNetCore.Authentication.JwtBearer": "8.0.2",
+          "Microsoft.AspNetCore.Authentication.MicrosoftAccount": "8.0.2",
+          "Microsoft.AspNetCore.Authentication.Twitter": "8.0.2",
+          "Microsoft.AspNetCore.Http.Abstractions": "2.2.0",
+          "Microsoft.AspNetCore.Http.Extensions": "2.2.0",
+          "Microsoft.AspNetCore.Identity.UI": "8.0.2",
           "Microsoft.EntityFrameworkCore.SqlServer": "8.0.2",
+          "Microsoft.Extensions.Identity.Core": "8.0.2",
+          "Microsoft.IdentityModel.Tokens": "7.4.0",
+          "SendGrid": "9.29.1",
+          "System.IdentityModel.Tokens.Jwt": "7.4.0",
+          "TeamStride.Application": "1.0.0",
           "TeamStride.Domain": "1.0.0"
         },
         "compile": {
@@ -4471,7 +4472,9 @@
       "Serilog.Sinks.Console >= 6.0.0",
       "Serilog.Sinks.File >= 7.0.0",
       "Swashbuckle.AspNetCore >= 6.6.2",
-      "TeamStride.Application >= 1.0.0"
+      "TeamStride.Application >= 1.0.0",
+      "TeamStride.Domain >= 1.0.0",
+      "TeamStride.Infrastructure >= 1.0.0"
     ]
   },
   "packageFolders": {
@@ -4503,6 +4506,12 @@
           "projectReferences": {
             "C:\\AppDev\\Scott\\team-running\\src\\TeamStride.Application\\TeamStride.Application.csproj": {
               "projectPath": "C:\\AppDev\\Scott\\team-running\\src\\TeamStride.Application\\TeamStride.Application.csproj"
+            },
+            "C:\\AppDev\\Scott\\team-running\\src\\TeamStride.Domain\\TeamStride.Domain.csproj": {
+              "projectPath": "C:\\AppDev\\Scott\\team-running\\src\\TeamStride.Domain\\TeamStride.Domain.csproj"
+            },
+            "C:\\AppDev\\Scott\\team-running\\src\\TeamStride.Infrastructure\\TeamStride.Infrastructure.csproj": {
+              "projectPath": "C:\\AppDev\\Scott\\team-running\\src\\TeamStride.Infrastructure\\TeamStride.Infrastructure.csproj"
             }
           }
         }

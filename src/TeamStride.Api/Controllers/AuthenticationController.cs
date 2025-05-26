@@ -134,6 +134,6 @@ public class AuthenticationController : ControllerBase
 
 public class ChangePasswordRequestDto
 {
-    public string CurrentPassword { get; set; }
-    public string NewPassword { get; set; }
+    public required string CurrentPassword { get; set; }
+    public required string NewPassword { get; set; }
 } 

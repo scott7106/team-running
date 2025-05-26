@@ -4,19 +4,18 @@ namespace TeamStride.Domain.Identity;
 
 public class RefreshToken
 {
-    public string Token { get; set; }
-    public string UserId { get; set; }
-    public string TenantId { get; set; }
-    public DateTime ExpiresAt { get; set; }
+    public required string Token { get; set; }
+    public required string UserId { get; set; }
+    public required string TenantId { get; set; }
     public DateTime CreatedAt { get; set; }
-    public string CreatedByIp { get; set; }
+    public required string CreatedByIp { get; set; }
+    public DateTime ExpiresAt { get; set; }
+    public string? RevokedByIp { get; set; }
+    public string? ReplacedByToken { get; set; }
+    public string? ReasonRevoked { get; set; }
     public DateTime? RevokedAt { get; set; }
-    public string RevokedByIp { get; set; }
-    public string ReplacedByToken { get; set; }
-    public string ReasonRevoked { get; set; }
-    public bool IsExpired => DateTime.UtcNow >= ExpiresAt;
-    public bool IsRevoked => RevokedAt != null;
-    public bool IsActive => !IsRevoked && !IsExpired;
+    public bool IsActive => !RevokedAt.HasValue && DateTime.UtcNow < ExpiresAt;
 
-    public virtual ApplicationUser User { get; set; }
+    // Navigation properties
+    public virtual ApplicationUser? User { get; set; }
 } 

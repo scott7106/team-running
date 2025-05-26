@@ -54,24 +54,24 @@ public class Program
         builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
         // Configure DbContext
-        builder.Services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseSqlServer(
-                builder.Configuration.GetConnectionString("DefaultConnection"),
-                sqlOptions =>
-                {
-                    sqlOptions.EnableRetryOnFailure(
-                        maxRetryCount: 3,
-                        maxRetryDelay: TimeSpan.FromSeconds(10),
-                        errorNumbersToAdd: null);
-                    sqlOptions.MigrationsAssembly("TeamStride.Infrastructure");
-                }
-            ));
+        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? 
+            throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
-        // Add Identity services
-        builder.Services.AddTeamStrideIdentityServices(builder.Configuration);
+        var isDevelopment = builder.Environment.IsDevelopment();
 
-        // Add email service based on environment
-        builder.Services.AddEmailService(builder.Configuration, builder.Environment.IsDevelopment());
+        builder.Services
+            .AddDbContext<ApplicationDbContext>(options =>
+                options.UseSqlServer(
+                    connectionString,
+                    sqlOptions =>
+                    {
+                        sqlOptions.EnableRetryOnFailure(
+                            maxRetryCount: 5,
+                            maxRetryDelay: TimeSpan.FromSeconds(30),
+                            errorNumbersToAdd: null);
+                    }))
+            .AddIdentityServices(builder.Configuration)
+            .AddEmailService(builder.Configuration, isDevelopment);
 
         // Configure JWT authentication
         builder.Services.AddAuthentication(options =>

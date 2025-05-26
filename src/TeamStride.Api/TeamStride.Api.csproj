@@ -19,6 +19,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TeamStride.Application\TeamStride.Application.csproj" />
+    <ProjectReference Include="..\TeamStride.Infrastructure\TeamStride.Infrastructure.csproj" />
+    <ProjectReference Include="..\TeamStride.Domain\TeamStride.Domain.csproj" />
   </ItemGroup>
 
 </Project>

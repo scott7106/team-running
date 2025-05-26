@@ -15,3 +15,6 @@ C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\obj\Debug\net8.0\Team
 C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\obj\Debug\net8.0\ref\TeamStride.Infrastructure.dll
 C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\bin\Debug\net8.0\TeamStride.Infrastructure.runtimeconfig.json
 C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\obj\Debug\net8.0\TeamStride.Infrastructure.genruntimeconfig.cache
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\obj\Debug\net8.0\TeamStride.Infrastructure.sourcelink.json
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\bin\Debug\net8.0\TeamStride.Application.dll
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\bin\Debug\net8.0\TeamStride.Application.pdb

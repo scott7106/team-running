@@ -13,5 +13,4 @@ C:\AppDev\Scott\team-running\src\TeamStride.Application\obj\Debug\net8.0\TeamStr
 C:\AppDev\Scott\team-running\src\TeamStride.Application\obj\Debug\net8.0\refint\TeamStride.Application.dll
 C:\AppDev\Scott\team-running\src\TeamStride.Application\obj\Debug\net8.0\TeamStride.Application.pdb
 C:\AppDev\Scott\team-running\src\TeamStride.Application\obj\Debug\net8.0\ref\TeamStride.Application.dll
-C:\AppDev\Scott\team-running\src\TeamStride.Application\bin\Debug\net8.0\TeamStride.Infrastructure.dll
-C:\AppDev\Scott\team-running\src\TeamStride.Application\bin\Debug\net8.0\TeamStride.Infrastructure.pdb
+C:\AppDev\Scott\team-running\src\TeamStride.Application\obj\Debug\net8.0\TeamStride.Application.sourcelink.json

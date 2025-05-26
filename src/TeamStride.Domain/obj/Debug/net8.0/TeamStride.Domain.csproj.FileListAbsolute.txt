@@ -10,3 +10,4 @@ C:\AppDev\Scott\team-running\src\TeamStride.Domain\obj\Debug\net8.0\refint\TeamS
 C:\AppDev\Scott\team-running\src\TeamStride.Domain\obj\Debug\net8.0\TeamStride.Domain.pdb
 C:\AppDev\Scott\team-running\src\TeamStride.Domain\obj\Debug\net8.0\ref\TeamStride.Domain.dll
 C:\AppDev\Scott\team-running\src\TeamStride.Domain\obj\Debug\net8.0\TeamStride.Domain.csproj.AssemblyReference.cache
+C:\AppDev\Scott\team-running\src\TeamStride.Domain\obj\Debug\net8.0\TeamStride.Domain.sourcelink.json
