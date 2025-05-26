@@ -4,6 +4,7 @@ using Serilog;
 using System.Reflection;
 using TeamStride.Api.Middleware;
 using TeamStride.Domain.Interfaces;
+using TeamStride.Infrastructure;
 using TeamStride.Infrastructure.Data;
 using TeamStride.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -52,6 +53,7 @@ public class Program
         // Register application services
         builder.Services.AddScoped<ITenantService, TenantService>();
         builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+        builder.Services.AddApplicationServices();
 
         // Configure DbContext
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? 
