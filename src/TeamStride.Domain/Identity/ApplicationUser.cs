@@ -10,7 +10,7 @@ public class ApplicationUser : IdentityUser<Guid>, IAuditedEntity
 {
     public required string FirstName { get; set; }
     public required string LastName { get; set; }
-    public Guid? DefaultTenantId { get; set; }
+    public Guid? DefaultTeamId { get; set; }
     
     // Audit fields
     public DateTime CreatedOn { get; set; }
@@ -27,7 +27,7 @@ public class ApplicationUser : IdentityUser<Guid>, IAuditedEntity
     public UserStatus Status { get; set; }
 
     // Navigation properties
-    public virtual ICollection<UserTenant> UserTenants { get; set; } = new List<UserTenant>();
+    public virtual ICollection<UserTeam> UserTeams { get; set; } = new List<UserTeam>();
     public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 }
 

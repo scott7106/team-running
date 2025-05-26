@@ -17,20 +17,20 @@ public class AthleteService : IAthleteService
     private readonly ApplicationDbContext _context;
     private readonly IMapper _mapper;
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly ITenantService _tenantService;
+            private readonly ITeamService _teamService;
     private readonly ICurrentUserService _currentUserService;
 
     public AthleteService(
         ApplicationDbContext context,
         IMapper mapper,
         UserManager<ApplicationUser> userManager,
-        ITenantService tenantService,
+                    ITeamService teamService,
         ICurrentUserService currentUserService)
     {
         _context = context;
         _mapper = mapper;
         _userManager = userManager;
-        _tenantService = tenantService;
+        _teamService = teamService;
         _currentUserService = currentUserService;
     }
 
@@ -45,7 +45,7 @@ public class AthleteService : IAthleteService
         var athlete = await _context.Athletes
             .Include(a => a.User)
             .Include(a => a.Profile)
-            .FirstOrDefaultAsync(a => a.UserId == userId && a.TenantId == _tenantService.CurrentTenantId);
+            .FirstOrDefaultAsync(a => a.UserId == userId && a.TeamId == _teamService.CurrentTeamId);
 
         return athlete == null ? null : _mapper.Map<AthleteDto>(athlete);
     }
@@ -55,7 +55,7 @@ public class AthleteService : IAthleteService
         var query = _context.Athletes
             .Include(a => a.User)
             .Include(a => a.Profile)
-            .Where(a => a.TenantId == _tenantService.CurrentTenantId)
+            .Where(a => a.TeamId == _teamService.CurrentTeamId)
             .OrderBy(a => a.User.LastName)
             .ThenBy(a => a.User.FirstName);
 
@@ -83,7 +83,7 @@ public class AthleteService : IAthleteService
         // Create athlete
         var athlete = _mapper.Map<Athlete>(dto);
         athlete.UserId = user.Id;
-        athlete.TenantId = _tenantService.CurrentTenantId;
+        athlete.TeamId = _teamService.CurrentTeamId;
 
         // Create profile if provided
         if (dto.Profile != null)
@@ -165,7 +165,7 @@ public class AthleteService : IAthleteService
         var captains = await _context.Athletes
             .Include(a => a.User)
             .Include(a => a.Profile)
-            .Where(a => a.TenantId == _tenantService.CurrentTenantId && a.Role == AthleteRole.Captain)
+            .Where(a => a.TeamId == _teamService.CurrentTeamId && a.Role == AthleteRole.Captain)
             .OrderBy(a => a.User.LastName)
             .ThenBy(a => a.User.FirstName)
             .ToListAsync();
@@ -176,7 +176,7 @@ public class AthleteService : IAthleteService
     public async Task<bool> IsAthleteInTeamAsync(Guid athleteId)
     {
         return await _context.Athletes
-            .AnyAsync(a => a.Id == athleteId && a.TenantId == _tenantService.CurrentTenantId);
+            .AnyAsync(a => a.Id == athleteId && a.TeamId == _teamService.CurrentTeamId);
     }
 
     private async Task<Athlete> GetAthleteByIdOrThrowAsync(Guid id)
@@ -184,7 +184,7 @@ public class AthleteService : IAthleteService
         var athlete = await _context.Athletes
             .Include(a => a.User)
             .Include(a => a.Profile)
-            .FirstOrDefaultAsync(a => a.Id == id && a.TenantId == _tenantService.CurrentTenantId);
+            .FirstOrDefaultAsync(a => a.Id == id && a.TeamId == _teamService.CurrentTeamId);
 
         if (athlete == null)
         {

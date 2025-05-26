@@ -21,22 +21,22 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<Applicatio
         optionsBuilder.UseSqlServer(configuration.GetConnectionString("DefaultConnection"));
 
         // Create mock services for design-time
-        var mockTenantService = new MockTenantService();
+        var mockTeamService = new MockTeamService();
         var mockCurrentUserService = new MockCurrentUserService();
 
-        return new ApplicationDbContext(optionsBuilder.Options, mockTenantService, mockCurrentUserService);
+        return new ApplicationDbContext(optionsBuilder.Options, mockTeamService, mockCurrentUserService);
     }
 }
 
 // Mock services for design-time
-internal class MockTenantService : ITenantService
+internal class MockTeamService : ITeamService
 {
-    public Guid CurrentTenantId => Guid.Empty;
-    public string CurrentTenantName => "DesignTime";
-    public string CurrentTenantSubdomain => "design-time";
-    public void SetCurrentTenant(Guid tenantId) { }
-    public void SetCurrentTenant(string subdomain) { }
-    public void ClearCurrentTenant() { }
+    public Guid CurrentTeamId => Guid.Empty;
+    public string CurrentTeamName => "DesignTime";
+    public string CurrentTeamSubdomain => "design-time";
+    public void SetCurrentTeam(Guid teamId) { }
+    public void SetCurrentTeam(string subdomain) { }
+    public void ClearCurrentTeam() { }
 }
 
 internal class MockCurrentUserService : ICurrentUserService

@@ -12,21 +12,21 @@ namespace TeamStride.Infrastructure.Data;
 
 public class ApplicationDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>
 {
-    private readonly ITenantService _tenantService;
+    private readonly ITeamService _teamService;
     private readonly ICurrentUserService _currentUserService;
 
     public ApplicationDbContext(
         DbContextOptions<ApplicationDbContext> options,
-        ITenantService tenantService,
+        ITeamService teamService,
         ICurrentUserService currentUserService) : base(options)
     {
-        _tenantService = tenantService;
+        _teamService = teamService;
         _currentUserService = currentUserService;
     }
 
     // Application entities
-    public DbSet<Tenant> Tenants => Set<Tenant>();
-    public DbSet<UserTenant> UserTenants => Set<UserTenant>();
+    public DbSet<Team> Teams => Set<Team>();
+    public DbSet<UserTeam> UserTeams => Set<UserTeam>();
     public DbSet<Athlete> Athletes => Set<Athlete>();
     public DbSet<AthleteProfile> AthleteProfiles => Set<AthleteProfile>();
     
@@ -52,18 +52,18 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 
     private void ConfigureGlobalQueryFilters(ModelBuilder builder)
     {
-        // Configure multi-tenant entities with soft delete filters
+        // Configure multi-team entities with soft delete filters
         builder.Entity<Athlete>().HasQueryFilter(e => 
-            !e.IsDeleted && e.TenantId == _tenantService.CurrentTenantId);
+            !e.IsDeleted && e.TeamId == _teamService.CurrentTeamId);
         
         builder.Entity<AthleteProfile>().HasQueryFilter(e => 
-            !e.IsDeleted && e.TenantId == _tenantService.CurrentTenantId);
+            !e.IsDeleted && e.TeamId == _teamService.CurrentTeamId);
         
-        builder.Entity<UserTenant>().HasQueryFilter(e => 
-            !e.IsDeleted && (e.TenantId == null || e.TenantId == _tenantService.CurrentTenantId));
+        builder.Entity<UserTeam>().HasQueryFilter(e => 
+            !e.IsDeleted && (e.TeamId == null || e.TeamId == _teamService.CurrentTeamId));
 
         // Configure entities with only soft delete filters
-        builder.Entity<Tenant>().HasQueryFilter(e => !e.IsDeleted);
+        builder.Entity<Team>().HasQueryFilter(e => !e.IsDeleted);
         
         builder.Entity<ApplicationUser>().HasQueryFilter(e => !e.IsDeleted);
         

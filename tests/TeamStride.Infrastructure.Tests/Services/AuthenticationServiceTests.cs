@@ -23,16 +23,16 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     private readonly Mock<IHttpContextAccessor> _mockHttpContextAccessor;
     private readonly Mock<IConfiguration> _mockConfiguration;
     private readonly Mock<IExternalAuthService> _mockExternalAuthService;
-    private readonly Guid _testTenantId;
+    private readonly Guid _testTeamId;
     private readonly Guid _testUserId;
 
     public AuthenticationServiceTests()
     {
-        _testTenantId = Guid.NewGuid();
+        _testTeamId = Guid.NewGuid();
         _testUserId = Guid.NewGuid();
 
-        // Setup tenant and user service mocks
-        MockTenantService.Setup(x => x.CurrentTenantId).Returns(_testTenantId);
+        // Setup team and user service mocks
+        MockTeamService.Setup(x => x.CurrentTeamId).Returns(_testTeamId);
         MockCurrentUserService.Setup(x => x.UserId).Returns(_testUserId);
 
         // Create mocks for dependencies
@@ -45,7 +45,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         _mockExternalAuthService = new Mock<IExternalAuthService>();
 
         // Setup default mock behaviors
-        _mockJwtTokenService.Setup(x => x.GenerateJwtToken(It.IsAny<ApplicationUser>(), It.IsAny<Guid?>(), It.IsAny<TenantRole>()))
+        _mockJwtTokenService.Setup(x => x.GenerateJwtToken(It.IsAny<ApplicationUser>(), It.IsAny<Guid?>(), It.IsAny<TeamRole>()))
             .Returns("mock-jwt-token");
 
         _mockEmailService.Setup(x => x.SendEmailConfirmationAsync(It.IsAny<string>(), It.IsAny<string>()))
@@ -85,7 +85,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     public async Task LoginAsync_WhenEmailIsNull_ThrowsArgumentNullException()
     {
         // Arrange
-        var request = new LoginRequestDto { Email = null!, Password = "password", TenantId = _testTenantId };
+        var request = new LoginRequestDto { Email = null!, Password = "password", TeamId = _testTeamId };
 
         // Act & Assert
         await Should.ThrowAsync<ArgumentNullException>(() => _authenticationService.LoginAsync(request));
@@ -95,17 +95,17 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     public async Task LoginAsync_WhenPasswordIsNull_ThrowsArgumentNullException()
     {
         // Arrange
-        var request = new LoginRequestDto { Email = "test@example.com", Password = null!, TenantId = _testTenantId };
+        var request = new LoginRequestDto { Email = "test@example.com", Password = null!, TeamId = _testTeamId };
 
         // Act & Assert
         await Should.ThrowAsync<ArgumentNullException>(() => _authenticationService.LoginAsync(request));
     }
 
     [Fact]
-    public async Task LoginAsync_WhenTenantIdIsNull_ThrowsArgumentNullException()
+    public async Task LoginAsync_WhenTeamIdIsNull_ThrowsArgumentNullException()
     {
         // Arrange
-        var request = new LoginRequestDto { Email = "test@example.com", Password = "password", TenantId = null! };
+        var request = new LoginRequestDto { Email = "test@example.com", Password = "password", TeamId = null! };
 
         // Act & Assert
         await Should.ThrowAsync<ArgumentNullException>(() => _authenticationService.LoginAsync(request));
@@ -115,7 +115,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     public async Task LoginAsync_WhenUserNotFound_ThrowsAuthenticationException()
     {
         // Arrange
-        var request = new LoginRequestDto { Email = "nonexistent@example.com", Password = "password", TenantId = _testTenantId };
+        var request = new LoginRequestDto { Email = "nonexistent@example.com", Password = "password", TeamId = _testTeamId };
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync((ApplicationUser?)null);
 
         // Act & Assert
@@ -129,7 +129,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     {
         // Arrange
         var user = await CreateTestUserAsync(isActive: false);
-        var request = new LoginRequestDto { Email = user.Email!, Password = "password", TenantId = _testTenantId };
+        var request = new LoginRequestDto { Email = user.Email!, Password = "password", TeamId = _testTeamId };
         
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
 
@@ -144,7 +144,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     {
         // Arrange
         var user = await CreateTestUserAsync();
-        var request = new LoginRequestDto { Email = user.Email!, Password = "wrongpassword", TenantId = _testTenantId };
+        var request = new LoginRequestDto { Email = user.Email!, Password = "wrongpassword", TeamId = _testTeamId };
         
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
         _mockUserManager.Setup(x => x.CheckPasswordAsync(user, request.Password)).ReturnsAsync(false);
@@ -160,7 +160,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     {
         // Arrange
         var user = await CreateTestUserAsync(emailConfirmed: false);
-        var request = new LoginRequestDto { Email = user.Email!, Password = "password", TenantId = _testTenantId };
+        var request = new LoginRequestDto { Email = user.Email!, Password = "password", TeamId = _testTeamId };
         
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
         _mockUserManager.Setup(x => x.CheckPasswordAsync(user, request.Password)).ReturnsAsync(true);
@@ -172,12 +172,12 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task LoginAsync_WhenUserTenantNotFound_ThrowsAuthenticationException()
+    public async Task LoginAsync_WhenUserTeamNotFound_ThrowsAuthenticationException()
     {
         // Arrange
         var user = await CreateTestUserAsync();
-        var differentTenantId = Guid.NewGuid();
-        var request = new LoginRequestDto { Email = user.Email!, Password = "password", TenantId = differentTenantId };
+        var differentTeamId = Guid.NewGuid();
+        var request = new LoginRequestDto { Email = user.Email!, Password = "password", TeamId = differentTeamId };
         
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
         _mockUserManager.Setup(x => x.CheckPasswordAsync(user, request.Password)).ReturnsAsync(true);
@@ -185,7 +185,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         // Act & Assert
         var exception = await Should.ThrowAsync<AuthenticationException>(() => _authenticationService.LoginAsync(request));
         exception.ErrorCode.ShouldBe(AuthenticationException.ErrorCodes.TenantNotFound);
-        exception.Message.ShouldBe("Invalid tenant");
+        exception.Message.ShouldBe("Invalid team");
     }
 
     [Fact]
@@ -193,8 +193,8 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     {
         // Arrange
         var user = await CreateTestUserAsync();
-        var userTenant = await CreateTestUserTenantAsync(user.Id, _testTenantId);
-        var request = new LoginRequestDto { Email = user.Email!, Password = "password", TenantId = _testTenantId };
+        var userTeam = await CreateTestUserTeamAsync(user.Id, _testTeamId);
+        var request = new LoginRequestDto { Email = user.Email!, Password = "password", TeamId = _testTeamId };
         
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
         _mockUserManager.Setup(x => x.CheckPasswordAsync(user, request.Password)).ReturnsAsync(true);
@@ -210,15 +210,15 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         result.Email.ShouldBe(user.Email);
         result.FirstName.ShouldBe(user.FirstName);
         result.LastName.ShouldBe(user.LastName);
-        result.TenantId.ShouldBe(_testTenantId);
-        result.Role.ShouldBe(userTenant.Role);
+        result.TeamId.ShouldBe(_testTeamId);
+        result.Role.ShouldBe(userTeam.Role);
         result.RequiresEmailConfirmation.ShouldBeFalse();
         result.RefreshToken.ShouldNotBeNullOrEmpty();
 
         // Verify refresh token was created in database
         var refreshToken = DbContext.RefreshTokens.FirstOrDefault(rt => rt.UserId == user.Id);
         refreshToken.ShouldNotBeNull();
-        refreshToken.TenantId.ShouldBe(_testTenantId);
+        refreshToken.TeamId.ShouldBe(_testTeamId);
     }
 
     #endregion
@@ -233,10 +233,10 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task RegisterAsync_WhenTenantNotFound_ThrowsAuthenticationException()
+    public async Task RegisterAsync_WhenTeamNotFound_ThrowsAuthenticationException()
     {
         // Arrange
-        var nonExistentTenantId = Guid.NewGuid();
+        var nonExistentTeamId = Guid.NewGuid();
         var request = new RegisterRequestDto 
         { 
             Email = "test@example.com", 
@@ -244,21 +244,21 @@ public class AuthenticationServiceTests : BaseIntegrationTest
             ConfirmPassword = "Password123!",
             FirstName = "Test", 
             LastName = "User",
-            TenantId = nonExistentTenantId,
-            Role = TenantRole.Athlete
+            TeamId = nonExistentTeamId,
+            Role = TeamRole.Athlete
         };
 
         // Act & Assert
         var exception = await Should.ThrowAsync<AuthenticationException>(() => _authenticationService.RegisterAsync(request));
         exception.ErrorCode.ShouldBe(AuthenticationException.ErrorCodes.TenantNotFound);
-        exception.Message.ShouldBe("Invalid tenant");
+        exception.Message.ShouldBe("Invalid team");
     }
 
     [Fact]
     public async Task RegisterAsync_WhenEmailAlreadyExists_ThrowsAuthenticationException()
     {
         // Arrange
-        var tenant = await CreateTestTenantAsync();
+        var team = await CreateTestTeamAsync();
         var existingUser = await CreateTestUserAsync();
         var request = new RegisterRequestDto 
         { 
@@ -267,8 +267,8 @@ public class AuthenticationServiceTests : BaseIntegrationTest
             ConfirmPassword = "Password123!",
             FirstName = "Test", 
             LastName = "User",
-            TenantId = tenant.Id,
-            Role = TenantRole.Athlete
+            TeamId = team.Id,
+            Role = TeamRole.Athlete
         };
 
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(existingUser);
@@ -283,7 +283,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     public async Task RegisterAsync_WhenUserCreationFails_ThrowsAuthenticationException()
     {
         // Arrange
-        var tenant = await CreateTestTenantAsync();
+        var team = await CreateTestTeamAsync();
         var request = new RegisterRequestDto 
         { 
             Email = "test@example.com", 
@@ -291,8 +291,8 @@ public class AuthenticationServiceTests : BaseIntegrationTest
             ConfirmPassword = "weak",
             FirstName = "Test", 
             LastName = "User",
-            TenantId = tenant.Id,
-            Role = TenantRole.Athlete
+            TeamId = team.Id,
+            Role = TeamRole.Athlete
         };
 
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync((ApplicationUser?)null);
@@ -309,7 +309,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     public async Task RegisterAsync_WithValidData_CreatesUserAndReturnsAuthResponse()
     {
         // Arrange
-        var tenant = await CreateTestTenantAsync();
+        var team = await CreateTestTeamAsync();
         var request = new RegisterRequestDto 
         { 
             Email = "newuser@example.com", 
@@ -317,8 +317,8 @@ public class AuthenticationServiceTests : BaseIntegrationTest
             ConfirmPassword = "Password123!",
             FirstName = "New", 
             LastName = "User",
-            TenantId = tenant.Id,
-            Role = TenantRole.Athlete
+            TeamId = team.Id,
+            Role = TeamRole.Athlete
         };
 
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync((ApplicationUser?)null);
@@ -344,16 +344,16 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         result.Email.ShouldBe(request.Email);
         result.FirstName.ShouldBe(request.FirstName);
         result.LastName.ShouldBe(request.LastName);
-        result.TenantId.ShouldBe(tenant.Id);
+        result.TeamId.ShouldBe(team.Id);
         result.Role.ShouldBe(request.Role);
         result.RequiresEmailConfirmation.ShouldBeTrue();
 
-        // Verify UserTenant was created
-        var userTenant = DbContext.UserTenants.FirstOrDefault(ut => ut.TenantId == tenant.Id);
-        userTenant.ShouldNotBeNull();
-        userTenant.Role.ShouldBe(request.Role);
-        userTenant.IsActive.ShouldBeTrue();
-        userTenant.IsDefault.ShouldBeTrue();
+        // Verify UserTeam was created
+        var userTeam = DbContext.UserTeams.FirstOrDefault(ut => ut.TeamId == team.Id);
+        userTeam.ShouldNotBeNull();
+        userTeam.Role.ShouldBe(request.Role);
+        userTeam.IsActive.ShouldBeTrue();
+        userTeam.IsDefault.ShouldBeTrue();
 
         // Verify email confirmation was sent
         _mockEmailService.Verify(x => x.SendEmailConfirmationAsync(request.Email, It.IsAny<string>()), Times.Once);
@@ -387,7 +387,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     {
         // Arrange
         var user = await CreateTestUserAsync();
-        var expiredToken = await CreateTestRefreshTokenAsync(user.Id, _testTenantId, isExpired: true);
+        var expiredToken = await CreateTestRefreshTokenAsync(user.Id, _testTeamId, isExpired: true);
 
         // Act & Assert
         var exception = await Should.ThrowAsync<AuthenticationException>(() => _authenticationService.RefreshTokenAsync(expiredToken.Token));
@@ -400,8 +400,8 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     {
         // Arrange
         var user = await CreateTestUserAsync();
-        var userTenant = await CreateTestUserTenantAsync(user.Id, _testTenantId);
-        var refreshToken = await CreateTestRefreshTokenAsync(user.Id, _testTenantId);
+        var userTeam = await CreateTestUserTeamAsync(user.Id, _testTeamId);
+        var refreshToken = await CreateTestRefreshTokenAsync(user.Id, _testTeamId);
 
         var mockHttpContext = new Mock<HttpContext>();
         var mockConnection = new Mock<ConnectionInfo>();
@@ -417,8 +417,8 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         result.ShouldNotBeNull();
         result.Token.ShouldBe("mock-jwt-token");
         result.Email.ShouldBe(user.Email);
-        result.TenantId.ShouldBe(_testTenantId);
-        result.Role.ShouldBe(userTenant.Role);
+        result.TeamId.ShouldBe(_testTeamId);
+        result.Role.ShouldBe(userTeam.Role);
 
         // Verify old token was revoked
         var revokedToken = DbContext.RefreshTokens.First(rt => rt.Id == refreshToken.Id);
@@ -558,7 +558,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     {
         // Arrange
         var user = await CreateTestUserAsync();
-        var refreshToken = await CreateTestRefreshTokenAsync(user.Id, _testTenantId);
+        var refreshToken = await CreateTestRefreshTokenAsync(user.Id, _testTeamId);
         var token = "valid-reset-token";
         var newPassword = "NewPassword123!";
 
@@ -620,7 +620,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     {
         // Arrange
         var user = await CreateTestUserAsync();
-        var refreshToken = await CreateTestRefreshTokenAsync(user.Id, _testTenantId);
+        var refreshToken = await CreateTestRefreshTokenAsync(user.Id, _testTeamId);
         var currentPassword = "CurrentPassword123!";
         var newPassword = "NewPassword123!";
 
@@ -648,9 +648,9 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     {
         // Arrange
         var user = await CreateTestUserAsync();
-        var activeToken1 = await CreateTestRefreshTokenAsync(user.Id, _testTenantId);
-        var activeToken2 = await CreateTestRefreshTokenAsync(user.Id, _testTenantId);
-        var expiredToken = await CreateTestRefreshTokenAsync(user.Id, _testTenantId, isExpired: true);
+        var activeToken1 = await CreateTestRefreshTokenAsync(user.Id, _testTeamId);
+        var activeToken2 = await CreateTestRefreshTokenAsync(user.Id, _testTeamId);
+        var expiredToken = await CreateTestRefreshTokenAsync(user.Id, _testTeamId, isExpired: true);
 
         // Act
         var result = await _authenticationService.LogoutAsync(user.Id);
@@ -687,7 +687,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     public async Task ExternalLoginAsync_WhenProviderIsNull_ThrowsArgumentNullException()
     {
         // Arrange
-        var request = new ExternalAuthRequestDto { Provider = null!, AccessToken = "token", TenantId = _testTenantId };
+        var request = new ExternalAuthRequestDto { Provider = null!, AccessToken = "token", TeamId = _testTeamId };
 
         // Act & Assert
         await Should.ThrowAsync<ArgumentNullException>(() => _authenticationService.ExternalLoginAsync(request));
@@ -697,7 +697,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     public async Task ExternalLoginAsync_WhenExternalUserInfoIsNull_ThrowsAuthenticationException()
     {
         // Arrange
-        var request = new ExternalAuthRequestDto { Provider = "Google", AccessToken = "invalid-token", TenantId = _testTenantId };
+        var request = new ExternalAuthRequestDto { Provider = "Google", AccessToken = "invalid-token", TeamId = _testTeamId };
         
         _mockExternalAuthService.Setup(x => x.GetUserInfoAsync(request.Provider, request.AccessToken))
             .ReturnsAsync((ExternalUserInfo?)null);
@@ -712,8 +712,8 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     public async Task ExternalLoginAsync_WithNewUser_CreatesUserAndReturnsAuthResponse()
     {
         // Arrange
-        var tenant = await CreateTestTenantAsync(); // Ensure tenant exists
-        var request = new ExternalAuthRequestDto { Provider = "Google", AccessToken = "valid-token", TenantId = tenant.Id };
+        var team = await CreateTestTeamAsync(); // Ensure team exists
+        var request = new ExternalAuthRequestDto { Provider = "Google", AccessToken = "valid-token", TeamId = team.Id };
         var externalUserInfo = new ExternalUserInfo
         {
             Email = "external@example.com",
@@ -746,23 +746,23 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         result.Email.ShouldBe(externalUserInfo.Email);
         result.FirstName.ShouldBe(externalUserInfo.FirstName);
         result.LastName.ShouldBe(externalUserInfo.LastName);
-        result.TenantId.ShouldBe(tenant.Id);
-        result.Role.ShouldBe(TenantRole.Athlete); // Default role for external users
+        result.TeamId.ShouldBe(team.Id);
+        result.Role.ShouldBe(TeamRole.Athlete); // Default role for external users
 
-        // Verify UserTenant was created
-        var userTenant = DbContext.UserTenants.FirstOrDefault(ut => ut.TenantId == tenant.Id);
-        userTenant.ShouldNotBeNull();
-        userTenant.Role.ShouldBe(TenantRole.Athlete);
+        // Verify UserTeam was created
+        var userTeam = DbContext.UserTeams.FirstOrDefault(ut => ut.TeamId == team.Id);
+        userTeam.ShouldNotBeNull();
+        userTeam.Role.ShouldBe(TeamRole.Athlete);
     }
 
     [Fact]
     public async Task ExternalLoginAsync_WithExistingUser_ReturnsAuthResponse()
     {
         // Arrange
-        var tenant = await CreateTestTenantAsync(); // Ensure tenant exists
+        var team = await CreateTestTeamAsync(); // Ensure team exists
         var existingUser = await CreateTestUserAsync(email: "existing@example.com");
-        var userTenant = await CreateTestUserTenantAsync(existingUser.Id, tenant.Id, TenantRole.Coach);
-        var request = new ExternalAuthRequestDto { Provider = "Google", AccessToken = "valid-token", TenantId = tenant.Id };
+        var userTeam = await CreateTestUserTeamAsync(existingUser.Id, team.Id, TeamRole.Coach);
+        var request = new ExternalAuthRequestDto { Provider = "Google", AccessToken = "valid-token", TeamId = team.Id };
         var externalUserInfo = new ExternalUserInfo
         {
             Email = existingUser.Email!,
@@ -783,8 +783,8 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         // Assert
         result.ShouldNotBeNull();
         result.Email.ShouldBe(existingUser.Email);
-        result.TenantId.ShouldBe(tenant.Id);
-        result.Role.ShouldBe(TenantRole.Coach); // Existing user's role
+        result.TeamId.ShouldBe(team.Id);
+        result.Role.ShouldBe(TeamRole.Coach); // Existing user's role
     }
 
     #endregion
@@ -810,7 +810,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
             ConfirmPassword = "Password123!",
             FirstName = "Global", 
             LastName = "Admin",
-            Role = TenantRole.GlobalAdmin
+            Role = TeamRole.GlobalAdmin
         };
 
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(existingUser);
@@ -832,7 +832,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
             ConfirmPassword = "AdminPassword123!",
             FirstName = "Global", 
             LastName = "Admin",
-            Role = TenantRole.GlobalAdmin
+            Role = TeamRole.GlobalAdmin
         };
 
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync((ApplicationUser?)null);
@@ -856,14 +856,14 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         result.Email.ShouldBe(request.Email);
         result.FirstName.ShouldBe(request.FirstName);
         result.LastName.ShouldBe(request.LastName);
-        result.TenantId.ShouldBeNull();
-        result.Role.ShouldBe(TenantRole.GlobalAdmin);
+        result.TeamId.ShouldBeNull();
+        result.Role.ShouldBe(TeamRole.GlobalAdmin);
         result.RequiresEmailConfirmation.ShouldBeFalse();
 
-        // Verify UserTenant was created with null TenantId for global admin
-        var userTenant = DbContext.UserTenants.FirstOrDefault(ut => ut.TenantId == null);
-        userTenant.ShouldNotBeNull();
-        userTenant.Role.ShouldBe(TenantRole.GlobalAdmin);
+        // Verify UserTeam was created with null TeamId for global admin
+        var userTeam = DbContext.UserTeams.FirstOrDefault(ut => ut.TeamId == null);
+        userTeam.ShouldNotBeNull();
+        userTeam.Role.ShouldBe(TeamRole.GlobalAdmin);
     }
 
     #endregion
@@ -886,7 +886,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
             LastName = lastName,
             IsActive = isActive,
             EmailConfirmed = emailConfirmed,
-            DefaultTenantId = _testTenantId,
+            DefaultTeamId = _testTeamId,
             CreatedOn = DateTime.UtcNow
         };
 
@@ -896,39 +896,39 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         return user;
     }
 
-    private async Task<Tenant> CreateTestTenantAsync(string name = "Test Tenant")
+    private async Task<Team> CreateTestTeamAsync(string name = "Test Team")
     {
-        var tenant = new Tenant
+        var team = new Team
         {
-            Id = _testTenantId,
+            Id = _testTeamId,
             Name = name,
             CreatedOn = DateTime.UtcNow,
-            Status = TenantStatus.Active,
-            Tier = TenantTier.Free
+            Status = TeamStatus.Active,
+            Tier = TeamTier.Free
         };
 
-        DbContext.Tenants.Add(tenant);
+        DbContext.Teams.Add(team);
         await DbContext.SaveChangesAsync();
-        return tenant;
+        return team;
     }
 
-    private async Task<UserTenant> CreateTestUserTenantAsync(
+    private async Task<UserTeam> CreateTestUserTeamAsync(
         Guid userId, 
-        Guid tenantId, 
-        TenantRole role = TenantRole.Athlete)
+        Guid teamId, 
+        TeamRole role = TeamRole.Athlete)
     {
-        // Ensure the tenant exists
-        var tenant = await DbContext.Tenants.FindAsync(tenantId);
-        if (tenant == null)
+        // Ensure the team exists
+        var team = await DbContext.Teams.FindAsync(teamId);
+        if (team == null)
         {
-            await CreateTestTenantAsync();
+            await CreateTestTeamAsync();
         }
 
-        var userTenant = new UserTenant
+        var userTeam = new UserTeam
         {
             Id = Guid.NewGuid(),
             UserId = userId,
-            TenantId = tenantId,
+            TeamId = teamId,
             Role = role,
             IsActive = true,
             IsDefault = true,
@@ -936,14 +936,14 @@ public class AuthenticationServiceTests : BaseIntegrationTest
             CreatedOn = DateTime.UtcNow
         };
 
-        DbContext.UserTenants.Add(userTenant);
+        DbContext.UserTeams.Add(userTeam);
         await DbContext.SaveChangesAsync();
-        return userTenant;
+        return userTeam;
     }
 
     private async Task<RefreshToken> CreateTestRefreshTokenAsync(
         Guid userId, 
-        Guid? tenantId, 
+        Guid? teamId, 
         bool isExpired = false)
     {
         // Ensure the user exists in the database
@@ -959,7 +959,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
             Id = Guid.NewGuid(),
             Token = Guid.NewGuid().ToString(),
             UserId = userId,
-            TenantId = tenantId,
+            TeamId = teamId,
             ExpiresOn = isExpired ? DateTime.UtcNow.AddDays(-1) : DateTime.UtcNow.AddDays(7),
             CreatedOn = DateTime.UtcNow,
             CreatedByIp = "127.0.0.1"

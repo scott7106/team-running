@@ -1,6 +1,6 @@
-namespace TeamStride.Application.Tenants.Dtos;
+namespace TeamStride.Application.Teams.Dtos;
 
-public class TenantDto
+public class TeamDto
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;

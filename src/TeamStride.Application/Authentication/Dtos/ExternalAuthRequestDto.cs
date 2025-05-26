@@ -10,5 +10,5 @@ public class ExternalAuthRequestDto
     [Required]
     public required string AccessToken { get; set; }
 
-    public Guid? TenantId { get; set; }
+    public Guid? TeamId { get; set; }
 } 

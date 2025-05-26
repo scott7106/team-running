@@ -51,7 +51,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.Email);
         ArgumentNullException.ThrowIfNull(request.Password);
-        ArgumentNullException.ThrowIfNull(request.TenantId);
+        ArgumentNullException.ThrowIfNull(request.TeamId);
 
         var user = await _userManager.FindByEmailAsync(request.Email) ??
             throw new AuthenticationException("Invalid credentials", AuthenticationException.ErrorCodes.InvalidCredentials);
@@ -71,18 +71,18 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             throw new AuthenticationException("Email not confirmed", AuthenticationException.ErrorCodes.EmailNotConfirmed);
         }
 
-        // Get tenant and role
-        var userTenant = await _context.UserTenants
-            .FirstOrDefaultAsync(ut => ut.UserId == user.Id && (ut.TenantId == null || ut.TenantId == request.TenantId)) ??
-            throw new AuthenticationException("Invalid tenant", AuthenticationException.ErrorCodes.TenantNotFound);
+        // Get team and role
+        var userTeam = await _context.UserTeams
+            .FirstOrDefaultAsync(ut => ut.UserId == user.Id && (ut.TeamId == null || ut.TeamId == request.TeamId)) ??
+            throw new AuthenticationException("Invalid team", AuthenticationException.ErrorCodes.TenantNotFound);
 
         // Update last login
         user.LastLoginOn = DateTime.UtcNow;
         await _userManager.UpdateAsync(user);
 
         // Generate tokens
-        var jwtToken = _jwtTokenService.GenerateJwtToken(user, userTenant.TenantId, userTenant.Role);
-        var refreshToken = await CreateRefreshTokenAsync(user, userTenant.TenantId ?? Guid.Empty);
+        var jwtToken = _jwtTokenService.GenerateJwtToken(user, userTeam.TeamId, userTeam.Role);
+        var refreshToken = await CreateRefreshTokenAsync(user, userTeam.TeamId ?? Guid.Empty);
 
         return new AuthResponseDto
         {
@@ -91,8 +91,8 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             Email = user.Email ?? string.Empty,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            TenantId = userTenant.TenantId,
-            Role = userTenant.Role,
+            TeamId = userTeam.TeamId,
+            Role = userTeam.Role,
             RequiresEmailConfirmation = false
         };
     }
@@ -102,12 +102,12 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.Email);
         ArgumentNullException.ThrowIfNull(request.Password);
-        ArgumentNullException.ThrowIfNull(request.TenantId);
+        ArgumentNullException.ThrowIfNull(request.TeamId);
         ArgumentNullException.ThrowIfNull(request.Role);
 
-        // Validate tenant
-        var tenant = await _context.Tenants.FindAsync(request.TenantId) ??
-            throw new AuthenticationException("Invalid tenant", AuthenticationException.ErrorCodes.TenantNotFound);
+        // Validate team
+        var team = await _context.Teams.FindAsync(request.TeamId) ??
+            throw new AuthenticationException("Invalid team", AuthenticationException.ErrorCodes.TenantNotFound);
 
         // Check if email exists
         if (await _userManager.FindByEmailAsync(request.Email) != null)
@@ -121,7 +121,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             Email = request.Email,
             FirstName = request.FirstName,
             LastName = request.LastName,
-            DefaultTenantId = request.TenantId,
+            DefaultTeamId = request.TeamId,
             IsActive = true
         };
 
@@ -132,17 +132,17 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             throw new AuthenticationException($"Registration failed: {errors}");
         }
 
-        // Create user-tenant relationship
-        var userTenant = new UserTenant
+        // Create user-team relationship
+        var userTeam = new UserTeam
         {
             UserId = user.Id,
-            TenantId = request.TenantId,
+            TeamId = request.TeamId,
             Role = request.Role,
             IsActive = true,
             IsDefault = true,
             JoinedOn = DateTime.UtcNow
         };
-        _context.UserTenants.Add(userTenant);
+        _context.UserTeams.Add(userTeam);
         await _context.SaveChangesAsync();
 
         // Generate email confirmation token and send email
@@ -151,8 +151,8 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         await _emailService.SendEmailConfirmationAsync(user.Email!, confirmationLink);
 
         // Generate tokens
-        var jwtToken = _jwtTokenService.GenerateJwtToken(user, request.TenantId, request.Role);
-        var refreshToken = await CreateRefreshTokenAsync(user, request.TenantId);
+        var jwtToken = _jwtTokenService.GenerateJwtToken(user, request.TeamId, request.Role);
+        var refreshToken = await CreateRefreshTokenAsync(user, request.TeamId);
 
         return new AuthResponseDto
         {
@@ -161,7 +161,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             Email = user.Email ?? string.Empty,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            TenantId = request.TenantId,
+            TeamId = request.TeamId,
             Role = request.Role,
             RequiresEmailConfirmation = true
         };
@@ -181,13 +181,13 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             throw new AuthenticationException("Refresh token is expired or revoked", AuthenticationException.ErrorCodes.InvalidToken);
         }
 
-        var userTenant = await _context.UserTenants
-            .FirstOrDefaultAsync(ut => ut.UserId == token.UserId && ut.TenantId == token.TenantId) ??
-            throw new AuthenticationException("Invalid tenant access", AuthenticationException.ErrorCodes.TenantNotFound);
+        var userTeam = await _context.UserTeams
+            .FirstOrDefaultAsync(ut => ut.UserId == token.UserId && ut.TeamId == token.TeamId) ??
+            throw new AuthenticationException("Invalid team access", AuthenticationException.ErrorCodes.TenantNotFound);
 
         // Generate new tokens
-        var jwtToken = _jwtTokenService.GenerateJwtToken(token.User!, token.TenantId, userTenant.Role);
-        var newRefreshToken = await CreateRefreshTokenAsync(token.User!, token.TenantId);
+        var jwtToken = _jwtTokenService.GenerateJwtToken(token.User!, token.TeamId, userTeam.Role);
+        var newRefreshToken = await CreateRefreshTokenAsync(token.User!, token.TeamId);
 
         // Revoke old refresh token
         token.RevokedOn = DateTime.UtcNow;
@@ -202,8 +202,8 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             Email = token.User!.Email ?? string.Empty,
             FirstName = token.User.FirstName,
             LastName = token.User.LastName,
-            TenantId = token.TenantId,
-            Role = userTenant.Role,
+            TeamId = token.TeamId,
+            Role = userTeam.Role,
             RequiresEmailConfirmation = false
         };
     }
@@ -317,7 +317,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.Provider);
         ArgumentNullException.ThrowIfNull(request.AccessToken);
-        ArgumentNullException.ThrowIfNull(request.TenantId);
+        ArgumentNullException.ThrowIfNull(request.TeamId);
 
         var externalUser = await _externalAuthService.GetUserInfoAsync(request.Provider, request.AccessToken);
 
@@ -339,7 +339,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
                 LastName = externalUser.LastName,
                 EmailConfirmed = true,
                 IsActive = true,
-                DefaultTenantId = request.TenantId
+                DefaultTeamId = request.TeamId
             };
 
             var result = await _userManager.CreateAsync(user);
@@ -349,31 +349,31 @@ public class AuthenticationService : ITeamStrideAuthenticationService
                 throw new AuthenticationException($"External registration failed: {errors}");
             }
 
-            // Create user-tenant relationship with default role
-            var newUserTenant = new UserTenant
+            // Create user-team relationship with default role
+            var newUserTeam = new UserTeam
             {
                 UserId = user.Id,
-                TenantId = request.TenantId,
-                Role = TenantRole.Athlete, // Default role for external users
+                TeamId = request.TeamId,
+                Role = TeamRole.Athlete, // Default role for external users
                 IsActive = true
             };
-            _context.UserTenants.Add(newUserTenant);
+            _context.UserTeams.Add(newUserTeam);
             await _context.SaveChangesAsync();
         }
 
-        // Get tenant and role
-        var tenantId = request.TenantId;
-        var userTenant = await _context.UserTenants
-            .FirstOrDefaultAsync(ut => ut.UserId == user!.Id && ut.TenantId == tenantId) ??
-            throw new AuthenticationException("Invalid tenant", AuthenticationException.ErrorCodes.TenantNotFound);
+        // Get team and role
+        var teamId = request.TeamId;
+        var userTeam = await _context.UserTeams
+            .FirstOrDefaultAsync(ut => ut.UserId == user!.Id && ut.TeamId == teamId) ??
+            throw new AuthenticationException("Invalid team", AuthenticationException.ErrorCodes.TenantNotFound);
 
         // Update last login
         user!.LastLoginOn = DateTime.UtcNow;
         await _userManager.UpdateAsync(user);
 
         // Generate tokens
-        var jwtToken = _jwtTokenService.GenerateJwtToken(user, tenantId, userTenant.Role);
-        var refreshToken = await CreateRefreshTokenAsync(user, tenantId);
+        var jwtToken = _jwtTokenService.GenerateJwtToken(user, teamId, userTeam.Role);
+        var refreshToken = await CreateRefreshTokenAsync(user, teamId);
 
         return new AuthResponseDto
         {
@@ -382,13 +382,13 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             Email = user.Email ?? string.Empty,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            TenantId = tenantId,
-            Role = userTenant.Role,
+            TeamId = teamId,
+            Role = userTeam.Role,
             RequiresEmailConfirmation = false
         };
     }
 
-    public async Task<string> GetExternalLoginUrlAsync(string provider, string? tenantId = null)
+    public async Task<string> GetExternalLoginUrlAsync(string provider, string? teamId = null)
     {
         var clientId = provider.ToLowerInvariant() switch
         {
@@ -405,7 +405,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         }
 
         var redirectUri = await GetExternalLoginCallbackUrlAsync(provider);
-        var state = tenantId ?? string.Empty;
+        var state = teamId ?? string.Empty;
 
         return provider.ToLowerInvariant() switch
         {
@@ -465,7 +465,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             Email = request.Email,
             FirstName = request.FirstName,
             LastName = request.LastName,
-            DefaultTenantId = null,
+            DefaultTeamId = null,
             IsActive = true,
             EmailConfirmed = true // Global admin doesn't need email confirmation
         };
@@ -477,21 +477,21 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             throw new AuthenticationException($"Global admin registration failed: {errors}");
         }
 
-        // Create global admin user-tenant relationship
-        var userTenant = new UserTenant
+        // Create global admin user-team relationship
+        var userTeam = new UserTeam
         {
             UserId = user.Id,
-            TenantId = null,
-            Role = TenantRole.GlobalAdmin,
+            TeamId = null,
+            Role = TeamRole.GlobalAdmin,
             IsActive = true,
             IsDefault = true,
             JoinedOn = DateTime.UtcNow
         };
-        _context.UserTenants.Add(userTenant);
+        _context.UserTeams.Add(userTeam);
         await _context.SaveChangesAsync();
 
         // Generate tokens
-        var jwtToken = _jwtTokenService.GenerateJwtToken(user, Guid.Empty, TenantRole.GlobalAdmin);
+        var jwtToken = _jwtTokenService.GenerateJwtToken(user, Guid.Empty, TeamRole.GlobalAdmin);
         var refreshToken = await CreateRefreshTokenAsync(user, Guid.Empty);
 
         return new AuthResponseDto
@@ -501,19 +501,19 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             Email = user.Email ?? string.Empty,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            TenantId = null,
-            Role = TenantRole.GlobalAdmin,
+            TeamId = null,
+            Role = TeamRole.GlobalAdmin,
             RequiresEmailConfirmation = false
         };
     }
 
-    private async Task<RefreshToken> CreateRefreshTokenAsync(ApplicationUser user, Guid? tenantId)
+    private async Task<RefreshToken> CreateRefreshTokenAsync(ApplicationUser user, Guid? teamId)
     {
         var refreshToken = new RefreshToken
         {
             Token = _jwtTokenService.GenerateRefreshToken(),
             UserId = user.Id,
-            TenantId = tenantId ?? Guid.Empty,
+            TeamId = teamId ?? Guid.Empty,
             CreatedOn = DateTime.UtcNow,
             ExpiresOn = DateTime.UtcNow.AddDays(7),
             CreatedByIp = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown"

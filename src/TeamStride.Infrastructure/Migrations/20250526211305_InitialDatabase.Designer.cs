@@ -12,8 +12,8 @@ using TeamStride.Infrastructure.Data;
 namespace TeamStride.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250526200041_RemoveAspNetTablePrefixes")]
-    partial class RemoveAspNetTablePrefixes
+    [Migration("20250526211305_InitialDatabase")]
+    partial class InitialDatabase
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -179,7 +179,7 @@ namespace TeamStride.Infrastructure.Migrations
                     b.Property<int>("Role")
                         .HasColumnType("int");
 
-                    b.Property<Guid?>("TenantId")
+                    b.Property<Guid?>("TeamId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("UserId")
@@ -237,7 +237,7 @@ namespace TeamStride.Infrastructure.Migrations
                     b.Property<string>("PreferredEvents")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid?>("TenantId")
+                    b.Property<Guid?>("TeamId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("TrainingNotes")
@@ -257,7 +257,7 @@ namespace TeamStride.Infrastructure.Migrations
                     b.ToTable("AthleteProfiles");
                 });
 
-            modelBuilder.Entity("TeamStride.Domain.Entities.Tenant", b =>
+            modelBuilder.Entity("TeamStride.Domain.Entities.Team", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -314,10 +314,10 @@ namespace TeamStride.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Tenants");
+                    b.ToTable("Teams");
                 });
 
-            modelBuilder.Entity("TeamStride.Domain.Entities.UserTenant", b =>
+            modelBuilder.Entity("TeamStride.Domain.Entities.UserTeam", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -356,7 +356,7 @@ namespace TeamStride.Infrastructure.Migrations
                     b.Property<int>("Role")
                         .HasColumnType("int");
 
-                    b.Property<Guid?>("TenantId")
+                    b.Property<Guid?>("TeamId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("UserId")
@@ -364,11 +364,11 @@ namespace TeamStride.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("TeamId");
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("UserTenants");
+                    b.ToTable("UserTeams");
                 });
 
             modelBuilder.Entity("TeamStride.Domain.Identity.ApplicationRole", b =>
@@ -421,7 +421,7 @@ namespace TeamStride.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedOn")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("DefaultTenantId")
+                    b.Property<Guid?>("DefaultTeamId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("DeletedBy")
@@ -537,7 +537,7 @@ namespace TeamStride.Infrastructure.Migrations
                     b.Property<DateTime?>("RevokedOn")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("TenantId")
+                    b.Property<Guid?>("TeamId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Token")
@@ -627,19 +627,19 @@ namespace TeamStride.Infrastructure.Migrations
                     b.Navigation("Athlete");
                 });
 
-            modelBuilder.Entity("TeamStride.Domain.Entities.UserTenant", b =>
+            modelBuilder.Entity("TeamStride.Domain.Entities.UserTeam", b =>
                 {
-                    b.HasOne("TeamStride.Domain.Entities.Tenant", "Tenant")
+                    b.HasOne("TeamStride.Domain.Entities.Team", "Team")
                         .WithMany("Users")
-                        .HasForeignKey("TenantId");
+                        .HasForeignKey("TeamId");
 
                     b.HasOne("TeamStride.Domain.Identity.ApplicationUser", "User")
-                        .WithMany("UserTenants")
+                        .WithMany("UserTeams")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Tenant");
+                    b.Navigation("Team");
 
                     b.Navigation("User");
                 });
@@ -661,7 +661,7 @@ namespace TeamStride.Infrastructure.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("TeamStride.Domain.Entities.Tenant", b =>
+            modelBuilder.Entity("TeamStride.Domain.Entities.Team", b =>
                 {
                     b.Navigation("Users");
                 });
@@ -670,7 +670,7 @@ namespace TeamStride.Infrastructure.Migrations
                 {
                     b.Navigation("RefreshTokens");
 
-                    b.Navigation("UserTenants");
+                    b.Navigation("UserTeams");
                 });
 #pragma warning restore 612, 618
         }

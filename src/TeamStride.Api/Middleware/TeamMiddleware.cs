@@ -4,14 +4,14 @@ using TeamStride.Domain.Interfaces;
 
 namespace TeamStride.Api.Middleware;
 
-public class TenantMiddleware
+public class TeamMiddleware
 {
     private readonly RequestDelegate _next;
-    private readonly ILogger<TenantMiddleware> _logger;
+    private readonly ILogger<TeamMiddleware> _logger;
 
-    public TenantMiddleware(
+    public TeamMiddleware(
         RequestDelegate next,
-        ILogger<TenantMiddleware> logger)
+        ILogger<TeamMiddleware> logger)
     {
         _next = next;
         _logger = logger;
@@ -20,35 +20,35 @@ public class TenantMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         var host = context.Request.Host.Value;
-        var tenantService = context.RequestServices.GetRequiredService<ITenantService>();
+        var teamService = context.RequestServices.GetRequiredService<ITeamService>();
 
         try
         {
-            // Skip tenant resolution for the main marketing site and API endpoints
+            // Skip team resolution for the main marketing site and API endpoints
             if (!host.Contains(".") || host.StartsWith("api."))
             {
-                tenantService.ClearCurrentTenant();
+                teamService.ClearCurrentTeam();
                 await _next(context);
                 return;
             }
 
             // Extract subdomain
             var subdomain = host.Split('.')[0];
-            _logger.LogInformation("Resolving tenant for subdomain: {Subdomain}", subdomain);
+            _logger.LogInformation("Resolving team for subdomain: {Subdomain}", subdomain);
 
-            // Set the current tenant
-            tenantService.SetCurrentTenant(subdomain);
+            // Set the current team
+            teamService.SetCurrentTeam(subdomain);
 
             await _next(context);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing tenant middleware for host: {Host}", host);
+            _logger.LogError(ex, "Error processing team middleware for host: {Host}", host);
             throw;
         }
         finally
         {
-            tenantService.ClearCurrentTenant();
+            teamService.ClearCurrentTeam();
         }
     }
 } 

@@ -118,9 +118,9 @@ public class AuthenticationController : ControllerBase
     [HttpGet("external-login/{provider}")]
     [ProducesResponseType(typeof(string), 200)]
     [ProducesResponseType(typeof(ProblemDetails), 400)]
-    public async Task<IActionResult> GetExternalLoginUrl(string provider, [FromQuery] string? tenantId = null)
+    public async Task<IActionResult> GetExternalLoginUrl(string provider, [FromQuery] string? teamId = null)
     {
-        var url = await _authenticationService.GetExternalLoginUrlAsync(provider, tenantId);
+        var url = await _authenticationService.GetExternalLoginUrlAsync(provider, teamId);
         return Ok(url);
     }
 

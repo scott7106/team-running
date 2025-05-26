@@ -7,7 +7,7 @@ public class RefreshToken
     public Guid Id { get; set; }
     public required string Token { get; set; }
     public required Guid UserId { get; set; }
-    public Guid? TenantId { get; set; }
+    public Guid? TeamId { get; set; }
     public DateTime CreatedOn { get; set; }
     public required string CreatedByIp { get; set; }
     public DateTime ExpiresOn { get; set; }

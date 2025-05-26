@@ -3,7 +3,7 @@ using TeamStride.Domain.Identity;
 
 namespace TeamStride.Domain.Entities;
 
-public class Athlete : AuditedTenantEntity<Guid>
+public class Athlete : AuditedTeamEntity<Guid>
 {
     public required Guid UserId { get; set; }
     public AthleteRole Role { get; set; }

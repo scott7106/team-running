@@ -9,8 +9,8 @@ public static class MiddlewareExtensions
         return app.UseMiddleware<ExceptionHandlingMiddleware>();
     }
 
-    public static IApplicationBuilder UseTenantResolution(this IApplicationBuilder app)
+    public static IApplicationBuilder UseTeamResolution(this IApplicationBuilder app)
     {
-        return app.UseMiddleware<TenantMiddleware>();
+        return app.UseMiddleware<TeamMiddleware>();
     }
 } 

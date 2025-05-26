@@ -13,7 +13,7 @@ namespace TeamStride.Infrastructure.Identity;
 
 public interface IJwtTokenService
 {
-    string GenerateJwtToken(ApplicationUser user, Guid? tenantId, TenantRole role);
+    string GenerateJwtToken(ApplicationUser user, Guid? teamId, TeamRole role);
     string GenerateRefreshToken();
     ClaimsPrincipal? GetPrincipalFromToken(string token);
 }
@@ -27,7 +27,7 @@ public class JwtTokenService : IJwtTokenService
         _config = config;
     }
 
-    public string GenerateJwtToken(ApplicationUser user, Guid? tenantId, TenantRole role)
+    public string GenerateJwtToken(ApplicationUser user, Guid? teamId, TeamRole role)
     {
         ArgumentNullException.ThrowIfNull(user);
         ArgumentNullException.ThrowIfNull(role);
@@ -40,10 +40,10 @@ public class JwtTokenService : IJwtTokenService
             new(ClaimTypes.Role, role.ToString())
         };
 
-        // Only add tenant_id claim if it's not null (for non-global admins)
-        if (tenantId.HasValue)
+        // Only add team_id claim if it's not null (for non-global admins)
+        if (teamId.HasValue)
         {
-            claims.Add(new Claim("tenant_id", tenantId.Value.ToString()));
+            claims.Add(new Claim("team_id", teamId.Value.ToString()));
         }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config.JwtSecret));

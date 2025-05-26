@@ -59,7 +59,7 @@ public class Program
         builder.Services.AddHttpContextAccessor();
 
         // Register application services
-        builder.Services.AddScoped<ITenantService, TenantService>();
+        builder.Services.AddScoped<ITeamService, TeamService>();
         builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
         builder.Services
             .AddInfrastructureServices()
@@ -131,8 +131,8 @@ public class Program
 
         app.UseHttpsRedirection();
 
-        // Add tenant resolution before authentication
-        app.UseTenantResolution();
+        // Add team resolution before authentication
+app.UseTeamResolution();
 
         // Add exception handling middleware
         app.UseExceptionHandling();

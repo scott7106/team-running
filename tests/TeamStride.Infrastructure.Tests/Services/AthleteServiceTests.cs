@@ -20,16 +20,16 @@ public class AthleteServiceTests : BaseIntegrationTest
     private readonly AthleteService _athleteService;
     private readonly Mock<IMapper> _mockMapper;
     private readonly Mock<UserManager<ApplicationUser>> _mockUserManager;
-    private readonly Guid _testTenantId;
+    private readonly Guid _testTeamId;
     private readonly Guid _testUserId;
 
     public AthleteServiceTests()
     {
-        _testTenantId = Guid.NewGuid();
+        _testTeamId = Guid.NewGuid();
         _testUserId = Guid.NewGuid();
 
-        // Setup tenant service mock
-        MockTenantService.Setup(x => x.CurrentTenantId).Returns(_testTenantId);
+        // Setup team service mock
+        MockTeamService.Setup(x => x.CurrentTeamId).Returns(_testTeamId);
         MockCurrentUserService.Setup(x => x.UserId).Returns(_testUserId);
 
         // Setup AutoMapper with explicit type mapping
@@ -66,7 +66,7 @@ public class AthleteServiceTests : BaseIntegrationTest
             DbContext,
             mapper,
             _mockUserManager.Object,
-            MockTenantService.Object,
+            MockTeamService.Object,
             MockCurrentUserService.Object);
     }
 
@@ -104,11 +104,11 @@ public class AthleteServiceTests : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task GetByIdAsync_WithDifferentTenant_ThrowsInvalidOperationException()
+    public async Task GetByIdAsync_WithDifferentTeam_ThrowsInvalidOperationException()
     {
         // Arrange
         var athlete = await CreateTestAthleteAsync();
-        MockTenantService.Setup(x => x.CurrentTenantId).Returns(Guid.NewGuid()); // Different tenant
+        MockTeamService.Setup(x => x.CurrentTeamId).Returns(Guid.NewGuid()); // Different team
 
         // Act & Assert
         var exception = await Should.ThrowAsync<InvalidOperationException>(
@@ -150,11 +150,11 @@ public class AthleteServiceTests : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task GetByUserIdAsync_WithDifferentTenant_ReturnsNull()
+    public async Task GetByUserIdAsync_WithDifferentTeam_ReturnsNull()
     {
         // Arrange
         var athlete = await CreateTestAthleteAsync();
-        MockTenantService.Setup(x => x.CurrentTenantId).Returns(Guid.NewGuid()); // Different tenant
+        MockTeamService.Setup(x => x.CurrentTeamId).Returns(Guid.NewGuid()); // Different team
 
         // Act
         var result = await _athleteService.GetByUserIdAsync(athlete.UserId);
@@ -263,7 +263,7 @@ public class AthleteServiceTests : BaseIntegrationTest
         // Verify athlete was saved to database
         var savedAthlete = await DbContext.Athletes.FirstOrDefaultAsync(a => a.JerseyNumber == "42");
         savedAthlete.ShouldNotBeNull();
-        savedAthlete.TenantId.ShouldBe(_testTenantId);
+        savedAthlete.TeamId.ShouldBe(_testTeamId);
     }
 
     [Fact]
@@ -632,11 +632,11 @@ public class AthleteServiceTests : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task IsAthleteInTeamAsync_WithAthleteInDifferentTenant_ReturnsFalse()
+    public async Task IsAthleteInTeamAsync_WithAthleteInDifferentTeam_ReturnsFalse()
     {
         // Arrange
         var athlete = await CreateTestAthleteAsync();
-        MockTenantService.Setup(x => x.CurrentTenantId).Returns(Guid.NewGuid()); // Different tenant
+        MockTeamService.Setup(x => x.CurrentTeamId).Returns(Guid.NewGuid()); // Different team
 
         // Act
         var result = await _athleteService.IsAthleteInTeamAsync(athlete.Id);
@@ -741,73 +741,73 @@ public class AthleteServiceTests : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task GlobalQueryFilter_UserTenant_SoftDeletedUserTenantsAreNotReturnedByDefault()
+    public async Task GlobalQueryFilter_UserTeam_SoftDeletedUserTeamsAreNotReturnedByDefault()
     {
         // Arrange
-        // Create a test athlete first (which creates the necessary User and Tenant relationships)
+        // Create a test athlete first (which creates the necessary User and Team relationships)
         var athlete = await CreateTestAthleteAsync();
         
-        // Create a UserTenant using the existing user and tenant
-        var userTenant = new UserTenant
+        // Create a UserTeam using the existing user and team
+        var userTeam = new UserTeam
         {
             Id = Guid.NewGuid(),
             UserId = athlete.UserId,
-            TenantId = athlete.TenantId,
-            Role = TenantRole.Athlete,
+            TeamId = athlete.TeamId,
+            Role = TeamRole.Athlete,
             IsDefault = false, // Set to false to avoid conflicts with existing default
             IsActive = true,
             JoinedOn = DateTime.UtcNow,
             CreatedOn = DateTime.UtcNow
         };
 
-        DbContext.UserTenants.Add(userTenant);
+        DbContext.UserTeams.Add(userTeam);
         await DbContext.SaveChangesAsync();
 
-        // Soft delete the user tenant
-        userTenant.IsDeleted = true;
-        userTenant.DeletedOn = DateTime.UtcNow;
-        userTenant.DeletedBy = athlete.UserId;
+        // Soft delete the user team
+        userTeam.IsDeleted = true;
+        userTeam.DeletedOn = DateTime.UtcNow;
+        userTeam.DeletedBy = athlete.UserId;
         await DbContext.SaveChangesAsync();
 
         // Act
-        var result = await DbContext.UserTenants.ToListAsync();
+        var result = await DbContext.UserTeams.ToListAsync();
 
         // Assert
-        result.ShouldNotContain(ut => ut.Id == userTenant.Id);
+        result.ShouldNotContain(ut => ut.Id == userTeam.Id);
     }
 
     [Fact]
-    public async Task GlobalQueryFilter_Tenant_SoftDeletedTenantsAreNotReturnedByDefault()
+    public async Task GlobalQueryFilter_Team_SoftDeletedTeamsAreNotReturnedByDefault()
     {
         // Arrange
-        // Create a test athlete first (which creates the necessary User and Tenant relationships)
+        // Create a test athlete first (which creates the necessary User and Team relationships)
         var athlete = await CreateTestAthleteAsync();
         
-        // Create a new tenant for testing
-        var tenant = new Tenant
+        // Create a new team for testing
+        var team = new Team
         {
             Id = Guid.NewGuid(),
-            Name = "Test Tenant for Deletion",
+            Name = "Test Team for Deletion",
             Subdomain = "test-delete",
-            Status = TenantStatus.Active,
-            Tier = TenantTier.Free,
+            Status = TeamStatus.Active,
+            Tier = TeamTier.Free,
             CreatedOn = DateTime.UtcNow
         };
 
-        DbContext.Tenants.Add(tenant);
+        DbContext.Teams.Add(team);
         await DbContext.SaveChangesAsync();
 
-        // Soft delete the tenant
-        tenant.IsDeleted = true;
-        tenant.DeletedOn = DateTime.UtcNow;
-        tenant.DeletedBy = athlete.UserId;
+        // Soft delete the team
+        team.IsDeleted = true;
+        team.DeletedOn = DateTime.UtcNow;
+        team.DeletedBy = athlete.UserId;
         await DbContext.SaveChangesAsync();
 
         // Act
-        var result = await DbContext.Tenants.ToListAsync();
+        var result = await DbContext.Teams.ToListAsync();
 
         // Assert
-        result.ShouldNotContain(t => t.Id == tenant.Id);
+        result.ShouldNotContain(t => t.Id == team.Id);
     }
 
     [Fact]
@@ -855,20 +855,20 @@ public class AthleteServiceTests : BaseIntegrationTest
         string lastName = "Doe", 
         AthleteRole role = AthleteRole.Athlete)
     {
-        // Ensure the test tenant exists
-        var existingTenant = await DbContext.Tenants.FindAsync(_testTenantId);
-        if (existingTenant == null)
+        // Ensure the test team exists
+        var existingTeam = await DbContext.Teams.FindAsync(_testTeamId);
+        if (existingTeam == null)
         {
-            var tenant = new Tenant
+            var team = new Team
             {
-                Id = _testTenantId,
-                Name = "Test Tenant",
+                Id = _testTeamId,
+                Name = "Test Team",
                 Subdomain = "test",
-                Status = TenantStatus.Active,
-                Tier = TenantTier.Free,
+                Status = TeamStatus.Active,
+                Tier = TeamTier.Free,
                 CreatedOn = DateTime.UtcNow
             };
-            DbContext.Tenants.Add(tenant);
+            DbContext.Teams.Add(team);
             await DbContext.SaveChangesAsync();
         }
 
@@ -886,13 +886,13 @@ public class AthleteServiceTests : BaseIntegrationTest
             Id = Guid.NewGuid(),
             UserId = user.Id,
             Role = role,
-            TenantId = _testTenantId,
+            TeamId = _testTeamId,
             User = user,
             Profile = new Domain.Entities.AthleteProfile
             {
                 Id = Guid.NewGuid(),
                 AthleteId = Guid.NewGuid(), // Will be set correctly when athlete is created
-                TenantId = _testTenantId
+                TeamId = _testTeamId
             }
         };
 

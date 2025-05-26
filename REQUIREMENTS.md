@@ -8,7 +8,7 @@
 
 ### **1\. Purpose**
 
-TeamStride is a mobile-first, multi-tenant SaaS application that empowers coaches to efficiently manage running teams. The application provides features for managing rosters, schedules, training plans, communications, gear, payments, and integrations with Garmin and MileSplit.
+TeamStride is a mobile-first, multi-team SaaS application that empowers coaches to efficiently manage running teams. The application provides features for managing rosters, schedules, training plans, communications, gear, payments, and integrations with Garmin and MileSplit.
 
 ---
 
@@ -27,7 +27,7 @@ TeamStride is a mobile-first, multi-tenant SaaS application that empowers coache
 * Deliver a seamless mobile-first experience
 * Integrate with Garmin and MileSplit for real-time performance data
 * Provide subdomain-branded portals for teams
-* Enable role-based access control and tenant switching
+* Enable role-based access control and team switching
 * Ensure secure, scalable, maintainable architecture
 
   ---
@@ -39,16 +39,16 @@ TeamStride is a mobile-first, multi-tenant SaaS application that empowers coache
 * Microsoft Identity Framework for authentication
 * OAuth2 delegated authentication for Microsoft, Google, Facebook, and Twitter
 * Role-based access control (Coach, Athlete, Parent, Admin, Host)
-* Multi-team access and tenant switching
+* Multi-team access and team switching
 * Default team preference
-* Auto-tenant selection via subdomain login
+* Auto-team selection via subdomain login
 * Onboarding wizard for new users and teams
 
   #### **4.2 Multi-Tenancy**
 * Subdomain support per team (e.g., `teamX.teamstride.com`)
 * Custom-branded login, home, and registration pages
-* Tenant switcher UI
-* Tenant-aware permissions and session management
+* Team switcher UI
+* Team-aware permissions and session management
 
   #### **4.3 Rosters**
 * Add/edit/delete athlete profiles
@@ -166,7 +166,7 @@ API references Application
   ### **7\. Roles & Permissions**
 | Role | Description | Permissions |
 | ----- | ----- | ----- |
-| Host | Application owner | Full platform-wide access and tenant-level administration |
+| Host | Application owner | Full platform-wide access and team-level administration |
 | Admin | Team administrator | Full access to team features including assigning roles |
 | Coach | Team coach | Manage rosters, practices, races; no access to payments |
 | Athlete | Team member | View-only access to training, races, results |
@@ -176,9 +176,9 @@ API references Application
 
   ### **8\. UI/UX Considerations**
 * Mobile-first responsive layout
-* Tenant branding (colors, logo) per subdomain
+* Team branding (colors, logo) per subdomain
 * Reusable components via Tailwind
-* Tenant switcher UI in nav/header
+* Team switcher UI in nav/header
 * List and calendar views for schedule data
 * OAuth2 login buttons for delegated authentication
 * SMS and email communication preferences
@@ -264,7 +264,7 @@ API references Application
 * **Security**:
   * OAuth2 delegated authentication for major identity providers
   * Encrypted tokens and user data
-  * Role-based access control and tenant isolation
+  * Role-based access control and team isolation
   * HTTPS/TLS enforced for all endpoints
 
 * **Exception Handling**:

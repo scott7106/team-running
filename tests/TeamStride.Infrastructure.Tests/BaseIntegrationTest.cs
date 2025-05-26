@@ -15,7 +15,7 @@ public abstract class BaseIntegrationTest : IDisposable
 {
     protected ApplicationDbContext DbContext { get; private set; }
     protected IServiceProvider ServiceProvider { get; private set; }
-    protected Mock<ITenantService> MockTenantService { get; private set; }
+    protected Mock<ITeamService> MockTeamService { get; private set; }
     protected Mock<ICurrentUserService> MockCurrentUserService { get; private set; }
 
     protected BaseIntegrationTest()
@@ -23,16 +23,16 @@ public abstract class BaseIntegrationTest : IDisposable
         var services = new ServiceCollection();
         
         // Create mocks for required services
-        MockTenantService = new Mock<ITenantService>();
+        MockTeamService = new Mock<ITeamService>();
         MockCurrentUserService = new Mock<ICurrentUserService>();
         
         // Setup default mock behavior
-        MockTenantService.Setup(x => x.CurrentTenantId).Returns(Guid.NewGuid());
+        MockTeamService.Setup(x => x.CurrentTeamId).Returns(Guid.NewGuid());
         MockCurrentUserService.Setup(x => x.UserId).Returns(Guid.NewGuid());
         MockCurrentUserService.Setup(x => x.IsAuthenticated).Returns(true);
         
         // Register mocked services
-        services.AddSingleton(MockTenantService.Object);
+        services.AddSingleton(MockTeamService.Object);
         services.AddSingleton(MockCurrentUserService.Object);
         
         // Configure SQLite in-memory database

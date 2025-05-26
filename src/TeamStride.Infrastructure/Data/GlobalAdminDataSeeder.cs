@@ -55,7 +55,7 @@ public class GlobalAdminDataSeeder
                 Email = _config.Email,
                 FirstName = _config.FirstName ?? "Global",
                 LastName = _config.LastName ?? "Admin",
-                DefaultTenantId = null,
+                DefaultTeamId = null,
                 EmailConfirmed = true,
                 IsActive = true,
                 Status = UserStatus.Active
@@ -68,18 +68,18 @@ public class GlobalAdminDataSeeder
                 throw new Exception($"Failed to create global admin user: {errors}");
             }
 
-            // Create global admin user-tenant relationship
-            var userTenant = new UserTenant
+            // Create global admin user-team relationship
+            var userTeam = new UserTeam
             {
                 UserId = globalAdmin.Id,
-                TenantId = null,
-                Role = TenantRole.GlobalAdmin,
+                TeamId = null,
+                Role = TeamRole.GlobalAdmin,
                 IsActive = true,
                 IsDefault = true,
                 JoinedOn = DateTime.UtcNow
             };
 
-            context.UserTenants.Add(userTenant);
+            context.UserTeams.Add(userTeam);
             await context.SaveChangesAsync();
 
             _logger.LogInformation("Successfully created global admin user.");
