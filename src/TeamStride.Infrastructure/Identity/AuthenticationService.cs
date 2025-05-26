@@ -9,16 +9,18 @@ using System.Threading.Tasks;
 using TeamStride.Application.Authentication.Services;
 using TeamStride.Application.Authentication.Dtos;
 using TeamStride.Domain.Identity;
+using TeamStride.Domain.Entities;
 using TeamStride.Infrastructure.Email;
+using TeamStride.Infrastructure.Data;
 
 namespace TeamStride.Infrastructure.Identity;
 
-public class AuthenticationService : IAuthenticationService
+public class AuthenticationService : ITeamStrideAuthenticationService
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IEmailService _emailService;
-    private readonly IdentityContext _context;
+    private readonly ApplicationDbContext _context;
     private readonly ILogger<AuthenticationService> _logger;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IConfiguration _configuration;
@@ -28,7 +30,7 @@ public class AuthenticationService : IAuthenticationService
         UserManager<ApplicationUser> userManager,
         IJwtTokenService jwtTokenService,
         IEmailService emailService,
-        IdentityContext context,
+        ApplicationDbContext context,
         ILogger<AuthenticationService> logger,
         IHttpContextAccessor httpContextAccessor,
         IConfiguration configuration,
@@ -75,7 +77,7 @@ public class AuthenticationService : IAuthenticationService
             throw new AuthenticationException("Invalid tenant", AuthenticationException.ErrorCodes.TenantNotFound);
 
         // Update last login
-        user.LastLoginAt = DateTime.UtcNow;
+        user.LastLoginOn = DateTime.UtcNow;
         await _userManager.UpdateAsync(user);
 
         // Generate tokens
@@ -120,7 +122,6 @@ public class AuthenticationService : IAuthenticationService
             FirstName = request.FirstName,
             LastName = request.LastName,
             DefaultTenantId = request.TenantId,
-            CreatedAt = DateTime.UtcNow,
             IsActive = true
         };
 
@@ -137,7 +138,6 @@ public class AuthenticationService : IAuthenticationService
             UserId = user.Id,
             TenantId = request.TenantId,
             Role = request.Role,
-            CreatedAt = DateTime.UtcNow,
             IsActive = true
         };
         _context.UserTenants.Add(userTenant);
@@ -149,7 +149,7 @@ public class AuthenticationService : IAuthenticationService
         await _emailService.SendEmailConfirmationAsync(user.Email, confirmationLink);
 
         // Generate tokens
-        var jwtToken = _jwtTokenService.GenerateJwtToken(user, request.TenantId, request.Role);
+        var jwtToken = _jwtTokenService.GenerateJwtToken(user, request.TenantId, userTenant.Role);
         var refreshToken = await CreateRefreshTokenAsync(user, request.TenantId);
 
         return new AuthResponseDto
@@ -160,7 +160,7 @@ public class AuthenticationService : IAuthenticationService
             FirstName = user.FirstName,
             LastName = user.LastName,
             TenantId = request.TenantId,
-            Role = request.Role,
+            Role = userTenant.Role,
             RequiresEmailConfirmation = true
         };
     }
@@ -188,7 +188,7 @@ public class AuthenticationService : IAuthenticationService
         var newRefreshToken = await CreateRefreshTokenAsync(token.User, token.TenantId);
 
         // Revoke old refresh token
-        token.RevokedAt = DateTime.UtcNow;
+        token.RevokedOn = DateTime.UtcNow;
         token.ReplacedByToken = newRefreshToken.Token;
         token.RevokedByIp = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         await _context.SaveChangesAsync();
@@ -206,38 +206,36 @@ public class AuthenticationService : IAuthenticationService
         };
     }
 
-    public async Task<bool> ConfirmEmailAsync(string userId, string token)
+    public async Task<bool> ConfirmEmailAsync(Guid userId, string token)
     {
-        var user = await _userManager.FindByIdAsync(userId);
-        if (user == null)
-        {
+        var user = await _userManager.FindByIdAsync(userId.ToString()) ?? 
             throw new AuthenticationException("User not found", AuthenticationException.ErrorCodes.UserNotFound);
-        }
 
         var result = await _userManager.ConfirmEmailAsync(user, token);
-        return result.Succeeded;
+        if (!result.Succeeded)
+        {
+            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+            throw new AuthenticationException($"Email confirmation failed: {errors}");
+        }
+
+        return true;
     }
 
     public async Task<bool> SendPasswordResetEmailAsync(string email)
     {
-        var user = await _userManager.FindByEmailAsync(email);
-        if (user == null)
-        {
-            // Return true to prevent email enumeration
-            return true;
-        }
+        var user = await _userManager.FindByEmailAsync(email) ?? 
+            throw new AuthenticationException("User not found", AuthenticationException.ErrorCodes.UserNotFound);
 
         var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-        var tenant = await _context.Tenants.FindAsync(user.DefaultTenantId);
-        var resetLink = $"https://{tenant.Subdomain}.teamstride.com/reset-password?userId={user.Id}&token={Uri.EscapeDataString(token)}";
-        
+        var resetLink = $"https://teamstride.com/reset-password?userId={user.Id}&token={Uri.EscapeDataString(token)}";
         await _emailService.SendPasswordResetAsync(email, resetLink);
+
         return true;
     }
 
-    public async Task<bool> ResetPasswordAsync(string userId, string token, string newPassword)
+    public async Task<bool> ResetPasswordAsync(Guid userId, string token, string newPassword)
     {
-        var user = await _userManager.FindByIdAsync(userId) ?? 
+        var user = await _userManager.FindByIdAsync(userId.ToString()) ?? 
             throw new AuthenticationException("User not found", AuthenticationException.ErrorCodes.UserNotFound);
 
         var result = await _userManager.ResetPasswordAsync(user, token, newPassword);
@@ -254,7 +252,7 @@ public class AuthenticationService : IAuthenticationService
 
         foreach (var refreshToken in tokens)
         {
-            refreshToken.RevokedAt = DateTime.UtcNow;
+            refreshToken.RevokedOn = DateTime.UtcNow;
             refreshToken.ReasonRevoked = "Password changed";
             refreshToken.RevokedByIp = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         }
@@ -263,9 +261,9 @@ public class AuthenticationService : IAuthenticationService
         return true;
     }
 
-    public async Task<bool> ChangePasswordAsync(string userId, string currentPassword, string newPassword)
+    public async Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
     {
-        var user = await _userManager.FindByIdAsync(userId);
+        var user = await _userManager.FindByIdAsync(userId.ToString());
         if (user == null)
         {
             throw new AuthenticationException("User not found", AuthenticationException.ErrorCodes.UserNotFound);
@@ -285,7 +283,7 @@ public class AuthenticationService : IAuthenticationService
 
         foreach (var refreshToken in tokens)
         {
-            refreshToken.RevokedAt = DateTime.UtcNow;
+            refreshToken.RevokedOn = DateTime.UtcNow;
             refreshToken.ReasonRevoked = "Password changed";
             refreshToken.RevokedByIp = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
         }
@@ -294,7 +292,7 @@ public class AuthenticationService : IAuthenticationService
         return true;
     }
 
-    public async Task<bool> LogoutAsync(string userId)
+    public async Task<bool> LogoutAsync(Guid userId)
     {
         // Revoke all active refresh tokens
         var tokens = await _context.RefreshTokens
@@ -303,7 +301,7 @@ public class AuthenticationService : IAuthenticationService
 
         foreach (var token in tokens)
         {
-            token.RevokedAt = DateTime.UtcNow;
+            token.RevokedOn = DateTime.UtcNow;
             token.ReasonRevoked = "Logged out";
             token.RevokedByIp = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
         }
@@ -337,8 +335,7 @@ public class AuthenticationService : IAuthenticationService
                 Email = externalUser.Email,
                 FirstName = externalUser.FirstName,
                 LastName = externalUser.LastName,
-                EmailConfirmed = true, // External providers have already verified the email
-                CreatedAt = DateTime.UtcNow,
+                EmailConfirmed = true,
                 IsActive = true,
                 DefaultTenantId = request.TenantId
             };
@@ -355,8 +352,7 @@ public class AuthenticationService : IAuthenticationService
             {
                 UserId = user.Id,
                 TenantId = request.TenantId,
-                Role = "Athlete", // Default role for external users
-                CreatedAt = DateTime.UtcNow,
+                Role = TenantRole.Athlete, // Default role for external users
                 IsActive = true
             };
             _context.UserTenants.Add(newUserTenant);
@@ -370,7 +366,7 @@ public class AuthenticationService : IAuthenticationService
             throw new AuthenticationException("Invalid tenant", AuthenticationException.ErrorCodes.TenantNotFound);
 
         // Update last login
-        user.LastLoginAt = DateTime.UtcNow;
+        user.LastLoginOn = DateTime.UtcNow;
         await _userManager.UpdateAsync(user);
 
         // Generate tokens
@@ -392,50 +388,54 @@ public class AuthenticationService : IAuthenticationService
 
     public async Task<string> GetExternalLoginUrlAsync(string provider, string? tenantId = null)
     {
-        var baseUrl = _configuration["Authentication:ExternalProviders:BaseUrl"] ?? 
-            throw new InvalidOperationException("Authentication:ExternalProviders:BaseUrl not configured");
-        var clientId = _configuration[$"Authentication:ExternalProviders:{provider}:ClientId"] ?? 
-            throw new InvalidOperationException($"Authentication:ExternalProviders:{provider}:ClientId not configured");
-        var redirectUri = await GetExternalLoginCallbackUrlAsync(provider);
+        var clientId = provider.ToLowerInvariant() switch
+        {
+            "google" => _configuration["Authentication:Google:ClientId"],
+            "facebook" => _configuration["Authentication:Facebook:ClientId"],
+            "microsoft" => _configuration["Authentication:Microsoft:ClientId"],
+            "twitter" => _configuration["Authentication:Twitter:ClientId"],
+            _ => throw new AuthenticationException($"Unsupported provider: {provider}")
+        };
 
+        if (string.IsNullOrEmpty(clientId))
+        {
+            throw new AuthenticationException($"Client ID not configured for provider: {provider}");
+        }
+
+        var redirectUri = await GetExternalLoginCallbackUrlAsync(provider);
         var state = tenantId ?? string.Empty;
 
-        switch (provider.ToLowerInvariant())
+        return provider.ToLowerInvariant() switch
         {
-            case "microsoft":
-                return $"https://login.microsoftonline.com/common/oauth2/v2.0/authorize" +
+            "google" => $"https://accounts.google.com/o/oauth2/v2/auth" +
                        $"?client_id={clientId}" +
                        $"&response_type=code" +
                        $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
                        $"&scope=openid email profile" +
-                       $"&state={state}";
+                       $"&state={state}",
 
-            case "google":
-                return $"https://accounts.google.com/o/oauth2/v2/auth" +
-                       $"?client_id={clientId}" +
-                       $"&response_type=code" +
-                       $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
-                       $"&scope=openid email profile" +
-                       $"&state={state}";
+            "facebook" => $"https://www.facebook.com/v12.0/dialog/oauth" +
+                         $"?client_id={clientId}" +
+                         $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
+                         $"&scope=email public_profile" +
+                         $"&state={state}",
 
-            case "facebook":
-                return $"https://www.facebook.com/v12.0/dialog/oauth" +
-                       $"?client_id={clientId}" +
-                       $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
-                       $"&scope=email public_profile" +
-                       $"&state={state}";
+            "microsoft" => $"https://login.microsoftonline.com/common/oauth2/v2.0/authorize" +
+                         $"?client_id={clientId}" +
+                         $"&response_type=code" +
+                         $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
+                         $"&scope=openid email profile" +
+                         $"&state={state}",
 
-            case "twitter":
-                return $"https://twitter.com/i/oauth2/authorize" +
+            "twitter" => $"https://twitter.com/i/oauth2/authorize" +
                        $"?client_id={clientId}" +
                        $"&response_type=code" +
                        $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
                        $"&scope=users.read tweet.read" +
-                       $"&state={state}";
+                       $"&state={state}",
 
-            default:
-                throw new AuthenticationException($"Unsupported provider: {provider}");
-        }
+            _ => throw new AuthenticationException($"Unsupported provider: {provider}")
+        };
     }
 
     public async Task<string> GetExternalLoginCallbackUrlAsync(string provider)
@@ -445,24 +445,21 @@ public class AuthenticationService : IAuthenticationService
         return await Task.FromResult($"{baseUrl}/api/authentication/external-login/{provider.ToLowerInvariant()}/callback");
     }
 
-    private async Task<RefreshToken> CreateRefreshTokenAsync(ApplicationUser user, string tenantId)
+    private async Task<RefreshToken> CreateRefreshTokenAsync(ApplicationUser user, Guid tenantId)
     {
-        ArgumentNullException.ThrowIfNull(user);
-        ArgumentNullException.ThrowIfNull(tenantId);
-
-        var token = new RefreshToken
+        var refreshToken = new RefreshToken
         {
-            Token = _jwtTokenService.GenerateRefreshToken(),
+            Token = Guid.NewGuid().ToString("N"),
             UserId = user.Id,
             TenantId = tenantId,
-            CreatedAt = DateTime.UtcNow,
-            CreatedByIp = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            ExpiresAt = DateTime.UtcNow.AddDays(7)
+            CreatedOn = DateTime.UtcNow,
+            CreatedByIp = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "unknown",
+            ExpiresOn = DateTime.UtcNow.AddDays(7)
         };
 
-        _context.RefreshTokens.Add(token);
+        _context.RefreshTokens.Add(refreshToken);
         await _context.SaveChangesAsync();
 
-        return token;
+        return refreshToken;
     }
 } 

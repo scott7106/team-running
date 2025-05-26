@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TeamStride.Infrastructure")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8d64138a1cb8a802809d3ea280442b702d6a464a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+af606d19266a3c2eef5b0cfaca751f3f1788ae03")]
 [assembly: System.Reflection.AssemblyProductAttribute("TeamStride.Infrastructure")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TeamStride.Infrastructure")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

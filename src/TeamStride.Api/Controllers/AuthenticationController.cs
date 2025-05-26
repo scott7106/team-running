@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System;
 using System.Threading.Tasks;
 using TeamStride.Application.Authentication.Services;
 using TeamStride.Application.Authentication.Dtos;
@@ -10,9 +11,9 @@ namespace TeamStride.Api.Controllers;
 [Route("api/[controller]")]
 public class AuthenticationController : ControllerBase
 {
-    private readonly IAuthenticationService _authenticationService;
+    private readonly ITeamStrideAuthenticationService _authenticationService;
 
-    public AuthenticationController(IAuthenticationService authenticationService)
+    public AuthenticationController(ITeamStrideAuthenticationService authenticationService)
     {
         _authenticationService = authenticationService;
     }
@@ -44,13 +45,12 @@ public class AuthenticationController : ControllerBase
         return Ok(result);
     }
 
-    [HttpPost("confirm-email")]
-    [ProducesResponseType(200)]
-    [ProducesResponseType(typeof(ProblemDetails), 400)]
-    public async Task<IActionResult> ConfirmEmail([FromQuery] string userId, [FromQuery] string token)
+    [HttpGet("confirm-email")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ConfirmEmail([FromQuery] Guid userId, [FromQuery] string token)
     {
         var result = await _authenticationService.ConfirmEmailAsync(userId, token);
-        return result ? Ok() : BadRequest("Email confirmation failed");
+        return Ok(result);
     }
 
     [HttpPost("forgot-password")]
@@ -63,12 +63,11 @@ public class AuthenticationController : ControllerBase
     }
 
     [HttpPost("reset-password")]
-    [ProducesResponseType(200)]
-    [ProducesResponseType(typeof(ProblemDetails), 400)]
-    public async Task<IActionResult> ResetPassword([FromQuery] string userId, [FromQuery] string token, [FromBody] string newPassword)
+    [AllowAnonymous]
+    public async Task<IActionResult> ResetPassword([FromQuery] Guid userId, [FromQuery] string token, [FromBody] string newPassword)
     {
         var result = await _authenticationService.ResetPasswordAsync(userId, token, newPassword);
-        return result ? Ok() : BadRequest("Password reset failed");
+        return Ok(result);
     }
 
     [Authorize]
@@ -78,8 +77,8 @@ public class AuthenticationController : ControllerBase
     [ProducesResponseType(401)]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto request)
     {
-        var userId = User.FindFirst("sub")?.Value;
-        if (string.IsNullOrEmpty(userId))
+        var userIdString = User.FindFirst("sub")?.Value;
+        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
         {
             return Unauthorized();
         }
@@ -94,8 +93,8 @@ public class AuthenticationController : ControllerBase
     [ProducesResponseType(401)]
     public async Task<IActionResult> Logout()
     {
-        var userId = User.FindFirst("sub")?.Value;
-        if (string.IsNullOrEmpty(userId))
+        var userIdString = User.FindFirst("sub")?.Value;
+        if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
         {
             return Unauthorized();
         }

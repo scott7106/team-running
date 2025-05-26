@@ -14,7 +14,7 @@ public class Tenant : AuditedEntity<Guid>
     public DateTime? ExpiresOn { get; set; }
     
     // Navigation properties
-    public virtual ICollection<TenantUser> Users { get; set; } = new List<TenantUser>();
+    public virtual ICollection<UserTenant> Users { get; set; } = new List<UserTenant>();
 }
 
 public enum TenantStatus

@@ -7,12 +7,13 @@ using System.Security.Cryptography;
 using System.Text;
 using TeamStride.Application.Authentication.Services;
 using TeamStride.Domain.Identity;
+using TeamStride.Domain.Entities;
 
 namespace TeamStride.Infrastructure.Identity;
 
 public interface IJwtTokenService
 {
-    string GenerateJwtToken(ApplicationUser user, string tenantId, string role);
+    string GenerateJwtToken(ApplicationUser user, Guid tenantId, TenantRole role);
     string GenerateRefreshToken();
     ClaimsPrincipal? GetPrincipalFromToken(string token);
 }
@@ -26,7 +27,7 @@ public class JwtTokenService : IJwtTokenService
         _config = config;
     }
 
-    public string GenerateJwtToken(ApplicationUser user, string tenantId, string role)
+    public string GenerateJwtToken(ApplicationUser user, Guid tenantId, TenantRole role)
     {
         ArgumentNullException.ThrowIfNull(user);
         ArgumentNullException.ThrowIfNull(tenantId);
@@ -34,11 +35,11 @@ public class JwtTokenService : IJwtTokenService
 
         var claims = new List<Claim>
         {
-            new(JwtRegisteredClaimNames.Sub, user.Id),
+            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email ?? throw new InvalidOperationException("User email is null")),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new("tenant_id", tenantId),
-            new(ClaimTypes.Role, role)
+            new("tenant_id", tenantId.ToString()),
+            new(ClaimTypes.Role, role.ToString())
         };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config.JwtSecret));

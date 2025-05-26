@@ -53,7 +53,9 @@ public class Program
         // Register application services
         builder.Services.AddScoped<ITenantService, TenantService>();
         builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
-        builder.Services.AddApplicationServices();
+        builder.Services
+            .AddInfrastructureServices()
+            .AddApplicationServices();
 
         // Configure DbContext
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? 

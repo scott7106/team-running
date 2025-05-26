@@ -2,7 +2,7 @@ namespace TeamStride.Domain.Interfaces;
 
 public interface ICurrentUserService
 {
-    string? UserId { get; }
+    Guid? UserId { get; }
     string? UserEmail { get; }
     bool IsAuthenticated { get; }
 } 

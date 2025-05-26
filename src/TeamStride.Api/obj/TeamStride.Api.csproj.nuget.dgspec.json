@@ -57,23 +57,23 @@
           "dependencies": {
             "Microsoft.AspNetCore.OpenApi": {
               "target": "Package",
-              "version": "[8.0.16, )"
+              "version": "[8.0.2, )"
             },
             "Serilog.AspNetCore": {
               "target": "Package",
-              "version": "[9.0.0, )"
+              "version": "[8.0.1, )"
             },
             "Serilog.Settings.Configuration": {
               "target": "Package",
-              "version": "[9.0.0, )"
+              "version": "[8.0.0, )"
             },
             "Serilog.Sinks.Console": {
               "target": "Package",
-              "version": "[6.0.0, )"
+              "version": "[5.0.1, )"
             },
             "Serilog.Sinks.File": {
               "target": "Package",
-              "version": "[7.0.0, )"
+              "version": "[5.0.0, )"
             },
             "Swashbuckle.AspNetCore": {
               "target": "Package",
@@ -287,6 +287,10 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "dependencies": {
+            "AutoMapper": {
+              "target": "Package",
+              "version": "[13.0.1, )"
+            },
             "Microsoft.AspNetCore.Authentication.Facebook": {
               "target": "Package",
               "version": "[8.0.2, )"

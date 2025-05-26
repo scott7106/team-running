@@ -11,5 +11,5 @@ public class LoginRequestDto
     [Required]
     public required string Password { get; set; }
 
-    public string? TenantId { get; set; }
+    public Guid? TenantId { get; set; }
 } 

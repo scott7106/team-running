@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TeamStride.Application.Athletes.Dtos;
 using TeamStride.Application.Athletes.Services;
+using TeamStride.Application.Common.Models;
 using TeamStride.Domain.Entities;
 
 namespace TeamStride.Api.Controllers;

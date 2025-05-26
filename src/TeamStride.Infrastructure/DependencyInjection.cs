@@ -1,14 +1,28 @@
 using Microsoft.Extensions.DependencyInjection;
 using TeamStride.Application.Athletes.Services;
+using TeamStride.Infrastructure.Mapping;
 using TeamStride.Infrastructure.Services;
 
 namespace TeamStride.Infrastructure;
 
 public static class DependencyInjection
 {
+    public static IServiceCollection AddInfrastructureServices(this IServiceCollection services)
+    {
+        services.AddAutoMapper(cfg =>
+        {
+            cfg.AddMaps(new[]
+            {
+                typeof(DependencyInjection).Assembly,    // Infrastructure assembly
+                typeof(Application.Users.Dtos.UserDto).Assembly  // Application assembly
+            });
+        });
+
+        return services;
+    }
+
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        services.AddAutoMapper(typeof(DependencyInjection).Assembly);
         services.AddScoped<IAthleteService, AthleteService>();
         
         return services;

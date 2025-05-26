@@ -5,7 +5,7 @@ namespace TeamStride.Domain.Entities;
 
 public class Athlete : AuditedTenantEntity<Guid>
 {
-    public required string UserId { get; set; }
+    public required Guid UserId { get; set; }
     public AthleteRole Role { get; set; }
     public string? JerseyNumber { get; set; }
     public string? EmergencyContactName { get; set; }

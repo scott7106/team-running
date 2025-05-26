@@ -2,7 +2,7 @@ using TeamStride.Domain.Common;
 
 namespace TeamStride.Domain.Entities;
 
-public class AthleteProfile : AuditedEntity<Guid>
+public class AthleteProfile : AuditedTenantEntity<Guid>
 {
     public required Guid AthleteId { get; set; }
     public string? PreferredEvents { get; set; }

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using TeamStride.Domain.Entities;
 
 namespace TeamStride.Application.Authentication.Dtos;
 
@@ -23,8 +24,8 @@ public class RegisterRequestDto
     public required string LastName { get; set; }
 
     [Required]
-    public required string TenantId { get; set; }
+    public required Guid TenantId { get; set; }
 
     [Required]
-    public required string Role { get; set; }
+    public required TenantRole Role { get; set; }
 } 

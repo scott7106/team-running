@@ -12,8 +12,12 @@ using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Text;
 using TeamStride.Domain.Identity;
+using TeamStride.Domain.Interfaces;
 using TeamStride.Infrastructure.Authentication.Services;
-using TeamStride.Infrastructure.Identity;
+using TeamStride.Infrastructure.Data;
+using Microsoft.AspNetCore.Http;
+using TeamStride.Infrastructure.Services;
+using TeamStride.Application.Authentication.Services;
 
 namespace TeamStride.Infrastructure.Identity;
 
@@ -26,7 +30,7 @@ public static class ServiceCollectionExtensions
         var authConfig = configuration.GetSection("Authentication").Get<AuthenticationConfiguration>();
         ArgumentNullException.ThrowIfNull(authConfig);
         
-        services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+        services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
         {
             options.Password.RequiredLength = 8;
             options.Password.RequireDigit = true;
@@ -37,35 +41,14 @@ public static class ServiceCollectionExtensions
             options.User.RequireUniqueEmail = true;
             options.SignIn.RequireConfirmedEmail = true;
         })
-        .AddEntityFrameworkStores<IdentityContext>()
+        .AddEntityFrameworkStores<ApplicationDbContext>()
         .AddDefaultTokenProviders();
 
-        services.AddAuthentication(options =>
-        {
-            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-        })
-        .AddJwtBearer(options =>
-        {
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ValidIssuer = authConfig.JwtIssuer,
-                ValidAudience = authConfig.JwtAudience,
-                IssuerSigningKey = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(authConfig.JwtSecret))
-            };
-        })
-        .AddOAuthProviders(authConfig);
-
-        // Register HttpClient and Services
-        services.AddHttpClient();
-        services.AddScoped<TeamStride.Application.Authentication.Services.IExternalAuthService, ExternalAuthService>();
-        services.AddScoped<TeamStride.Application.Authentication.Services.IAuthenticationService, AuthenticationService>();
+        services.AddSingleton(authConfig);
         services.AddScoped<IJwtTokenService, JwtTokenService>();
+        services.AddScoped<ITeamStrideAuthenticationService, AuthenticationService>();
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
         return services;
     }

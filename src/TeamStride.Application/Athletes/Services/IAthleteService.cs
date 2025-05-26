@@ -1,12 +1,13 @@
 using TeamStride.Application.Athletes.Dtos;
 using TeamStride.Application.Common.Models;
+using TeamStride.Domain.Entities;
 
 namespace TeamStride.Application.Athletes.Services;
 
 public interface IAthleteService
 {
     Task<AthleteDto> GetByIdAsync(Guid id);
-    Task<AthleteDto?> GetByUserIdAsync(string userId);
+    Task<AthleteDto?> GetByUserIdAsync(Guid userId);
     Task<PaginatedList<AthleteDto>> GetTeamRosterAsync(int pageNumber = 1, int pageSize = 10);
     Task<AthleteDto> CreateAsync(CreateAthleteDto dto);
     Task<AthleteDto> UpdateAsync(Guid id, UpdateAthleteDto dto);

@@ -40,7 +40,7 @@ public class AthleteService : IAthleteService
         return _mapper.Map<AthleteDto>(athlete);
     }
 
-    public async Task<AthleteDto?> GetByUserIdAsync(string userId)
+    public async Task<AthleteDto?> GetByUserIdAsync(Guid userId)
     {
         var athlete = await _context.Athletes
             .Include(a => a.User)
