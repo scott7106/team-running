@@ -41,7 +41,7 @@ public class CurrentUserServiceTests
     {
         // Arrange
         _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
-        _mockHttpContext.Setup(x => x.User).Returns((ClaimsPrincipal?)null);
+        _mockHttpContext.Setup(x => x.User).Returns((ClaimsPrincipal?)null!);
 
         // Act
         var result = _currentUserService.UserId;
@@ -172,7 +172,7 @@ public class CurrentUserServiceTests
     {
         // Arrange
         _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
-        _mockHttpContext.Setup(x => x.User).Returns((ClaimsPrincipal?)null);
+        _mockHttpContext.Setup(x => x.User).Returns((ClaimsPrincipal?)null!);
 
         // Act
         var result = _currentUserService.UserEmail;
@@ -288,7 +288,7 @@ public class CurrentUserServiceTests
     {
         // Arrange
         _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
-        _mockHttpContext.Setup(x => x.User).Returns((ClaimsPrincipal?)null);
+        _mockHttpContext.Setup(x => x.User).Returns((ClaimsPrincipal?)null!);
 
         // Act
         var result = _currentUserService.IsAuthenticated;

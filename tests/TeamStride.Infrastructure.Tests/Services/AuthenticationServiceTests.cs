@@ -69,7 +69,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     private static Mock<UserManager<ApplicationUser>> CreateMockUserManager()
     {
         var store = new Mock<IUserStore<ApplicationUser>>();
-        return new Mock<UserManager<ApplicationUser>>(store.Object, null, null, null, null, null, null, null, null);
+        return new Mock<UserManager<ApplicationUser>>(store.Object, null!, null!, null!, null!, null!, null!, null!, null!);
     }
 
     #region LoginAsync Tests

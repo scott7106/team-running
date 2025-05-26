@@ -186,8 +186,8 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             throw new AuthenticationException("Invalid tenant access", AuthenticationException.ErrorCodes.TenantNotFound);
 
         // Generate new tokens
-        var jwtToken = _jwtTokenService.GenerateJwtToken(token.User, token.TenantId, userTenant.Role);
-        var newRefreshToken = await CreateRefreshTokenAsync(token.User, token.TenantId);
+        var jwtToken = _jwtTokenService.GenerateJwtToken(token.User!, token.TenantId, userTenant.Role);
+        var newRefreshToken = await CreateRefreshTokenAsync(token.User!, token.TenantId);
 
         // Revoke old refresh token
         token.RevokedOn = DateTime.UtcNow;
@@ -199,7 +199,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         {
             Token = jwtToken,
             RefreshToken = newRefreshToken.Token,
-            Email = token.User.Email ?? string.Empty,
+            Email = token.User!.Email ?? string.Empty,
             FirstName = token.User.FirstName,
             LastName = token.User.LastName,
             TenantId = token.TenantId,
@@ -364,11 +364,11 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         // Get tenant and role
         var tenantId = request.TenantId;
         var userTenant = await _context.UserTenants
-            .FirstOrDefaultAsync(ut => ut.UserId == user.Id && ut.TenantId == tenantId) ??
+            .FirstOrDefaultAsync(ut => ut.UserId == user!.Id && ut.TenantId == tenantId) ??
             throw new AuthenticationException("Invalid tenant", AuthenticationException.ErrorCodes.TenantNotFound);
 
         // Update last login
-        user.LastLoginOn = DateTime.UtcNow;
+        user!.LastLoginOn = DateTime.UtcNow;
         await _userManager.UpdateAsync(user);
 
         // Generate tokens
