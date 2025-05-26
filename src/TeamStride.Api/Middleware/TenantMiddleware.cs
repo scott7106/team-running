@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using TeamStride.Domain.Interfaces;
 
 namespace TeamStride.Api.Middleware;
@@ -7,28 +8,26 @@ public class TenantMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<TenantMiddleware> _logger;
-    private readonly ITenantService _tenantService;
 
     public TenantMiddleware(
         RequestDelegate next,
-        ILogger<TenantMiddleware> logger,
-        ITenantService tenantService)
+        ILogger<TenantMiddleware> logger)
     {
         _next = next;
         _logger = logger;
-        _tenantService = tenantService;
     }
 
     public async Task InvokeAsync(HttpContext context)
     {
         var host = context.Request.Host.Value;
+        var tenantService = context.RequestServices.GetRequiredService<ITenantService>();
 
         try
         {
             // Skip tenant resolution for the main marketing site and API endpoints
             if (!host.Contains(".") || host.StartsWith("api."))
             {
-                _tenantService.ClearCurrentTenant();
+                tenantService.ClearCurrentTenant();
                 await _next(context);
                 return;
             }
@@ -38,7 +37,7 @@ public class TenantMiddleware
             _logger.LogInformation("Resolving tenant for subdomain: {Subdomain}", subdomain);
 
             // Set the current tenant
-            _tenantService.SetCurrentTenant(subdomain);
+            tenantService.SetCurrentTenant(subdomain);
 
             await _next(context);
         }
@@ -49,7 +48,7 @@ public class TenantMiddleware
         }
         finally
         {
-            _tenantService.ClearCurrentTenant();
+            tenantService.ClearCurrentTenant();
         }
     }
 } 

@@ -49,6 +49,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITeamStrideAuthenticationService, AuthenticationService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+        services.AddHttpClient();
+        services.AddScoped<IExternalAuthService, ExternalAuthService>();
 
         return services;
     }
