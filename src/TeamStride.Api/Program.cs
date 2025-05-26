@@ -122,6 +122,12 @@ public class Program
                 c.RoutePrefix = "swagger";
             });
         }
+        else
+        {
+            // In non-development environments, serve the Next.js static files
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
+        }
 
         app.UseHttpsRedirection();
 
@@ -136,6 +142,12 @@ public class Program
         app.UseAuthorization();
 
         app.MapControllers();
+
+        // In non-development environments, add fallback routing for SPA
+        if (!app.Environment.IsDevelopment())
+        {
+            app.MapFallbackToFile("index.html");
+        }
 
         try
         {

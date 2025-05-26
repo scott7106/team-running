@@ -27,4 +27,9 @@
     <ProjectReference Include="..\TeamStride.Domain\TeamStride.Domain.csproj" />
   </ItemGroup>
 
+  <!-- Include Next.js build output in non-development builds -->
+  <ItemGroup Condition="'$(Configuration)' != 'Debug'">
+    <Content Include="..\..\web\out\**\*" LinkBase="wwwroot\" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
