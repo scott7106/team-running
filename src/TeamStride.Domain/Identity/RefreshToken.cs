@@ -4,6 +4,7 @@ namespace TeamStride.Domain.Identity;
 
 public class RefreshToken
 {
+    public Guid Id { get; set; }
     public required string Token { get; set; }
     public required Guid UserId { get; set; }
     public required Guid TenantId { get; set; }
