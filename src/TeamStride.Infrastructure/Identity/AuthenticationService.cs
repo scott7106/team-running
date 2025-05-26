@@ -249,13 +249,13 @@ public class AuthenticationService : ITeamStrideAuthenticationService
 
         // Revoke all refresh tokens
         var tokens = await _context.RefreshTokens
-            .Where(rt => rt.UserId == userId && rt.IsActive)
+            .Where(rt => rt.UserId == userId && rt.RevokedOn == null && rt.ExpiresOn > DateTime.UtcNow)
             .ToListAsync();
 
         foreach (var refreshToken in tokens)
         {
             refreshToken.RevokedOn = DateTime.UtcNow;
-            refreshToken.ReasonRevoked = "Password changed";
+            refreshToken.ReasonRevoked = "Password reset";
             refreshToken.RevokedByIp = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         }
 
@@ -280,7 +280,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
 
         // Revoke all refresh tokens
         var tokens = await _context.RefreshTokens
-            .Where(rt => rt.UserId == userId && rt.IsActive)
+            .Where(rt => rt.UserId == userId && rt.RevokedOn == null && rt.ExpiresOn > DateTime.UtcNow)
             .ToListAsync();
 
         foreach (var refreshToken in tokens)
@@ -298,7 +298,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
     {
         // Revoke all active refresh tokens
         var tokens = await _context.RefreshTokens
-            .Where(rt => rt.UserId == userId && rt.IsActive)
+            .Where(rt => rt.UserId == userId && rt.RevokedOn == null && rt.ExpiresOn > DateTime.UtcNow)
             .ToListAsync();
 
         foreach (var token in tokens)
