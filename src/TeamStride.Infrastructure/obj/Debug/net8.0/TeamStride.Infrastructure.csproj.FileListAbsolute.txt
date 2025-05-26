@@ -1,0 +1,17 @@
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\bin\Debug\net8.0\TeamStride.Infrastructure.deps.json
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\bin\Debug\net8.0\TeamStride.Infrastructure.dll
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\bin\Debug\net8.0\TeamStride.Infrastructure.pdb
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\bin\Debug\net8.0\TeamStride.Domain.dll
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\bin\Debug\net8.0\TeamStride.Domain.pdb
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\obj\Debug\net8.0\TeamStride.Infrastructure.csproj.AssemblyReference.cache
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\obj\Debug\net8.0\TeamStride.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\obj\Debug\net8.0\TeamStride.Infrastructure.AssemblyInfoInputs.cache
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\obj\Debug\net8.0\TeamStride.Infrastructure.AssemblyInfo.cs
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\obj\Debug\net8.0\TeamStride.Infrastructure.csproj.CoreCompileInputs.cache
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\obj\Debug\net8.0\TeamStri.373D9BB1.Up2Date
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\obj\Debug\net8.0\TeamStride.Infrastructure.dll
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\obj\Debug\net8.0\refint\TeamStride.Infrastructure.dll
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\obj\Debug\net8.0\TeamStride.Infrastructure.pdb
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\obj\Debug\net8.0\ref\TeamStride.Infrastructure.dll
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\bin\Debug\net8.0\TeamStride.Infrastructure.runtimeconfig.json
+C:\AppDev\Scott\team-running\src\TeamStride.Infrastructure\obj\Debug\net8.0\TeamStride.Infrastructure.genruntimeconfig.cache

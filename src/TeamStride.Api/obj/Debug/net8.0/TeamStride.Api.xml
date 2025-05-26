@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>TeamStride.Api</name>
+    </assembly>
+    <members>
+        <member name="M:TeamStride.Api.Controllers.HealthController.Get">
+            <summary>
+            Gets the health status of the API
+            </summary>
+            <returns>Health status and timestamp</returns>
+            <response code="200">API is healthy</response>
+        </member>
+    </members>
+</doc>

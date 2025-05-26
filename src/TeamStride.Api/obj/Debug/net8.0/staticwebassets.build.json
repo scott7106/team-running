@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "dYJQxXNx3MgPQGjUSAKpEwfU+BBiiXo06ceQcb6WCXo=",
+  "Source": "TeamStride.Api",
+  "BasePath": "_content/TeamStride.Api",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}
