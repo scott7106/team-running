@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TeamStride.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using TeamStride.Infrastructure.Data;
 namespace TeamStride.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250526200451_AddRefreshTokenGlobalQueryFilter")]
+    partial class AddRefreshTokenGlobalQueryFilter
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -186,7 +189,7 @@ namespace TeamStride.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Athletes", (string)null);
+                    b.ToTable("Athletes");
                 });
 
             modelBuilder.Entity("TeamStride.Domain.Entities.AthleteProfile", b =>
@@ -251,7 +254,7 @@ namespace TeamStride.Infrastructure.Migrations
                     b.HasIndex("AthleteId")
                         .IsUnique();
 
-                    b.ToTable("AthleteProfiles", (string)null);
+                    b.ToTable("AthleteProfiles");
                 });
 
             modelBuilder.Entity("TeamStride.Domain.Entities.Tenant", b =>
@@ -311,7 +314,7 @@ namespace TeamStride.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Tenants", (string)null);
+                    b.ToTable("Tenants");
                 });
 
             modelBuilder.Entity("TeamStride.Domain.Entities.UserTenant", b =>
@@ -365,7 +368,7 @@ namespace TeamStride.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("UserTenants", (string)null);
+                    b.ToTable("UserTenants");
                 });
 
             modelBuilder.Entity("TeamStride.Domain.Identity.ApplicationRole", b =>
@@ -548,7 +551,7 @@ namespace TeamStride.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens", (string)null);
+                    b.ToTable("RefreshTokens");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>

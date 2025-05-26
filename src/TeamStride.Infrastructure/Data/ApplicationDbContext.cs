@@ -6,6 +6,7 @@ using TeamStride.Domain.Entities;
 using TeamStride.Domain.Identity;
 using TeamStride.Domain.Interfaces;
 using TeamStride.Infrastructure.Data.Extensions;
+using Microsoft.AspNetCore.Identity;
 
 namespace TeamStride.Infrastructure.Data;
 
@@ -36,6 +37,15 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     {
         base.OnModelCreating(builder);
 
+        // Remove AspNet prefix from Identity tables
+        builder.Entity<ApplicationUser>().ToTable("Users");
+        builder.Entity<ApplicationRole>().ToTable("Roles");
+        builder.Entity<IdentityUserClaim<Guid>>().ToTable("UserClaims");
+        builder.Entity<IdentityRoleClaim<Guid>>().ToTable("RoleClaims");
+        builder.Entity<IdentityUserLogin<Guid>>().ToTable("UserLogins");
+        builder.Entity<IdentityUserRole<Guid>>().ToTable("UserRoles");
+        builder.Entity<IdentityUserToken<Guid>>().ToTable("UserTokens");
+
         // Configure global query filters for soft deletes and multi-tenancy
         ConfigureGlobalQueryFilters(builder);
     }
@@ -56,6 +66,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         builder.Entity<Tenant>().HasQueryFilter(e => !e.IsDeleted);
         
         builder.Entity<ApplicationUser>().HasQueryFilter(e => !e.IsDeleted);
+        
+        // Configure RefreshToken to filter out tokens for soft-deleted users
+        builder.Entity<RefreshToken>().HasQueryFilter(rt => 
+            rt.User != null && !rt.User.IsDeleted);
     }
 
     public override int SaveChanges()
