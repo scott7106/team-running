@@ -164,4 +164,50 @@ coverage/
 TestResults/
 
 # Cursor-specific files
-.cursor/ 
+.cursor/
+
+# Next.js specific
+web/.next/
+web/out/
+web/build/
+web/.vercel/
+web/.env*.local
+web/.env.development
+web/.env.test
+web/.env.production
+web/coverage/
+web/.nyc_output/
+web/.DS_Store
+web/*.pem
+web/npm-debug.log*
+web/yarn-debug.log*
+web/yarn-error.log*
+web/.pnpm-debug.log*
+
+# Next.js PWA files
+web/public/sw.js
+web/public/workbox-*.js
+web/public/worker-*.js
+web/public/sw.js.map
+web/public/workbox-*.js.map
+web/public/worker-*.js.map
+
+# Typescript
+web/*.tsbuildinfo
+web/next-env.d.ts
+
+# Storybook
+web/storybook-static/
+
+# Testing
+web/coverage/
+web/.nyc_output/
+
+# Turbo
+web/.turbo
+
+# Debug
+web/npm-debug.log*
+web/yarn-debug.log*
+web/yarn-error.log*
+web/.pnpm-debug.log* 
