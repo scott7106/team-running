@@ -12,6 +12,9 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using TeamStride.Infrastructure.Email;
 using TeamStride.Infrastructure.Identity;
+using Microsoft.AspNetCore.Routing;
+using TeamStride.Api.Infrastructure;
+using Microsoft.AspNetCore.Mvc.ApplicationModels;
 
 namespace TeamStride.Api;
 
@@ -30,7 +33,12 @@ public class Program
         builder.Host.UseSerilog();
 
         // Add services to the container
-        builder.Services.AddControllers();
+        builder.Services.AddControllers(options =>
+        {
+            // Add kebab-case route convention
+            options.Conventions.Add(new RouteTokenTransformerConvention(
+                new SlugifyParameterTransformer()));
+        });
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen(c =>
         {
