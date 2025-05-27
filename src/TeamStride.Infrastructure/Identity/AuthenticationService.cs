@@ -354,7 +354,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             {
                 UserId = user.Id,
                 TeamId = request.TeamId,
-                Role = TeamRole.Athlete, // Default role for external users
+                Role = TeamRole.TeamMember, // Default role for external users
                 IsActive = true
             };
             _context.UserTeams.Add(newUserTeam);

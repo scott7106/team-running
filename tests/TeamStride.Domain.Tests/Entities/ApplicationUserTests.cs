@@ -18,57 +18,5 @@ public class ApplicationUserTests
         };
     }
 
-    [Fact]
-    public void SetGlobalAdmin_WhenNotGlobalAdmin_SetsIsGlobalAdminToTrue()
-    {
-        // Arrange
-        var user = CreateUser();
-        var beforeModifiedOn = user.ModifiedOn;
-
-        // Act
-        user.SetGlobalAdmin(true);
-
-        // Assert
-        user.IsGlobalAdmin.ShouldBeTrue();
-        user.ModifiedOn.ShouldNotBe(beforeModifiedOn);
-    }
-
-    [Fact]
-    public void SetGlobalAdmin_WhenAlreadyGlobalAdmin_ThrowsInvalidOperationException()
-    {
-        // Arrange
-        var user = CreateUser();
-        user.SetGlobalAdmin(true);
-
-        // Act & Assert
-        Should.Throw<InvalidOperationException>(() => user.SetGlobalAdmin(true))
-            .Message.ShouldBe("User is already a global admin.");
-    }
-
-    [Fact]
-    public void RevokeGlobalAdmin_WhenGlobalAdmin_SetsIsGlobalAdminToFalse()
-    {
-        // Arrange
-        var user = CreateUser();
-        user.SetGlobalAdmin(true);
-        var beforeModifiedOn = user.ModifiedOn;
-
-        // Act
-        user.SetGlobalAdmin(false);
-
-        // Assert
-        user.IsGlobalAdmin.ShouldBeFalse();
-        user.ModifiedOn.ShouldNotBe(beforeModifiedOn);
-    }
-
-    [Fact]
-    public void RevokeGlobalAdmin_WhenNotGlobalAdmin_ThrowsInvalidOperationException()
-    {
-        // Arrange
-        var user = CreateUser();
-
-        // Act & Assert
-        Should.Throw<InvalidOperationException>(() => user.SetGlobalAdmin(false))
-            .Message.ShouldBe("User is not a global admin.");
-    }
+    // TODO: Add tests for other ApplicationUser functionality as needed
 } 

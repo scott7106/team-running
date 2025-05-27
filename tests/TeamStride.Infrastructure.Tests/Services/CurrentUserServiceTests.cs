@@ -356,96 +356,7 @@ public class CurrentUserServiceTests
 
     #endregion
 
-    #region IsGlobalAdmin Tests
 
-    [Fact]
-    public void IsGlobalAdmin_WhenHttpContextIsNull_ReturnsFalse()
-    {
-        // Arrange
-        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns((HttpContext?)null);
-
-        // Act
-        var result = _currentUserService.IsGlobalAdmin;
-
-        // Assert
-        result.ShouldBeFalse();
-    }
-
-    [Fact]
-    public void IsGlobalAdmin_WhenUserIsNull_ReturnsFalse()
-    {
-        // Arrange
-        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
-        _mockHttpContext.Setup(x => x.User).Returns((ClaimsPrincipal?)null!);
-
-        // Act
-        var result = _currentUserService.IsGlobalAdmin;
-
-        // Assert
-        result.ShouldBeFalse();
-    }
-
-    [Fact]
-    public void IsGlobalAdmin_WhenClaimIsFalse_ReturnsFalse()
-    {
-        // Arrange
-        var claims = new List<Claim>
-        {
-            new("IsGlobalAdmin", "false")
-        };
-        var identity = new ClaimsIdentity(claims);
-        var user = new ClaimsPrincipal(identity);
-
-        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
-        _mockHttpContext.Setup(x => x.User).Returns(user);
-
-        // Act
-        var result = _currentUserService.IsGlobalAdmin;
-
-        // Assert
-        result.ShouldBeFalse();
-    }
-
-    [Fact]
-    public void IsGlobalAdmin_WhenClaimIsTrue_ReturnsTrue()
-    {
-        // Arrange
-        var claims = new List<Claim>
-        {
-            new("IsGlobalAdmin", "true")
-        };
-        var identity = new ClaimsIdentity(claims);
-        var user = new ClaimsPrincipal(identity);
-
-        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
-        _mockHttpContext.Setup(x => x.User).Returns(user);
-
-        // Act
-        var result = _currentUserService.IsGlobalAdmin;
-
-        // Assert
-        result.ShouldBeTrue();
-    }
-
-    [Fact]
-    public void IsGlobalAdmin_WhenClaimDoesNotExist_ReturnsFalse()
-    {
-        // Arrange
-        var claims = new List<Claim>();
-        var identity = new ClaimsIdentity(claims);
-        var user = new ClaimsPrincipal(identity);
-
-        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
-        _mockHttpContext.Setup(x => x.User).Returns(user);
-
-        // Act
-        var result = _currentUserService.IsGlobalAdmin;
-
-        // Assert
-        result.ShouldBeFalse();
-    }
-
-    #endregion
 
     #region Integration Tests
 
@@ -458,8 +369,7 @@ public class CurrentUserServiceTests
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, userId.ToString()),
-            new(ClaimTypes.Email, email),
-            new("IsGlobalAdmin", "true")
+            new(ClaimTypes.Email, email)
         };
         var identity = new ClaimsIdentity(claims, "TestAuthType");
         var user = new ClaimsPrincipal(identity);
@@ -471,13 +381,12 @@ public class CurrentUserServiceTests
         _currentUserService.UserId.ShouldBe(userId);
         _currentUserService.UserEmail.ShouldBe(email);
         _currentUserService.IsAuthenticated.ShouldBeTrue();
-        _currentUserService.IsGlobalAdmin.ShouldBeTrue();
     }
 
     [Fact]
     public void CurrentUserService_WithPartialUserClaims_ReturnsCorrectValues()
     {
-        // Arrange - Only NameIdentifier claim, no email or IsGlobalAdmin
+        // Arrange - Only NameIdentifier claim, no email
         var userId = Guid.NewGuid();
         var claims = new List<Claim>
         {
@@ -493,7 +402,6 @@ public class CurrentUserServiceTests
         _currentUserService.UserId.ShouldBe(userId);
         _currentUserService.UserEmail.ShouldBeNull();
         _currentUserService.IsAuthenticated.ShouldBeTrue();
-        _currentUserService.IsGlobalAdmin.ShouldBeFalse();
     }
 
     [Fact]
@@ -510,7 +418,6 @@ public class CurrentUserServiceTests
         _currentUserService.UserId.ShouldBeNull();
         _currentUserService.UserEmail.ShouldBeNull();
         _currentUserService.IsAuthenticated.ShouldBeFalse();
-        _currentUserService.IsGlobalAdmin.ShouldBeFalse();
     }
 
     [Fact]
@@ -522,8 +429,7 @@ public class CurrentUserServiceTests
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, userId.ToString()),
-            new(ClaimTypes.Email, email),
-            new("IsGlobalAdmin", "true")
+            new(ClaimTypes.Email, email)
         };
         var identity = new ClaimsIdentity(claims, "TestAuthType");
         var user = new ClaimsPrincipal(identity);
@@ -538,19 +444,15 @@ public class CurrentUserServiceTests
         var email2 = _currentUserService.UserEmail;
         var auth1 = _currentUserService.IsAuthenticated;
         var auth2 = _currentUserService.IsAuthenticated;
-        var admin1 = _currentUserService.IsGlobalAdmin;
-        var admin2 = _currentUserService.IsGlobalAdmin;
 
         // Assert - All calls should return the same values
         userId1.ShouldBe(userId2);
         email1.ShouldBe(email2);
         auth1.ShouldBe(auth2);
-        admin1.ShouldBe(admin2);
         
         userId1.ShouldBe(userId);
         email1.ShouldBe(email);
         auth1.ShouldBeTrue();
-        admin1.ShouldBeTrue();
     }
 
     #endregion

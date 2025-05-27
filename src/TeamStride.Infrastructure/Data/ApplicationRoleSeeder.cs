@@ -14,10 +14,8 @@ public class ApplicationRoleSeeder
 
     private static readonly Dictionary<string, string> ApplicationRoles = new()
     {
-        { "Admin", "Full administrative access to manage teams, users, and system settings" },
-        { "Coach", "Access to manage team activities, athletes, and training plans" },
-        { "Parent", "Access to view and manage their children's activities and profiles" },
-        { "Athlete", "Access to view their training plans, events, and personal profile" }
+        { "GlobalAdmin", "Platform administrator with full platform-wide access and team management" },
+        { "StandardUser", "Access limited to teams where they have team-level roles assigned" }
     };
 
     public ApplicationRoleSeeder(

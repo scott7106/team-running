@@ -245,7 +245,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
             FirstName = "Test", 
             LastName = "User",
             TeamId = nonExistentTeamId,
-            Role = TeamRole.Athlete
+            Role = TeamRole.TeamMember
         };
 
         // Act & Assert
@@ -268,7 +268,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
             FirstName = "Test", 
             LastName = "User",
             TeamId = team.Id,
-            Role = TeamRole.Athlete
+            Role = TeamRole.TeamMember
         };
 
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(existingUser);
@@ -292,7 +292,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
             FirstName = "Test", 
             LastName = "User",
             TeamId = team.Id,
-            Role = TeamRole.Athlete
+            Role = TeamRole.TeamMember
         };
 
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync((ApplicationUser?)null);
@@ -318,7 +318,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
             FirstName = "New", 
             LastName = "User",
             TeamId = team.Id,
-            Role = TeamRole.Athlete
+            Role = TeamRole.TeamMember
         };
 
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync((ApplicationUser?)null);
@@ -747,12 +747,12 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         result.FirstName.ShouldBe(externalUserInfo.FirstName);
         result.LastName.ShouldBe(externalUserInfo.LastName);
         result.TeamId.ShouldBe(team.Id);
-        result.Role.ShouldBe(TeamRole.Athlete); // Default role for external users
+        result.Role.ShouldBe(TeamRole.TeamMember); // Default role for external users
 
         // Verify UserTeam was created
         var userTeam = DbContext.UserTeams.FirstOrDefault(ut => ut.TeamId == team.Id);
         userTeam.ShouldNotBeNull();
-        userTeam.Role.ShouldBe(TeamRole.Athlete);
+        userTeam.Role.ShouldBe(TeamRole.TeamMember);
     }
 
     [Fact]
@@ -761,7 +761,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         // Arrange
         var team = await CreateTestTeamAsync(); // Ensure team exists
         var existingUser = await CreateTestUserAsync(email: "existing@example.com");
-        var userTeam = await CreateTestUserTeamAsync(existingUser.Id, team.Id, TeamRole.Coach);
+        var userTeam = await CreateTestUserTeamAsync(existingUser.Id, team.Id, TeamRole.TeamMember);
         var request = new ExternalAuthRequestDto { Provider = "Google", AccessToken = "valid-token", TeamId = team.Id };
         var externalUserInfo = new ExternalUserInfo
         {
@@ -784,7 +784,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         result.ShouldNotBeNull();
         result.Email.ShouldBe(existingUser.Email);
         result.TeamId.ShouldBe(team.Id);
-        result.Role.ShouldBe(TeamRole.Coach); // Existing user's role
+        result.Role.ShouldBe(TeamRole.TeamMember); // Existing user's role
     }
 
     #endregion
@@ -836,7 +836,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     private async Task<UserTeam> CreateTestUserTeamAsync(
         Guid userId, 
         Guid teamId, 
-        TeamRole role = TeamRole.Athlete)
+        TeamRole role = TeamRole.TeamMember)
     {
         // Ensure the team exists
         var team = await DbContext.Teams.FindAsync(teamId);

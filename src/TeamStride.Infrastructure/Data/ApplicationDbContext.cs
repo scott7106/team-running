@@ -119,7 +119,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 
         // Configure entities with only soft delete filters
         builder.Entity<Team>().HasQueryFilter(e => 
-            !e.IsDeleted && (e.Users.Any(ut => ut.UserId == _currentUserService.UserId) || _currentUserService.IsGlobalAdmin));
+            !e.IsDeleted && e.Users.Any(ut => ut.UserId == _currentUserService.UserId));
         
         builder.Entity<ApplicationUser>().HasQueryFilter(e => !e.IsDeleted);
         

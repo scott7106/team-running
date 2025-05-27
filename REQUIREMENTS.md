@@ -167,47 +167,77 @@ API references Application
 
   ### **7\. Authorization Model**
 
-  #### **7.1 Simplified Role Structure**
-| Role Level | Description | Permissions |
+  #### **7.1 Application-Level Roles**
+These roles determine platform-wide access and are assigned at the user level across the entire TeamStride application.
+
+| Application Role | Description | Scope | Permissions |
+| ----- | ----- | ----- | ----- |
+| Global Admin | Platform administrator | Entire platform | Full platform-wide access, can manage all teams, transfer team ownership, access all data across teams |
+| Standard User | Regular platform user | Team-specific | Access limited to teams where they have team-level roles assigned |
+
+  #### **7.2 Team-Level Roles**
+These roles determine access within specific teams and are assigned per team. A user can have different team-level roles across different teams.
+
+| Team Role | Description | Scope | Permissions |
+| ----- | ----- | ----- | ----- |
+| Team Owner | Team owner | Single team | Full access to owned team, can designate admins, manage all team features, transfer ownership, manage billing |
+| Team Admin | Team administrator | Single team | Full access to administered team, manage team features except ownership and billing |
+| Team Member | Team participant | Single team | Limited access to assigned team data, permissions further refined by member type |
+
+  #### **7.3 Member Types (Business Logic Enhancement)**
+Member types provide additional business logic permissions within the Team Member role:
+
+| Member Type | Description | Additional Permissions Within Team |
 | ----- | ----- | ----- |
-| Global Admin | Platform administrator | Full platform-wide access, team ownership transfers, all team management |
-| Team Owner | Team owner | Full access to owned teams, can designate admins, manage all team features |
-| Team Admin | Team administrator | Full access to administered teams, manage team features except ownership |
-| Team Member | Team participant | View-only access to assigned team data, limited by member type |
+| Coach | Team coaching staff | Manage rosters, schedules, training plans, results, messaging |
+| Athlete | Team athlete | View training plans, schedules, personal results, limited profile editing |
+| Parent | Guardian of athlete | View rosters, schedules, payment information for their athlete(s) |
 
-  #### **7.2 Member Types (Business Logic)**
-| Member Type | Description | Additional Permissions |
-| ----- | ----- | ----- |
-| Coach | Team coaching staff | Manage rosters, schedules, training plans, results |
-| Athlete | Team athlete | View training plans, schedules, personal results |
-| Parent | Guardian of athlete | View rosters, schedules, payment information |
+  #### **7.4 Role Assignment Rules**
+1. **Application Roles**: Assigned once per user across the entire platform
+2. **Team Roles**: Assigned per team - a user can be a Team Owner of one team, Team Admin of another, and Team Member of a third
+3. **Member Types**: Only apply to users with Team Member role and provide business logic permissions
+4. **Role Hierarchy**: Global Admin > Team Owner > Team Admin > Team Member
+5. **Cross-Team Access**: Only Global Admins can access multiple teams simultaneously; all other users operate within single team context
 
-  #### **7.3 Authorization Patterns**
-* **Global Operations**: Require Global Admin role
-* **Team Operations**: Require Team Owner/Admin role for specific team
-* **Data Access**: All non-global users operate within single team context
-* **Team Switching**: Global Admins can switch between teams or use "HOST" mode for platform-wide access
-* **Simplified Permissions**: Two main authorization checks - RequireGlobalAdmin and RequireTeamAccess
+  #### **7.5 Authorization Patterns**
+* **Global Operations**: Require Global Admin application role
+* **Team Operations**: Require Team Owner or Team Admin role for the specific team
+* **Data Access**: Standard Users operate within single team context based on their team-level role
+* **Team Switching**: 
+  - Global Admins can switch between teams or use "HOST" mode for platform-wide access
+  - Standard Users with multiple team roles can switch between their assigned teams
+* **Authorization Checks**: 
+  - `RequireGlobalAdmin`: Checks for Global Admin application role
+  - `RequireTeamAdmin`: Checks for Team Owner/Admin role on specific team
+  - `RequireTeamMembership`: Checks for any team role (Owner/Admin/Member) on specific team
 
-  #### **7.4 Authorization Scope Rules**
-1. Global Admins: Can access and manage all teams and users across the platform
-2. Team Owners/Admins:
-  * Can only access teams they own or administer
-  * Must select a single "active team" when working (except on team list page)
-  * Cannot see data from other teams
-3. Team Members: Can only access their own team data
+  #### **7.6 Authorization Scope Rules**
+1. **Global Admins**: Can access and manage all teams and users across the platform
+2. **Team Owners**: 
+   - Can access teams they own
+   - Must select a single "active team" when working (except on team list page)
+   - Cannot see data from teams they don't own
+3. **Team Admins**:
+   - Can access teams they administer
+   - Must select a single "active team" when working (except on team list page)
+   - Cannot see data from teams they don't administer
+4. **Team Members**: Can only access their assigned team data, with permissions refined by member type
 
-  #### **7.5 Team Ownership Rules**
-* Each team has exactly one owner
-* Each team can have multiple admins
-* An owner can own multiple teams
-* Owners can promote members to admin or demote admins to members
-* Only owners can transfer ownership or manage billing
+  #### **7.7 Team Ownership Rules**
+* Each team has exactly one Team Owner
+* Each team can have multiple Team Admins
+* A user can be Team Owner of multiple teams
+* Team Owners can promote Team Members to Team Admin or demote Team Admins to Team Members
+* Only Team Owners can transfer ownership or manage billing for their teams
+* Global Admins can transfer team ownership between users as needed
 
-  #### **7.6 Access Control Implementation**
+  #### **7.8 Access Control Implementation**
 * Global query filters automatically restrict data by team (disabled for Global Admins)
-* Team context enforced at API level
-* Team switching available to anyone with access to multiple teams
+* Team context enforced at API level based on user's team-level roles
+* Team switching available to:
+  - Global Admins (all teams + HOST mode)
+  - Standard Users with multiple team roles (their assigned teams only)
 * Single team view enforced for all team-level operations
 
   ---
@@ -216,7 +246,7 @@ API references Application
 * Mobile-first responsive layout
 * Team branding (colors, logo) per subdomain
 * Reusable components via Tailwind
-* Team context UI for non-global users (no team switcher)
+* Team context UI for Standard Users (team switcher only if user has multiple team roles)
 * Global Admin team switcher with "HOST" mode option
 * List and calendar views for schedule data
 * OAuth2 login buttons for delegated authentication

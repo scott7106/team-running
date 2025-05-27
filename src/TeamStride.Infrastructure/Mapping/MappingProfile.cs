@@ -33,7 +33,7 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.FirstName, opt => opt.MapFrom(src => src.User.FirstName))
             .ForMember(dest => dest.LastName, opt => opt.MapFrom(src => src.User.LastName))
             .ForMember(dest => dest.DisplayName, opt => opt.MapFrom(src => $"{src.User.LastName}, {src.User.FirstName}"))
-            .ForMember(dest => dest.IsOwner, opt => opt.MapFrom(src => src.Role == TeamRole.Host));
+            .ForMember(dest => dest.IsOwner, opt => opt.MapFrom(src => src.Role == TeamRole.TeamOwner));
 
         CreateMap<OwnershipTransfer, OwnershipTransferDto>()
             .ForMember(dest => dest.TeamName, opt => opt.MapFrom(src => src.Team.Name))

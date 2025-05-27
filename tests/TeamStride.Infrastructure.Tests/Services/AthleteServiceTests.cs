@@ -756,7 +756,7 @@ public class AthleteServiceTests : BaseIntegrationTest
             Id = Guid.NewGuid(),
             UserId = athlete.UserId,
             TeamId = athlete.TeamId,
-            Role = TeamRole.Athlete,
+            Role = TeamRole.TeamMember,
             IsDefault = false, // Set to false to avoid conflicts with existing default
             IsActive = true,
             JoinedOn = DateTime.UtcNow,

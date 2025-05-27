@@ -37,32 +37,6 @@ public class UserManagementController : ControllerBase
     }
 
     /// <summary>
-    /// Sets a user's global admin status
-    /// </summary>
-    /// <param name="userId">The user's ID</param>
-    /// <param name="isGlobalAdmin">Whether the user should be a global admin</param>
-    [HttpPut("{userId:guid}/global-admin")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> SetGlobalAdminStatus(Guid userId, [FromBody] bool isGlobalAdmin)
-    {
-        try
-        {
-            await _userManagementService.SetGlobalAdminStatusAsync(userId, isGlobalAdmin);
-            return Ok();
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound($"User with ID {userId} not found.");
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ex.Message);
-        }
-    }
-
-    /// <summary>
     /// Removes the lockout from a user account
     /// </summary>
     /// <param name="userId">The user's ID</param>

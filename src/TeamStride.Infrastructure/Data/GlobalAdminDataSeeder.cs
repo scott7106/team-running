@@ -70,10 +70,6 @@ public class GlobalAdminDataSeeder
                 throw new Exception($"Failed to create global admin user: {errors}");
             }
 
-            // Set global admin status using the new method
-            globalAdmin.SetGlobalAdmin(true);
-            await userManager.UpdateAsync(globalAdmin);
-
             // Create global admin role
             var globalAdminRole = new ApplicationRole
             {

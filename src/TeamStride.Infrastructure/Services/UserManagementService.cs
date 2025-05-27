@@ -27,22 +27,10 @@ public class UserManagementService : IUserManagementService
                 DisplayName = $"{u.LastName}, {u.FirstName}",
                 LockoutEnd = u.LockoutEnd.HasValue ? u.LockoutEnd.Value.DateTime : null,
                 IsActive = u.IsActive,
-                IsGlobalAdmin = u.IsGlobalAdmin,
                 IsDeleted = u.IsDeleted
             });
 
         return await PaginatedList<UserManagementDto>.CreateAsync(query, pageNumber, pageSize);
-    }
-
-    public async Task SetGlobalAdminStatusAsync(Guid userId, bool isGlobalAdmin)
-    {
-        var user = await GetUserByIdAsync(userId);
-        if (user.IsDeleted)
-        {
-            throw new InvalidOperationException("User is deleted and cannot be updated.");
-        }
-        user.SetGlobalAdmin(isGlobalAdmin);
-        await _userManager.UpdateAsync(user);
     }
 
     public async Task RemoveLockoutAsync(Guid userId)

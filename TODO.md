@@ -16,17 +16,20 @@
 #### **1.1 Update Role Enum and Domain Model**
 - **Task**: Simplify TeamRole enum to 3-tier system and add MemberType enum
 - **Files**: `src/TeamStride.Domain/Entities/UserTeam.cs`
-- **Suggested Prompt**: "Update the TeamRole enum in UserTeam.cs to implement the simplified 3-tier authorization model (GlobalAdmin, TeamOwner, TeamAdmin, TeamMember) and add a separate MemberType enum (Coach, Athlete, Parent) for business logic. Update the UserTeam entity to include both Role and MemberType properties."
+- **Suggested Prompt**: "Update the TeamRole enum in UserTeam.cs to implement the simplified 3-tier authorization model (GlobalAdmin, TeamOwner, TeamAdmin, TeamMember) and add a separate MemberType enum (Coach, Athlete, Parent) for business logic. Update the UserTeam entity to include both Role and MemberType properties." 
+--done
 
 #### **1.2 Create Database Migration for Role Changes**
 - **Task**: Generate migration to update existing role data and add MemberType column
 - **Files**: New migration file
 - **Suggested Prompt**: "Create a database migration to update the existing TeamRole values to the new simplified 3-tier system, add a MemberType column to UserTeam table, and migrate existing role data to appropriate MemberType values (Coach->Coach, Athlete->Athlete, Parent->Parent, Admin->Coach, Host->Coach)."
+-- skipped
 
 #### **1.3 Update ApplicationUser Global Admin Logic**
 - **Task**: Ensure IsGlobalAdmin property works with simplified roles
 - **Files**: `src/TeamStride.Domain/Identity/ApplicationUser.cs`
 - **Suggested Prompt**: "Review and update the ApplicationUser.IsGlobalAdmin property and SetGlobalAdmin method to work correctly with the simplified authorization model. Ensure global admins are properly identified and can bypass team-level restrictions."
+-- removed
 
 ### **Phase 2: Authorization Attributes and Middleware**
 

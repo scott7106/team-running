@@ -72,10 +72,6 @@ public class UserManagementServiceTests : BaseIntegrationTest
         await _userManager.CreateAsync(user2);
         await _userManager.CreateAsync(user3);
 
-        // Set global admin status for user2 after it's been created
-        user2.SetGlobalAdmin(true);
-        await _userManager.UpdateAsync(user2);
-
         return new List<ApplicationUser> { user1, user2, user3 };
     }
 
@@ -140,56 +136,7 @@ public class UserManagementServiceTests : BaseIntegrationTest
 
     #endregion
 
-    #region SetGlobalAdminStatusAsync Tests
 
-    [Fact]
-    public async Task SetGlobalAdminStatusAsync_WithValidUser_SetsGlobalAdminStatus()
-    {
-        // Arrange
-        var user = _testUsers.First(u => !u.IsDeleted && !u.IsGlobalAdmin);
-        var userId = user.Id;
-        var isGlobalAdmin = true;
-
-        // Act
-        await _userManagementService.SetGlobalAdminStatusAsync(userId, isGlobalAdmin);
-
-        // Assert
-        var updatedUser = await DbContext.Users.FindAsync(userId);
-        updatedUser.ShouldNotBeNull();
-        updatedUser.IsGlobalAdmin.ShouldBe(isGlobalAdmin);
-        updatedUser.ModifiedOn.ShouldNotBeNull();
-    }
-
-    [Fact]
-    public async Task SetGlobalAdminStatusAsync_WithDeletedUser_ThrowsInvalidOperationException()
-    {
-        // Arrange
-        var deletedUser = _testUsers.First(u => u.IsDeleted);
-        var userId = deletedUser.Id;
-        var isGlobalAdmin = true;
-
-        // Act & Assert
-        var exception = await Should.ThrowAsync<InvalidOperationException>(
-            () => _userManagementService.SetGlobalAdminStatusAsync(userId, isGlobalAdmin));
-        
-        exception.Message.ShouldBe("User is deleted and cannot be updated.");
-    }
-
-    [Fact]
-    public async Task SetGlobalAdminStatusAsync_WithNonExistentUser_ThrowsKeyNotFoundException()
-    {
-        // Arrange
-        var nonExistentUserId = Guid.NewGuid();
-        var isGlobalAdmin = true;
-
-        // Act & Assert
-        var exception = await Should.ThrowAsync<KeyNotFoundException>(
-            () => _userManagementService.SetGlobalAdminStatusAsync(nonExistentUserId, isGlobalAdmin));
-        
-        exception.Message.ShouldBe($"User with ID {nonExistentUserId} not found.");
-    }
-
-    #endregion
 
     #region RemoveLockoutAsync Tests
 
@@ -377,32 +324,27 @@ public class UserManagementServiceTests : BaseIntegrationTest
     public async Task UserManagementService_WithCompleteWorkflow_WorksCorrectly()
     {
         // Arrange
-        var user = _testUsers.First(u => !u.IsDeleted && !u.IsGlobalAdmin);
+        var user = _testUsers.First(u => !u.IsDeleted);
         var userId = user.Id;
 
         // Act & Assert - Complete workflow
-        // 1. Set as global admin
-        await _userManagementService.SetGlobalAdminStatusAsync(userId, true);
-        var updatedUser = await DbContext.Users.FindAsync(userId);
-        updatedUser!.IsGlobalAdmin.ShouldBeTrue();
-
-        // 2. Remove lockout (set a lockout first)
-        await _userManager.SetLockoutEndDateAsync(updatedUser, DateTime.UtcNow.AddDays(1));
+        // 1. Remove lockout (set a lockout first)
+        await _userManager.SetLockoutEndDateAsync(user, DateTime.UtcNow.AddDays(1));
         await _userManagementService.RemoveLockoutAsync(userId);
-        updatedUser = await DbContext.Users.FindAsync(userId);
+        var updatedUser = await DbContext.Users.FindAsync(userId);
         updatedUser!.LockoutEnd.ShouldBeNull();
 
-        // 3. Set inactive
+        // 2. Set inactive
         await _userManagementService.SetUserActiveStatusAsync(userId, false);
         updatedUser = await DbContext.Users.FindAsync(userId);
         updatedUser!.IsActive.ShouldBeFalse();
 
-        // 4. Delete user
+        // 3. Delete user
         await _userManagementService.DeleteUserAsync(userId);
         updatedUser = await DbContext.Users.IgnoreQueryFilters().FirstAsync(u => u.Id == userId);
         updatedUser.IsDeleted.ShouldBeTrue();
 
-        // 5. Restore user
+        // 4. Restore user
         await _userManagementService.RestoreUserAsync(userId);
         updatedUser = await DbContext.Users.FindAsync(userId);
         updatedUser.ShouldNotBeNull();
@@ -411,29 +353,5 @@ public class UserManagementServiceTests : BaseIntegrationTest
 
     #endregion
 
-    #region CurrentUser.IsGlobalAdmin Mock Tests
 
-    [Fact]
-    public async Task UserManagementService_RequiresGlobalAdminAccess_MockedAsTrue()
-    {
-        // Arrange - Mock CurrentUser.IsGlobalAdmin as True (as requested)
-        MockCurrentUserService.Setup(x => x.IsGlobalAdmin).Returns(true);
-        
-        var user = _testUsers.First(u => !u.IsDeleted);
-        var userId = user.Id;
-
-        // Act - All operations should work since CurrentUser.IsGlobalAdmin is mocked as true
-        await _userManagementService.SetGlobalAdminStatusAsync(userId, true);
-        await _userManagementService.SetUserActiveStatusAsync(userId, false);
-        await _userManagementService.DeleteUserAsync(userId);
-        await _userManagementService.RestoreUserAsync(userId);
-
-        // Assert - Operations completed successfully
-        var finalUser = await DbContext.Users.FindAsync(userId);
-        finalUser.ShouldNotBeNull();
-        finalUser.IsGlobalAdmin.ShouldBeTrue();
-        finalUser.IsDeleted.ShouldBeFalse(); // Restored
-    }
-
-    #endregion
 } 

@@ -45,5 +45,4 @@ internal class MockCurrentUserService : ICurrentUserService
     public string Email => "design.time@example.com";
     public string UserEmail => "design.time@example.com";
     public bool IsAuthenticated => true;
-    public bool IsGlobalAdmin => false;
 } 

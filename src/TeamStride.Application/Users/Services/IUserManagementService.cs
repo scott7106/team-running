@@ -12,11 +12,6 @@ public interface IUserManagementService
     Task<PaginatedList<UserManagementDto>> GetUsersAsync(int pageNumber, int pageSize);
 
     /// <summary>
-    /// Sets the global admin status for a user
-    /// </summary>
-    Task SetGlobalAdminStatusAsync(Guid userId, bool isGlobalAdmin);
-
-    /// <summary>
     /// Removes the lockout from a user account
     /// </summary>
     Task RemoveLockoutAsync(Guid userId);
@@ -44,6 +39,5 @@ public class UserManagementDto
     public string DisplayName { get; set; } = null!;  // Formatted as "LastName, FirstName"
     public DateTime? LockoutEnd { get; set; }
     public bool IsActive { get; set; }
-    public bool IsGlobalAdmin { get; set; }
     public bool IsDeleted { get; set; }
 } 

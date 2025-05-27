@@ -44,7 +44,6 @@ public class TeamRepositoryTests : BaseIntegrationTest
         // Arrange
         var userId = Guid.NewGuid();
         MockCurrentUserService.Setup(x => x.UserId).Returns(userId);
-        MockCurrentUserService.Setup(x => x.IsGlobalAdmin).Returns(true);
 
         var team = new Team
         {
@@ -110,35 +109,7 @@ public class TeamRepositoryTests : BaseIntegrationTest
         updatedTeam.ModifiedOn.ShouldNotBeNull();
     }
 
-    [Fact]
-    public async Task GetTeamBySubdomain_WhenUserIsGlobalAdmin_ShouldReturnTeam()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        MockCurrentUserService.Setup(x => x.UserId).Returns(userId);
-        MockCurrentUserService.Setup(x => x.IsGlobalAdmin).Returns(true);
 
-        var team = new Team
-        {
-            Name = "Test Team",
-            Subdomain = "testteam",
-            Status = TeamStatus.Active,
-            Tier = TeamTier.Free,
-            CreatedOn = DateTime.UtcNow
-        };
-        DbContext.Teams.Add(team);
-        await DbContext.SaveChangesAsync();
-
-        // Act
-        var foundTeam = DbContext.Teams
-            .Include(t => t.Users)
-            .FirstOrDefault(t => t.Subdomain == "testteam");
-
-        // Assert
-        foundTeam.ShouldNotBeNull();
-        foundTeam.Id.ShouldBe(team.Id);
-        foundTeam.Name.ShouldBe("Test Team");
-    }
 
     [Fact]
     public async Task GetTeamBySubdomain_WhenUserIsTeamMember_ShouldReturnTeam()
@@ -146,7 +117,6 @@ public class TeamRepositoryTests : BaseIntegrationTest
         // Arrange
         var userId = Guid.NewGuid();
         MockCurrentUserService.Setup(x => x.UserId).Returns(userId);
-        MockCurrentUserService.Setup(x => x.IsGlobalAdmin).Returns(false);
 
         // Create the user first
         var user = new ApplicationUser
@@ -175,7 +145,7 @@ public class TeamRepositoryTests : BaseIntegrationTest
         {
             UserId = userId,
             User = user,
-            Role = TeamRole.Coach,
+            Role = TeamRole.TeamMember,
             IsActive = true,
             JoinedOn = DateTime.UtcNow
         };
