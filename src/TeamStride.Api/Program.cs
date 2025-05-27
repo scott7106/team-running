@@ -15,6 +15,7 @@ using TeamStride.Infrastructure.Identity;
 using Microsoft.AspNetCore.Routing;
 using TeamStride.Api.Infrastructure;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
+using TeamStride.Domain.Identity;
 
 namespace TeamStride.Api;
 

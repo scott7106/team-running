@@ -81,7 +81,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         await _userManager.UpdateAsync(user);
 
         // Generate tokens
-        var jwtToken = _jwtTokenService.GenerateJwtToken(user, userTeam.TeamId, userTeam.Role);
+        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, userTeam.TeamId, userTeam.Role);
         var refreshToken = await CreateRefreshTokenAsync(user, userTeam.TeamId ?? Guid.Empty);
 
         return new AuthResponseDto
@@ -151,7 +151,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         await _emailService.SendEmailConfirmationAsync(user.Email!, confirmationLink);
 
         // Generate tokens
-        var jwtToken = _jwtTokenService.GenerateJwtToken(user, request.TeamId, request.Role);
+        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, request.TeamId, request.Role);
         var refreshToken = await CreateRefreshTokenAsync(user, request.TeamId);
 
         return new AuthResponseDto
@@ -186,7 +186,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             throw new AuthenticationException("Invalid team access", AuthenticationException.ErrorCodes.TenantNotFound);
 
         // Generate new tokens
-        var jwtToken = _jwtTokenService.GenerateJwtToken(token.User!, token.TeamId, userTeam.Role);
+        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(token.User!, token.TeamId, userTeam.Role);
         var newRefreshToken = await CreateRefreshTokenAsync(token.User!, token.TeamId);
 
         // Revoke old refresh token
@@ -372,7 +372,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         await _userManager.UpdateAsync(user);
 
         // Generate tokens
-        var jwtToken = _jwtTokenService.GenerateJwtToken(user, teamId, userTeam.Role);
+        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teamId, userTeam.Role);
         var refreshToken = await CreateRefreshTokenAsync(user, teamId);
 
         return new AuthResponseDto

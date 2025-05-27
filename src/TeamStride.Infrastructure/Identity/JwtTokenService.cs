@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
@@ -5,6 +6,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 using TeamStride.Application.Authentication.Services;
 using TeamStride.Domain.Identity;
 using TeamStride.Domain.Entities;
@@ -13,7 +15,7 @@ namespace TeamStride.Infrastructure.Identity;
 
 public interface IJwtTokenService
 {
-    string GenerateJwtToken(ApplicationUser user, Guid? teamId, TeamRole role);
+    Task<string> GenerateJwtTokenAsync(ApplicationUser user, Guid? teamId, TeamRole role);
     string GenerateRefreshToken();
     ClaimsPrincipal? GetPrincipalFromToken(string token);
 }
@@ -21,13 +23,15 @@ public interface IJwtTokenService
 public class JwtTokenService : IJwtTokenService
 {
     private readonly AuthenticationConfiguration _config;
+    private readonly UserManager<ApplicationUser> _userManager;
 
-    public JwtTokenService(AuthenticationConfiguration config)
+    public JwtTokenService(AuthenticationConfiguration config, UserManager<ApplicationUser> userManager)
     {
         _config = config;
+        _userManager = userManager;
     }
 
-    public string GenerateJwtToken(ApplicationUser user, Guid? teamId, TeamRole role)
+    public async Task<string> GenerateJwtTokenAsync(ApplicationUser user, Guid? teamId, TeamRole role)
     {
         ArgumentNullException.ThrowIfNull(user);
         ArgumentNullException.ThrowIfNull(role);
@@ -36,15 +40,19 @@ public class JwtTokenService : IJwtTokenService
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email ?? throw new InvalidOperationException("User email is null")),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new(ClaimTypes.Role, role.ToString())
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
-        // Only add team_id claim if it's not null (for non-global admins)
+        // Only add team_id claim if it's not null (for standard users)
         if (teamId.HasValue)
         {
             claims.Add(new Claim("team_id", teamId.Value.ToString()));
         }
+
+        // Check if user has GlobalAdmin application role
+        var userRoles = await _userManager.GetRolesAsync(user);
+        var isGlobalAdmin = userRoles.Contains("GlobalAdmin");
+        claims.Add(new Claim("is_global_admin", isGlobalAdmin.ToString().ToLowerInvariant()));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config.JwtSecret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
