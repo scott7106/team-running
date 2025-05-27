@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
+using TeamStride.Domain.Identity;
 using TeamStride.Domain.Interfaces;
 using TeamStride.Infrastructure.Data;
 using Xunit;
@@ -35,9 +37,26 @@ public abstract class BaseIntegrationTest : IDisposable
         services.AddSingleton(MockTeamService.Object);
         services.AddSingleton(MockCurrentUserService.Object);
         
+        // Add logging services
+        services.AddLogging();
+        
         // Configure SQLite in-memory database
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlite("DataSource=:memory:"));
+
+        // Add Identity services
+        services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
+        {
+            // Configure identity options for testing
+            options.Password.RequireDigit = false;
+            options.Password.RequiredLength = 1;
+            options.Password.RequireNonAlphanumeric = false;
+            options.Password.RequireUppercase = false;
+            options.Password.RequireLowercase = false;
+            options.User.RequireUniqueEmail = true;
+        })
+        .AddEntityFrameworkStores<ApplicationDbContext>()
+        .AddDefaultTokenProviders();
 
         ServiceProvider = services.BuildServiceProvider();
         DbContext = ServiceProvider.GetRequiredService<ApplicationDbContext>();
