@@ -5,6 +5,7 @@ using TeamStride.Domain.Interfaces;
 using TeamStride.Domain.Entities;
 using System;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace TeamStride.Infrastructure.Data;
 
@@ -34,8 +35,11 @@ internal class MockCurrentTeamService : ICurrentTeamService
 {
     public Guid TeamId => Guid.Empty;
     public string GetSubdomain => "design-time";
+    public bool IsTeamSet => false;
     public void SetTeamId(Guid teamId) { }
     public void SetTeamSubdomain(string subdomain) { }
+    public Task<bool> SetTeamFromSubdomainAsync(string subdomain) => Task.FromResult(false);
+    public bool SetTeamFromJwtClaims() => false;
     public void ClearTeam() { }
 }
 

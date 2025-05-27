@@ -13,4 +13,9 @@ public static class MiddlewareExtensions
     {
         return app.UseMiddleware<TeamMiddleware>();
     }
+
+    public static IApplicationBuilder UseApiTeamContext(this IApplicationBuilder app)
+    {
+        return app.UseMiddleware<ApiTeamContextMiddleware>();
+    }
 } 

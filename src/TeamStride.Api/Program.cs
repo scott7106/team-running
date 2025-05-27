@@ -134,13 +134,17 @@ public class Program
         app.UseHttpsRedirection();
 
         // Add team resolution before authentication
-app.UseTeamResolution();
+        app.UseTeamResolution();
 
         // Add exception handling middleware
         app.UseExceptionHandling();
 
         // Add authentication and authorization middleware
         app.UseAuthentication();
+        
+        // Add API team context middleware after authentication but before authorization
+        app.UseApiTeamContext();
+        
         app.UseAuthorization();
 
         app.MapControllers();

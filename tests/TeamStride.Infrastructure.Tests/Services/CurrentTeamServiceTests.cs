@@ -2,19 +2,71 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Shouldly;
 using TeamStride.Infrastructure.Services;
+using TeamStride.Domain.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace TeamStride.Infrastructure.Tests.Services;
 
 public class CurrentTeamServiceTests
 {
     private readonly Mock<ILogger<CurrentTeamService>> _mockLogger;
+    private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+    private readonly Mock<IServiceProvider> _mockServiceProvider;
     private readonly CurrentTeamService _currentTeamService;
 
     public CurrentTeamServiceTests()
     {
         _mockLogger = new Mock<ILogger<CurrentTeamService>>();
-        _currentTeamService = new CurrentTeamService(_mockLogger.Object);
+        _mockCurrentUserService = new Mock<ICurrentUserService>();
+        _mockServiceProvider = new Mock<IServiceProvider>();
+        _currentTeamService = new CurrentTeamService(
+            _mockLogger.Object, 
+            _mockCurrentUserService.Object, 
+            _mockServiceProvider.Object);
     }
+
+    #region IsTeamSet Tests
+
+    [Fact]
+    public void IsTeamSet_WhenNotSet_ReturnsFalse()
+    {
+        // Act
+        var result = _currentTeamService.IsTeamSet;
+
+        // Assert
+        result.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void IsTeamSet_WhenSet_ReturnsTrue()
+    {
+        // Arrange
+        var teamId = Guid.NewGuid();
+        _currentTeamService.SetTeamId(teamId);
+
+        // Act
+        var result = _currentTeamService.IsTeamSet;
+
+        // Assert
+        result.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void IsTeamSet_AfterClear_ReturnsFalse()
+    {
+        // Arrange
+        var teamId = Guid.NewGuid();
+        _currentTeamService.SetTeamId(teamId);
+        _currentTeamService.ClearTeam();
+
+        // Act
+        var result = _currentTeamService.IsTeamSet;
+
+        // Assert
+        result.ShouldBeFalse();
+    }
+
+    #endregion
 
     #region TeamId Tests
 
@@ -238,4 +290,18 @@ public class CurrentTeamServiceTests
     }
 
     #endregion
+
+    [Fact]
+    public void SetTeamFromJwtClaims_WhenUserNotAuthenticated_ReturnsFalse()
+    {
+        // Arrange
+        _mockCurrentUserService.Setup(x => x.IsAuthenticated).Returns(false);
+
+        // Act
+        var result = _currentTeamService.SetTeamFromJwtClaims();
+
+        // Assert
+        result.ShouldBeFalse();
+        _currentTeamService.IsTeamSet.ShouldBeFalse();
+    }
 } 
