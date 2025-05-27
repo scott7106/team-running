@@ -1,106 +1,134 @@
-Add remaining unit tests for the TeamManagementService
-Roles should be Owner, Admin, Coach, Parent, Athlete (Host will be a shadow role for IsGlobalAdmin users)
-Implement a custom Role and RoleManager which has User, Role and Team. Remove UserTeams as it will not be needed.
-Implement custom UserManager with IsInTeamAsync, IsGlobalAdminAsync and IsInRoleAsync which accounts for team correctly
-Implement a way to disable Team global filter without disabling the deleted filter for global admins
-Create a set of unit tests for the IHasTenant interface which tests visibility (keep this separate from specific unit tests for things like athletes, teams, etc.)
-IsGlobalAdmin disables the global team filter when the user selects HOST as their selected team (this sets CurrentTeamService.TeamId to null). Otherwise the filter applies.
-Refactor TeamManagementService into several partial classes, put the get functions into the main class, the crud operations into a separate file and helpers into a third file
+# General
+- Refactor TeamManagementService
+
+## Simplified Authorization TODO
+- Reduce roles to 3-tier system (Global Admin, Team Owner/Admin, Team Member)
+- Add MemberType field (Coach, Athlete, Parent) separate from authorization role
+- Implement single team context for all non-global operations
+- Simplify authorization to two main patterns: RequireGlobalAdmin and RequireTeamAccess
+- Update TeamManagementService to use simplified role checks
+- Remove complex role matrix and replace with simple owner/admin/member checks
 
 ## Security Refactoring
 
-### Phase 1: Domain Model Updates
-1. **Update UserRole Entity**
-   - Add `TeamId` property to `UserRole` table
-   - Create migration to add `TeamId` column and foreign key relationship
-   - Update `UserRole` to include team-specific role assignments
+### **Phase 1: Authorization Model Simplification**
 
-2. **Simplify Role Enum**
-   - Update `TeamRole` enum to: `Owner`, `Admin`, `Member`
-   - Remove `Host`, `Coach`, `Parent`, `Athlete` from authorization roles
-   - Add `MemberType` enum for business logic: `Coach`, `Athlete`, `Parent`
+#### **1.1 Update Role Enum and Domain Model**
+- **Task**: Simplify TeamRole enum to 3-tier system and add MemberType enum
+- **Files**: `src/TeamStride.Domain/Entities/UserTeam.cs`
+- **Suggested Prompt**: "Update the TeamRole enum in UserTeam.cs to implement the simplified 3-tier authorization model (GlobalAdmin, TeamOwner, TeamAdmin, TeamMember) and add a separate MemberType enum (Coach, Athlete, Parent) for business logic. Update the UserTeam entity to include both Role and MemberType properties."
 
-3. **Update User Entity**
-   - Add `MemberType` property to `User` entity for business logic
-   - Remove complex role calculations that depend on multiple tables
+#### **1.2 Create Database Migration for Role Changes**
+- **Task**: Generate migration to update existing role data and add MemberType column
+- **Files**: New migration file
+- **Suggested Prompt**: "Create a database migration to update the existing TeamRole values to the new simplified 3-tier system, add a MemberType column to UserTeam table, and migrate existing role data to appropriate MemberType values (Coach->Coach, Athlete->Athlete, Parent->Parent, Admin->Coach, Host->Coach)."
 
-### Phase 2: Authorization Infrastructure
-4. **Create Custom Authorization Services**
-   - Implement `ICurrentUserService` with simplified methods:
-     - `IsGlobalAdminAsync()`
-     - `IsTeamOwnerAsync(teamId)`
-     - `IsTeamAdminAsync(teamId)` 
-     - `HasTeamAccessAsync(teamId)`
-   - Remove complex role checking logic from controllers
+#### **1.3 Update ApplicationUser Global Admin Logic**
+- **Task**: Ensure IsGlobalAdmin property works with simplified roles
+- **Files**: `src/TeamStride.Domain/Identity/ApplicationUser.cs`
+- **Suggested Prompt**: "Review and update the ApplicationUser.IsGlobalAdmin property and SetGlobalAdmin method to work correctly with the simplified authorization model. Ensure global admins are properly identified and can bypass team-level restrictions."
 
-5. **Implement Authorization Attributes**
-   - Create `RequireGlobalAdminAttribute` for platform-wide operations
-   - Create `RequireTeamAccessAttribute` for team-specific operations
-   - Replace existing authorization logic with these two patterns
+### **Phase 2: Authorization Attributes and Middleware**
 
-6. **Update Entity Framework Filters**
-   - Modify global team filter to respect `CurrentTeamService.TeamId`
-   - Implement logic to disable team filter when `TeamId` is null (Global Admin "HOST" mode)
-   - Ensure filter applies correctly for non-global admin users
+#### **2.1 Create RequireGlobalAdmin Authorization Attribute**
+- **Task**: Implement custom authorization attribute for global admin operations
+- **Files**: New file `src/TeamStride.Api/Authorization/RequireGlobalAdminAttribute.cs`
+- **Suggested Prompt**: "Create a custom authorization attribute called RequireGlobalAdminAttribute that checks if the current user has global admin privileges. This should verify the IsGlobalAdmin claim in the JWT token and deny access if the user is not a global admin."
 
-### Phase 3: Service Layer Updates
-7. **Update TeamManagementService**
-   - Simplify authorization checks using new `ICurrentUserService` methods
-   - Remove complex permission calculations
-   - Update all methods to use `RequireGlobalAdmin` or `RequireTeamAccess` patterns
+#### **2.2 Create RequireTeamAccess Authorization Attribute**
+- **Task**: Implement custom authorization attribute for team-level operations
+- **Files**: New file `src/TeamStride.Api/Authorization/RequireTeamAccessAttribute.cs`
+- **Suggested Prompt**: "Create a custom authorization attribute called RequireTeamAccessAttribute that checks if the current user has access to a specific team. This should support parameters for required roles (TeamOwner, TeamAdmin, TeamMember) and verify the user's team membership and role level."
 
-8. **Update AthleteService**
-   - Replace current authorization logic with simplified team access checks
-   - Ensure athletes can only be accessed within user's team context
-   - Update CRUD operations to respect team boundaries
+#### **2.3 Create Authorization Policy Provider**
+- **Task**: Implement policy-based authorization for the simplified model
+- **Files**: New file `src/TeamStride.Api/Authorization/TeamStrideAuthorizationPolicyProvider.cs`
+- **Suggested Prompt**: "Create an authorization policy provider that defines policies for 'GlobalAdmin' and 'TeamAccess' with support for role-based requirements. Include policies for 'TeamOwner', 'TeamAdmin', and 'TeamMember' access levels."
 
-9. **Update Other Domain Services**
-   - Apply same authorization patterns to all services (Schedules, Results, etc.)
-   - Ensure consistent security model across all domain operations
+### **Phase 3: JWT Token and Claims Updates**
 
-### Phase 4: API Controller Updates
-10. **Update Controller Authorization**
-    - Replace existing `[Authorize]` attributes with `[RequireGlobalAdmin]` or `[RequireTeamAccess]`
-    - Remove manual permission checks from controller actions
-    - Ensure consistent authorization pattern across all controllers
+#### **3.1 Update JWT Token Generation**
+- **Task**: Modify JWT token to include simplified role claims and team context
+- **Files**: `src/TeamStride.Infrastructure/Identity/JwtTokenService.cs`
+- **Suggested Prompt**: "Update the JwtTokenService.GenerateJwtToken method to include claims for the simplified authorization model. Add 'IsGlobalAdmin', 'TeamRole', 'MemberType', and 'TeamId' claims. Ensure global admins get appropriate claims that allow them to bypass team restrictions."
 
-11. **Update Team Selection Logic**
-    - Implement "HOST" mode for Global Admins (sets `CurrentTeamService.TeamId = null`)
-    - For non-global users, auto-set team context based on user's team membership
-    - Remove team switching UI for non-global admin users
+#### **3.2 Update CurrentUserService**
+- **Task**: Add methods to retrieve simplified role information from claims
+- **Files**: `src/TeamStride.Infrastructure/Services/CurrentUserService.cs`
+- **Suggested Prompt**: "Update CurrentUserService to include properties and methods for the simplified authorization model: TeamRole, MemberType, TeamId from JWT claims. Add helper methods like IsTeamOwner, IsTeamAdmin, IsTeamMember, and CanAccessTeam(Guid teamId)."
 
-### Phase 5: Database Migration & Cleanup
-12. **Data Migration**
-    - Create migration script to populate `UserRole.TeamId` from existing `UserTeams` data
-    - Verify data integrity before removing `UserTeams` table
-    - Update existing role assignments to new simplified structure
+### **Phase 4: Team Context and Multi-Tenancy**
 
-13. **Remove Deprecated Tables**
-    - Remove `UserTeams` entity and table
-    - Clean up unused role-related code
-    - Remove complex authorization helpers
+#### **4.1 Enhance Team Context Service**
+- **Task**: Improve team context management for single team operations
+- **Files**: `src/TeamStride.Infrastructure/Services/CurrentTeamService.cs`
+- **Suggested Prompt**: "Enhance the CurrentTeamService to better support single team context for non-global operations. Add methods for team validation, automatic team resolution from JWT claims, and ensure proper team isolation. Include logging for team context changes."
 
-### Phase 6: Testing & Validation
-14. **Update Unit Tests**
-    - Refactor existing authorization tests for new simplified model
-    - Add comprehensive tests for `ICurrentUserService` methods
-    - Test Global Admin "HOST" mode functionality
-    - Verify team isolation works correctly for non-global users
+#### **4.2 Update Global Query Filters**
+- **Task**: Refine global query filters for simplified authorization model
+- **Files**: `src/TeamStride.Infrastructure/Data/ApplicationDbContext.cs`
+- **Suggested Prompt**: "Update the global query filters in ApplicationDbContext to work with the simplified authorization model. Ensure that non-global users are properly restricted to their team data, while global admins can access all data when needed. Update the Team entity filter to use the new role structure."
 
-15. **Integration Testing**
-    - Test end-to-end authorization flows
-    - Verify subdomain-based team selection works with new model
-    - Test that Global Admins can access all teams in "HOST" mode
-    - Ensure team members can only access their assigned team
+#### **4.3 Create Team Context Middleware**
+- **Task**: Enhance middleware to automatically set team context from subdomain/JWT
+- **Files**: `src/TeamStride.Api/Middleware/TeamMiddleware.cs`
+- **Suggested Prompt**: "Enhance the TeamMiddleware to automatically resolve and set team context from subdomain or JWT claims. Ensure proper team validation and context setting for both subdomain-based access and API access. Add error handling for invalid team contexts."
 
-### Phase 7: UI/UX Updates
-16. **Update Frontend Authorization**
-    - Remove team switcher for non-global admin users
-    - Implement Global Admin team switcher with "HOST" mode option
-    - Update navigation to reflect user's authorization level
-    - Ensure consistent user experience based on role
+### **Phase 5: Service Layer Authorization Updates**
 
-17. **Documentation Updates**
-    - Update API documentation to reflect new authorization model
-    - Create developer guide for the simplified authorization patterns
-    - Document the two main authorization attributes and their usage
+#### **5.1 Update TeamManagementService Authorization**
+- **Task**: Replace complex authorization checks with simplified RequireGlobalAdmin and RequireTeamAccess patterns
+- **Files**: `src/TeamStride.Infrastructure/Services/TeamManagementService.cs`
+- **Suggested Prompt**: "Refactor all authorization methods in TeamManagementService to use the simplified authorization model. Replace the current complex role checks with simple RequireGlobalAdmin and RequireTeamAccess patterns. Update methods like EnsureCanManageTeamAsync, EnsureCanDeleteTeamAsync, etc."
+
+#### **5.2 Update AthleteService Authorization**
+- **Task**: Implement team-based authorization for athlete operations
+- **Files**: `src/TeamStride.Infrastructure/Services/AthleteService.cs`
+- **Suggested Prompt**: "Update AthleteService to use the simplified authorization model. Ensure all operations respect team context and user roles. Add authorization checks that verify users can only access athletes from their team (unless they're global admins)."
+
+#### **5.3 Create Authorization Helper Service**
+- **Task**: Create centralized authorization logic for reuse across services
+- **Files**: New file `src/TeamStride.Application/Common/Services/IAuthorizationService.cs` and implementation
+- **Suggested Prompt**: "Create a centralized authorization service that implements the two main authorization patterns: RequireGlobalAdmin and RequireTeamAccess. This service should be used by all other services to ensure consistent authorization logic across the application."
+
+### **Phase 6: Controller Updates**
+
+#### **6.1 Update Controller Authorization Attributes**
+- **Task**: Apply new authorization attributes to all controllers
+- **Files**: All controllers in `src/TeamStride.Api/Controllers/`
+- **Suggested Prompt**: "Update all API controllers to use the new authorization attributes (RequireGlobalAdmin, RequireTeamAccess) instead of the current authorization logic. Ensure proper role-based access control is applied to all endpoints according to the requirements."
+
+#### **6.2 Add Team Context Validation**
+- **Task**: Ensure controllers validate team context for team-specific operations
+- **Files**: Controllers that work with team-specific data
+- **Suggested Prompt**: "Add team context validation to controllers that handle team-specific operations. Ensure that team IDs in requests match the user's authorized team context (unless the user is a global admin)."
+
+### **Phase 7: Security Enhancements**
+
+#### **7.1 Implement Audit Logging for Security Events**
+- **Task**: Add comprehensive audit logging for authentication and authorization events
+- **Files**: New audit logging service and updates to existing services
+- **Suggested Prompt**: "Implement comprehensive audit logging for security events including login attempts, authorization failures, team access changes, and role modifications. Create an audit service that logs security-relevant events with correlation IDs and user context."
+
+#### **7.2 Add Rate Limiting and Security Headers**
+- **Task**: Implement rate limiting and security headers middleware
+- **Files**: New middleware files and startup configuration
+- **Suggested Prompt**: "Add rate limiting middleware to prevent abuse of authentication endpoints and implement security headers middleware (HSTS, CSP, X-Frame-Options, etc.). Configure appropriate rate limits for login, registration, and password reset operations."
+
+#### **7.3 Enhance Token Security**
+- **Task**: Implement token rotation and improved refresh token security
+- **Files**: `src/TeamStride.Infrastructure/Identity/JwtTokenService.cs` and related files
+- **Suggested Prompt**: "Enhance JWT token security by implementing automatic token rotation, secure refresh token handling, and token revocation capabilities. Add token blacklisting for logout and ensure refresh tokens are properly secured and rotated."
+
+### **Phase 8: Testing and Validation**
+
+#### **8.1 Update Authorization Tests**
+- **Task**: Update all authorization-related tests for the simplified model
+- **Files**: Test files in `tests/` directories
+- **Suggested Prompt**: "Update all authorization and security tests to work with the simplified 3-tier authorization model. Ensure comprehensive test coverage for global admin access, team-level access, and proper isolation between teams."
+
+#### **8.2 Create Security Integration Tests**
+- **Task**: Add comprehensive security integration tests
+- **Files**: New test files for security scenarios
+- **Suggested Prompt**: "Create comprehensive security integration tests that verify the complete authorization flow from JWT token generation through API access. Test scenarios including cross-team access attempts, privilege escalation attempts, and proper team isolation."
+

@@ -189,6 +189,27 @@ API references Application
 * **Team Switching**: Global Admins can switch between teams or use "HOST" mode for platform-wide access
 * **Simplified Permissions**: Two main authorization checks - RequireGlobalAdmin and RequireTeamAccess
 
+  #### **7.4 Authorization Scope Rules**
+1. Global Admins: Can access and manage all teams and users across the platform
+2. Team Owners/Admins:
+  * Can only access teams they own or administer
+  * Must select a single "active team" when working (except on team list page)
+  * Cannot see data from other teams
+3. Team Members: Can only access their own team data
+
+  #### **7.5 Team Ownership Rules**
+* Each team has exactly one owner
+* Each team can have multiple admins
+* An owner can own multiple teams
+* Owners can promote members to admin or demote admins to members
+* Only owners can transfer ownership or manage billing
+
+  #### **7.6 Access Control Implementation**
+* Global query filters automatically restrict data by team (disabled for Global Admins)
+* Team context enforced at API level
+* Team switching available to anyone with access to multiple teams
+* Single team view enforced for all team-level operations
+
   ---
 
   ### **8\. UI/UX Considerations**
