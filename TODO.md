@@ -16,7 +16,7 @@
 #### **1.1 Update Role Enum and Domain Model**
 - **Task**: Simplify TeamRole enum to 3-tier system and add MemberType enum
 - **Files**: `src/TeamStride.Domain/Entities/UserTeam.cs`
-- **Suggested Prompt**: "Update the TeamRole enum in UserTeam.cs to implement the simplified 3-tier authorization model (GlobalAdmin, TeamOwner, TeamAdmin, TeamMember) and add a separate MemberType enum (Coach, Athlete, Parent) for business logic. Update the UserTeam entity to include both Role and MemberType properties." 
+- **Suggested Prompt**: "Update the TeamRole enum in UserTeam.cs to implement the simplified 3-tier authorization model (GlobalAdmin, TeamOwner, TeamAdmin, TeamMember) and add a separate MemberType enum (Coach, Athlete, Parent) for business logic. Update the UserTeam entity to include both Role and MemberType properties."
 --done
 
 #### **1.2 Create Database Migration for Role Changes**
@@ -71,11 +71,13 @@
 - **Task**: Improve team context management for single team operations
 - **Files**: `src/TeamStride.Infrastructure/Services/CurrentTeamService.cs`
 - **Suggested Prompt**: "Enhance the CurrentTeamService to better support single team context for non-global operations. Add methods for team validation, automatic team resolution from JWT claims, and ensure proper team isolation. Include logging for team context changes."
+-- done
 
 #### **4.2 Update Global Query Filters**
 - **Task**: Refine global query filters for simplified authorization model
 - **Files**: `src/TeamStride.Infrastructure/Data/ApplicationDbContext.cs`
-- **Suggested Prompt**: "Update the global query filters in ApplicationDbContext to work with the simplified authorization model. Ensure that non-global users are properly restricted to their team data, while global admins can access all data when needed. Update the Team entity filter to use the new role structure."
+- **Suggested Prompt**: "Update the global query filters in ApplicationDbContext to work with the simplified authorization model. Ensure that standard users are properly restricted to their team data, while global admins can access all data when needed. Update the Team entity filter to use the new role structure."
+-- done
 
 #### **4.3 Create Team Context Middleware**
 - **Task**: Enhance middleware to automatically set team context from subdomain/JWT
