@@ -34,26 +34,28 @@ TeamStride is a mobile-first, multi-team SaaS application that empowers coaches 
 
   ### **4\. Key Features**
 
-  #### **4.1 User Management**
-* Registration/Login/Logout
-* Microsoft Identity Framework for authentication
+  #### **4.1 User Management & Authentication**
+* Registration/Login/Logout with Microsoft Identity Framework
 * OAuth2 delegated authentication for Microsoft, Google, Facebook, and Twitter
-* Role-based access control (Coach, Athlete, Parent, Admin, Host)
-* Multi-team access and team switching
-* Default team preference
+* Simplified 3-tier authorization model: Global Admin, Team Owner/Admin, Team Member
+* Single team context for non-global operations
 * Auto-team selection via subdomain login
 * Onboarding wizard for new users and teams
 
-  #### **4.2 Multi-Tenancy**
+  #### **4.2 Team Management & Multi-Tenancy**
 * Subdomain support per team (e.g., `teamX.teamstride.com`)
 * Custom-branded login, home, and registration pages
-* Team switcher UI
-* Team-aware permissions and session management
+* Global Admins: Full platform-wide access and team management
+* Team Owners/Admins: Limited to teams they own/administer
+* Team Members: Access only to their assigned team
+* Teams have one owner but can have multiple admins
+* Clear separation between administrative functions and team context
 
   #### **4.3 Rosters**
 * Add/edit/delete athlete profiles
 * Import/export rosters (Premium only)
-* Assign roles (Athlete, Captain, Parent)
+* Assign member types (Athlete, Coach, Parent) for business logic
+* Role-based permissions for roster management
 
   #### **4.4 Practice Schedules**
 * Add/edit/delete practices
@@ -163,14 +165,29 @@ API references Application
 
   ---
 
-  ### **7\. Roles & Permissions**
-| Role | Description | Permissions |
+  ### **7\. Authorization Model**
+
+  #### **7.1 Simplified Role Structure**
+| Role Level | Description | Permissions |
 | ----- | ----- | ----- |
-| Host | Application owner | Full platform-wide access and team-level administration |
-| Admin | Team administrator | Full access to team features including assigning roles |
-| Coach | Team coach | Manage rosters, practices, races; no access to payments |
-| Athlete | Team member | View-only access to training, races, results |
-| Parent | Guardian of athlete | View rosters, schedules, payments |
+| Global Admin | Platform administrator | Full platform-wide access, team ownership transfers, all team management |
+| Team Owner | Team owner | Full access to owned teams, can designate admins, manage all team features |
+| Team Admin | Team administrator | Full access to administered teams, manage team features except ownership |
+| Team Member | Team participant | View-only access to assigned team data, limited by member type |
+
+  #### **7.2 Member Types (Business Logic)**
+| Member Type | Description | Additional Permissions |
+| ----- | ----- | ----- |
+| Coach | Team coaching staff | Manage rosters, schedules, training plans, results |
+| Athlete | Team athlete | View training plans, schedules, personal results |
+| Parent | Guardian of athlete | View rosters, schedules, payment information |
+
+  #### **7.3 Authorization Patterns**
+* **Global Operations**: Require Global Admin role
+* **Team Operations**: Require Team Owner/Admin role for specific team
+* **Data Access**: All non-global users operate within single team context
+* **Team Switching**: Global Admins can switch between teams or use "HOST" mode for platform-wide access
+* **Simplified Permissions**: Two main authorization checks - RequireGlobalAdmin and RequireTeamAccess
 
   ---
 
@@ -178,7 +195,8 @@ API references Application
 * Mobile-first responsive layout
 * Team branding (colors, logo) per subdomain
 * Reusable components via Tailwind
-* Team switcher UI in nav/header
+* Team context UI for non-global users (no team switcher)
+* Global Admin team switcher with "HOST" mode option
 * List and calendar views for schedule data
 * OAuth2 login buttons for delegated authentication
 * SMS and email communication preferences
@@ -264,7 +282,7 @@ API references Application
 * **Security**:
   * OAuth2 delegated authentication for major identity providers
   * Encrypted tokens and user data
-  * Role-based access control and team isolation
+  * Simplified role-based access control with team isolation
   * HTTPS/TLS enforced for all endpoints
 
 * **Exception Handling**:
@@ -275,7 +293,7 @@ API references Application
   ### **15\. Legal & Compliance**
 * **Terms of Use**: All users must agree to the TeamStride Terms of Use during registration. These terms define acceptable use, liability limitations, data rights, and dispute resolution.
 * **Privacy Policy**: A comprehensive privacy policy will be provided, detailing what data is collected, how it is used, stored, and shared. Special attention will be given to third-party data flows (e.g., Garmin, MileSplit, Twilio, SendGrid, PayPal).
-* **Parental Consent**: Given that athletes may be minors, the platform will include COPPA (Children’s Online Privacy Protection Act) compliance features:
+* **Parental Consent**: Given that athletes may be minors, the platform will include COPPA (Children's Online Privacy Protection Act) compliance features:
   * Parents must approve account creation for users under 13\.
   * Coaches will be required to indicate whether athletes are minors during roster creation.
   * TeamStride will provide digital parental consent forms and logs.
