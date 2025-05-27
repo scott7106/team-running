@@ -27,18 +27,6 @@ public class AuthenticationController : ControllerBase
         return Ok(result);
     }
 
-    [HttpPost("register/global-admin")]
-    [Authorize(Roles = "GlobalAdmin")]
-    [ProducesResponseType(typeof(AuthResponseDto), 200)]
-    [ProducesResponseType(typeof(ProblemDetails), 400)]
-    [ProducesResponseType(typeof(ProblemDetails), 401)]
-    [ProducesResponseType(typeof(ProblemDetails), 403)]
-    public async Task<IActionResult> RegisterGlobalAdmin([FromBody] RegisterRequestDto request)
-    {
-        var result = await _authenticationService.CreateGlobalAdminAsync(request);
-        return Ok(result);
-    }
-
     [HttpPost("login")]
     [ProducesResponseType(typeof(AuthResponseDto), 200)]
     [ProducesResponseType(typeof(ProblemDetails), 400)]

@@ -15,7 +15,7 @@ public abstract class BaseIntegrationTest : IDisposable
 {
     protected ApplicationDbContext DbContext { get; private set; }
     protected IServiceProvider ServiceProvider { get; private set; }
-    protected Mock<ITeamService> MockTeamService { get; private set; }
+    protected Mock<ICurrentTeamService> MockTeamService { get; private set; }
     protected Mock<ICurrentUserService> MockCurrentUserService { get; private set; }
 
     protected BaseIntegrationTest()
@@ -23,11 +23,11 @@ public abstract class BaseIntegrationTest : IDisposable
         var services = new ServiceCollection();
         
         // Create mocks for required services
-        MockTeamService = new Mock<ITeamService>();
+        MockTeamService = new Mock<ICurrentTeamService>();
         MockCurrentUserService = new Mock<ICurrentUserService>();
         
         // Setup default mock behavior
-        MockTeamService.Setup(x => x.CurrentTeamId).Returns(Guid.NewGuid());
+        MockTeamService.Setup(x => x.TeamId).Returns(Guid.NewGuid());
         MockCurrentUserService.Setup(x => x.UserId).Returns(Guid.NewGuid());
         MockCurrentUserService.Setup(x => x.IsAuthenticated).Returns(true);
         
@@ -47,10 +47,10 @@ public abstract class BaseIntegrationTest : IDisposable
         DbContext.Database.EnsureCreated();
     }
 
-    public virtual void Dispose()
+    public void Dispose()
     {
-        DbContext?.Dispose();
-        ServiceProvider?.GetService<IServiceScope>()?.Dispose();
+        DbContext.Database.CloseConnection();
+        DbContext.Dispose();
     }
 
     /// <summary>

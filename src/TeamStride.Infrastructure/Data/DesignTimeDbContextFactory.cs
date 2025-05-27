@@ -29,14 +29,13 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<Applicatio
 }
 
 // Mock services for design-time
-internal class MockTeamService : ITeamService
+internal class MockTeamService : ICurrentTeamService
 {
-    public Guid CurrentTeamId => Guid.Empty;
-    public string CurrentTeamName => "DesignTime";
-    public string CurrentTeamSubdomain => "design-time";
-    public void SetCurrentTeam(Guid teamId) { }
-    public void SetCurrentTeam(string subdomain) { }
-    public void ClearCurrentTeam() { }
+    public Guid TeamId => Guid.Empty;
+    public string GetSubdomain => "design-time";
+    public void SetTeamId(Guid teamId) { }
+    public void SetTeamSubdomain(string subdomain) { }
+    public void ClearTeam() { }
 }
 
 internal class MockCurrentUserService : ICurrentUserService
@@ -46,4 +45,5 @@ internal class MockCurrentUserService : ICurrentUserService
     public string Email => "design.time@example.com";
     public string UserEmail => "design.time@example.com";
     public bool IsAuthenticated => true;
+    public bool IsGlobalAdmin => false;
 } 

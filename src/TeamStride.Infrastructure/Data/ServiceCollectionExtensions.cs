@@ -18,4 +18,13 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+
+    public static IServiceCollection AddApplicationRoleSeeder(
+        this IServiceCollection services)
+    {
+        services.AddTransient<ApplicationRoleSeeder>();
+        services.AddHostedService<ApplicationRoleSeederHostedService>();
+
+        return services;
+    }
 } 

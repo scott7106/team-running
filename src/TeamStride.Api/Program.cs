@@ -59,7 +59,7 @@ public class Program
         builder.Services.AddHttpContextAccessor();
 
         // Register application services
-        builder.Services.AddScoped<ITeamService, TeamService>();
+        builder.Services.AddScoped<ICurrentTeamService, CurrentTeamService>();
         builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
         builder.Services
             .AddInfrastructureServices()
@@ -84,7 +84,8 @@ public class Program
                     }))
             .AddTeamStrideIdentity(builder.Configuration)
             .AddEmailService(builder.Configuration, isDevelopment)
-            .AddGlobalAdminSeeder(builder.Configuration);
+            .AddGlobalAdminSeeder(builder.Configuration)
+            .AddApplicationRoleSeeder();
 
         // Configure JWT authentication
         builder.Services.AddAuthentication(options =>

@@ -1,10 +1,10 @@
 namespace TeamStride.Domain.Interfaces;
 
-public interface ITeamService
+public interface ICurrentTeamService
 {
-    Guid CurrentTeamId { get; }
-    string? CurrentTeamSubdomain { get; }
-    void SetCurrentTeam(Guid teamId);
-    void SetCurrentTeam(string subdomain);
-    void ClearCurrentTeam();
+    Guid TeamId { get; }
+    string? GetSubdomain { get; }
+    void SetTeamId(Guid teamId);
+    void SetTeamSubdomain(string subdomain);
+    void ClearTeam();
 } 

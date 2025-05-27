@@ -38,6 +38,7 @@ public class GlobalAdminDataSeeder
 
             using var scope = _serviceProvider.CreateScope();
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
             // Check if global admin already exists
@@ -58,7 +59,8 @@ public class GlobalAdminDataSeeder
                 DefaultTeamId = null,
                 EmailConfirmed = true,
                 IsActive = true,
-                Status = UserStatus.Active
+                Status = UserStatus.Active,
+                CreatedOn = DateTime.UtcNow
             };
 
             var result = await userManager.CreateAsync(globalAdmin, _config.Password);
@@ -68,20 +70,23 @@ public class GlobalAdminDataSeeder
                 throw new Exception($"Failed to create global admin user: {errors}");
             }
 
-            // Create global admin user-team relationship
-            var userTeam = new UserTeam
+            // Set global admin status using the new method
+            globalAdmin.SetGlobalAdmin(true);
+            await userManager.UpdateAsync(globalAdmin);
+
+            // Create global admin role
+            var globalAdminRole = new ApplicationRole
             {
-                UserId = globalAdmin.Id,
-                TeamId = null,
-                Role = TeamRole.GlobalAdmin,
-                IsActive = true,
-                IsDefault = true,
-                JoinedOn = DateTime.UtcNow
+                Name = "GlobalAdmin",
+                Description = "Global admin role"
             };
 
-            context.UserTeams.Add(userTeam);
-            await context.SaveChangesAsync();
+            if (!await roleManager.RoleExistsAsync(globalAdminRole.Name)) {
+                await roleManager.CreateAsync(globalAdminRole);
+            }
 
+            // Add global admin user to global admin role
+            await userManager.AddToRoleAsync(globalAdmin, globalAdminRole.Name);
             _logger.LogInformation("Successfully created global admin user.");
         }
         catch (Exception ex)

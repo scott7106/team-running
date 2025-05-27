@@ -3,18 +3,18 @@ using TeamStride.Domain.Interfaces;
 
 namespace TeamStride.Infrastructure.Services;
 
-public class TeamService : ITeamService
+public class CurrentTeamService : ICurrentTeamService
 {
-    private readonly ILogger<TeamService> _logger;
+    private readonly ILogger<CurrentTeamService> _logger;
     private Guid? _currentTeamId;
     private string? _currentSubdomain;
 
-    public TeamService(ILogger<TeamService> logger)
+    public CurrentTeamService(ILogger<CurrentTeamService> logger)
     {
         _logger = logger;
     }
 
-    public Guid CurrentTeamId
+    public Guid TeamId
     {
         get
         {
@@ -26,15 +26,15 @@ public class TeamService : ITeamService
         }
     }
 
-    public string? CurrentTeamSubdomain => _currentSubdomain;
+    public string? GetSubdomain => _currentSubdomain;
 
-    public void SetCurrentTeam(Guid teamId)
+    public void SetTeamId(Guid teamId)
     {
         _currentTeamId = teamId;
         _logger.LogInformation("Current team set to {TeamId}", teamId);
     }
 
-    public void SetCurrentTeam(string subdomain)
+    public void SetTeamSubdomain(string subdomain)
     {
         _currentSubdomain = subdomain;
         _logger.LogInformation("Current team subdomain set to {Subdomain}", subdomain);
@@ -42,7 +42,7 @@ public class TeamService : ITeamService
         // This will be implemented when we add the team resolution middleware
     }
 
-    public void ClearCurrentTeam()
+    public void ClearTeam()
     {
         _currentTeamId = null;
         _currentSubdomain = null;

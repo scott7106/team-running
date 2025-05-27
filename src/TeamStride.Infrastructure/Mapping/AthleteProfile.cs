@@ -21,6 +21,9 @@ public class AthleteProfile : Profile
             .ForMember(d => d.Profile, o => o.Ignore())
             .ForMember(d => d.User, o => o.Ignore());
 
+        CreateMap<UpdateAthleteDto, Athlete>()
+            .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
+
         CreateMap<AthleteProfile, AthleteProfileDto>();
         CreateMap<CreateAthleteProfileDto, AthleteProfile>();
         CreateMap<UpdateAthleteProfileDto, AthleteProfile>()

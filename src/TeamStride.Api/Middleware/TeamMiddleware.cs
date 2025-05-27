@@ -20,14 +20,14 @@ public class TeamMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         var host = context.Request.Host.Value;
-        var teamService = context.RequestServices.GetRequiredService<ITeamService>();
+        var teamService = context.RequestServices.GetRequiredService<ICurrentTeamService>();
 
         try
         {
             // Skip team resolution for the main marketing site and API endpoints
             if (!host.Contains(".") || host.StartsWith("api."))
             {
-                teamService.ClearCurrentTeam();
+                teamService.ClearTeam();
                 await _next(context);
                 return;
             }
@@ -37,7 +37,7 @@ public class TeamMiddleware
             _logger.LogInformation("Resolving team for subdomain: {Subdomain}", subdomain);
 
             // Set the current team
-            teamService.SetCurrentTeam(subdomain);
+            teamService.SetTeamSubdomain(subdomain);
 
             await _next(context);
         }
@@ -48,7 +48,7 @@ public class TeamMiddleware
         }
         finally
         {
-            teamService.ClearCurrentTeam();
+            teamService.ClearTeam();
         }
     }
 } 

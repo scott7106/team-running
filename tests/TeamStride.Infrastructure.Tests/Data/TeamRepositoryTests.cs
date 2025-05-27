@@ -1,6 +1,8 @@
 using Shouldly;
 using TeamStride.Domain.Entities;
+using TeamStride.Domain.Identity;
 using Xunit;
+using Microsoft.EntityFrameworkCore;
 
 namespace TeamStride.Infrastructure.Tests.Data;
 
@@ -40,6 +42,10 @@ public class TeamRepositoryTests : BaseIntegrationTest
     public async Task GetTeamBySubdomain_WhenExists_ShouldReturnTeam()
     {
         // Arrange
+        var userId = Guid.NewGuid();
+        MockCurrentUserService.Setup(x => x.UserId).Returns(userId);
+        MockCurrentUserService.Setup(x => x.IsGlobalAdmin).Returns(true);
+
         var team = new Team
         {
             Name = "Test Team",
@@ -102,5 +108,90 @@ public class TeamRepositoryTests : BaseIntegrationTest
         updatedTeam.Name.ShouldBe("Updated Name");
         updatedTeam.PrimaryColor.ShouldBe("#FF0000");
         updatedTeam.ModifiedOn.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task GetTeamBySubdomain_WhenUserIsGlobalAdmin_ShouldReturnTeam()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        MockCurrentUserService.Setup(x => x.UserId).Returns(userId);
+        MockCurrentUserService.Setup(x => x.IsGlobalAdmin).Returns(true);
+
+        var team = new Team
+        {
+            Name = "Test Team",
+            Subdomain = "testteam",
+            Status = TeamStatus.Active,
+            Tier = TeamTier.Free,
+            CreatedOn = DateTime.UtcNow
+        };
+        DbContext.Teams.Add(team);
+        await DbContext.SaveChangesAsync();
+
+        // Act
+        var foundTeam = DbContext.Teams
+            .Include(t => t.Users)
+            .FirstOrDefault(t => t.Subdomain == "testteam");
+
+        // Assert
+        foundTeam.ShouldNotBeNull();
+        foundTeam.Id.ShouldBe(team.Id);
+        foundTeam.Name.ShouldBe("Test Team");
+    }
+
+    [Fact]
+    public async Task GetTeamBySubdomain_WhenUserIsTeamMember_ShouldReturnTeam()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        MockCurrentUserService.Setup(x => x.UserId).Returns(userId);
+        MockCurrentUserService.Setup(x => x.IsGlobalAdmin).Returns(false);
+
+        // Create the user first
+        var user = new ApplicationUser
+        {
+            Id = userId,
+            UserName = "testuser@example.com",
+            Email = "testuser@example.com",
+            EmailConfirmed = true,
+            FirstName = "Test",
+            LastName = "User"
+        };
+        DbContext.Users.Add(user);
+        await DbContext.SaveChangesAsync();
+
+        var team = new Team
+        {
+            Name = "Test Team",
+            Subdomain = "testteam",
+            Status = TeamStatus.Active,
+            Tier = TeamTier.Free,
+            CreatedOn = DateTime.UtcNow,
+            Users = new List<UserTeam>()
+        };
+        
+        var userTeam = new UserTeam
+        {
+            UserId = userId,
+            User = user,
+            Role = TeamRole.Coach,
+            IsActive = true,
+            JoinedOn = DateTime.UtcNow
+        };
+        
+        team.Users.Add(userTeam);
+        DbContext.Teams.Add(team);
+        await DbContext.SaveChangesAsync();
+
+        // Act
+        var foundTeam = DbContext.Teams
+            .Include(t => t.Users)
+            .FirstOrDefault(t => t.Subdomain == "testteam");
+
+        // Assert
+        foundTeam.ShouldNotBeNull();
+        foundTeam.Id.ShouldBe(team.Id);
+        foundTeam.Name.ShouldBe("Test Team");
     }
 } 

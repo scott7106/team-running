@@ -447,66 +447,6 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         return await Task.FromResult($"{baseUrl}/api/authentication/external-login/{provider.ToLowerInvariant()}/callback");
     }
 
-    public async Task<AuthResponseDto> CreateGlobalAdminAsync(RegisterRequestDto request)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(request.Email);
-        ArgumentNullException.ThrowIfNull(request.Password);
-
-        // Check if email exists
-        if (await _userManager.FindByEmailAsync(request.Email) != null)
-        {
-            throw new AuthenticationException("Email already registered", AuthenticationException.ErrorCodes.EmailAlreadyExists);
-        }
-
-        var user = new ApplicationUser
-        {
-            UserName = request.Email,
-            Email = request.Email,
-            FirstName = request.FirstName,
-            LastName = request.LastName,
-            DefaultTeamId = null,
-            IsActive = true,
-            EmailConfirmed = true // Global admin doesn't need email confirmation
-        };
-
-        var result = await _userManager.CreateAsync(user, request.Password);
-        if (!result.Succeeded)
-        {
-            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-            throw new AuthenticationException($"Global admin registration failed: {errors}");
-        }
-
-        // Create global admin user-team relationship
-        var userTeam = new UserTeam
-        {
-            UserId = user.Id,
-            TeamId = null,
-            Role = TeamRole.GlobalAdmin,
-            IsActive = true,
-            IsDefault = true,
-            JoinedOn = DateTime.UtcNow
-        };
-        _context.UserTeams.Add(userTeam);
-        await _context.SaveChangesAsync();
-
-        // Generate tokens
-        var jwtToken = _jwtTokenService.GenerateJwtToken(user, Guid.Empty, TeamRole.GlobalAdmin);
-        var refreshToken = await CreateRefreshTokenAsync(user, Guid.Empty);
-
-        return new AuthResponseDto
-        {
-            Token = jwtToken,
-            RefreshToken = refreshToken.Token,
-            Email = user.Email ?? string.Empty,
-            FirstName = user.FirstName,
-            LastName = user.LastName,
-            TeamId = null,
-            Role = TeamRole.GlobalAdmin,
-            RequiresEmailConfirmation = false
-        };
-    }
-
     private async Task<RefreshToken> CreateRefreshTokenAsync(ApplicationUser user, Guid? teamId)
     {
         var refreshToken = new RefreshToken

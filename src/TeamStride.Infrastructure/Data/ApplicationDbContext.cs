@@ -12,12 +12,12 @@ namespace TeamStride.Infrastructure.Data;
 
 public class ApplicationDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>
 {
-    private readonly ITeamService _teamService;
+    private readonly ICurrentTeamService _teamService;
     private readonly ICurrentUserService _currentUserService;
 
     public ApplicationDbContext(
         DbContextOptions<ApplicationDbContext> options,
-        ITeamService teamService,
+        ICurrentTeamService teamService,
         ICurrentUserService currentUserService) : base(options)
     {
         _teamService = teamService;
@@ -48,22 +48,53 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 
         // Configure global query filters for soft deletes and multi-tenancy
         ConfigureGlobalQueryFilters(builder);
+
+        // Configure relationships
+        builder.Entity<Athlete>()
+            .HasOne(a => a.User)
+            .WithMany()
+            .HasForeignKey(a => a.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Athlete>()
+            .HasOne(a => a.Profile)
+            .WithOne(p => p.Athlete)
+            .HasForeignKey<AthleteProfile>(p => p.AthleteId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<UserTeam>()
+            .HasOne(ut => ut.User)
+            .WithMany()
+            .HasForeignKey(ut => ut.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<UserTeam>()
+            .HasOne(ut => ut.Team)
+            .WithMany()
+            .HasForeignKey(ut => ut.TeamId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<RefreshToken>()
+            .HasOne(rt => rt.User)
+            .WithMany()
+            .HasForeignKey(rt => rt.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 
     private void ConfigureGlobalQueryFilters(ModelBuilder builder)
     {
         // Configure multi-team entities with soft delete filters
         builder.Entity<Athlete>().HasQueryFilter(e => 
-            !e.IsDeleted && e.TeamId == _teamService.CurrentTeamId);
+            !e.IsDeleted && e.TeamId == _teamService.TeamId);
         
         builder.Entity<AthleteProfile>().HasQueryFilter(e => 
-            !e.IsDeleted && e.TeamId == _teamService.CurrentTeamId);
+            !e.IsDeleted && e.TeamId == _teamService.TeamId);
         
-        builder.Entity<UserTeam>().HasQueryFilter(e => 
-            !e.IsDeleted && (e.TeamId == null || e.TeamId == _teamService.CurrentTeamId));
+        builder.Entity<UserTeam>().HasQueryFilter(e => !e.IsDeleted);
 
         // Configure entities with only soft delete filters
-        builder.Entity<Team>().HasQueryFilter(e => !e.IsDeleted);
+        builder.Entity<Team>().HasQueryFilter(e => 
+            !e.IsDeleted && (e.Users.Any(ut => ut.UserId == _currentUserService.UserId) || _currentUserService.IsGlobalAdmin));
         
         builder.Entity<ApplicationUser>().HasQueryFilter(e => !e.IsDeleted);
         

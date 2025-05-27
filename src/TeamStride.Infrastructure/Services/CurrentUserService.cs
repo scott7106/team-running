@@ -25,4 +25,6 @@ public class CurrentUserService : ICurrentUserService
     public string? UserEmail => _httpContextAccessor.HttpContext?.User?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
 
     public bool IsAuthenticated => _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false;
+
+    public bool IsGlobalAdmin => _httpContextAccessor.HttpContext?.User?.Claims.Any(c => c.Type == "IsGlobalAdmin" && c.Value == "true") ?? false;
 } 

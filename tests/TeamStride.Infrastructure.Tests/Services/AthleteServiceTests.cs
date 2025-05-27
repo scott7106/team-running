@@ -29,7 +29,7 @@ public class AthleteServiceTests : BaseIntegrationTest
         _testUserId = Guid.NewGuid();
 
         // Setup team service mock
-        MockTeamService.Setup(x => x.CurrentTeamId).Returns(_testTeamId);
+        MockTeamService.Setup(x => x.TeamId).Returns(_testTeamId);
         MockCurrentUserService.Setup(x => x.UserId).Returns(_testUserId);
 
         // Setup AutoMapper with explicit type mapping
@@ -47,6 +47,9 @@ public class AthleteServiceTests : BaseIntegrationTest
             cfg.CreateMap<CreateAthleteDto, Athlete>()
                 .ForMember(d => d.Profile, o => o.Ignore())
                 .ForMember(d => d.User, o => o.Ignore());
+
+            cfg.CreateMap<UpdateAthleteDto, Athlete>()
+                .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
 
             cfg.CreateMap<Domain.Entities.AthleteProfile, AthleteProfileDto>();
             cfg.CreateMap<CreateAthleteProfileDto, Domain.Entities.AthleteProfile>();
@@ -108,7 +111,7 @@ public class AthleteServiceTests : BaseIntegrationTest
     {
         // Arrange
         var athlete = await CreateTestAthleteAsync();
-        MockTeamService.Setup(x => x.CurrentTeamId).Returns(Guid.NewGuid()); // Different team
+        MockTeamService.Setup(x => x.TeamId).Returns(Guid.NewGuid()); // Different team
 
         // Act & Assert
         var exception = await Should.ThrowAsync<InvalidOperationException>(
@@ -154,7 +157,7 @@ public class AthleteServiceTests : BaseIntegrationTest
     {
         // Arrange
         var athlete = await CreateTestAthleteAsync();
-        MockTeamService.Setup(x => x.CurrentTeamId).Returns(Guid.NewGuid()); // Different team
+        MockTeamService.Setup(x => x.TeamId).Returns(Guid.NewGuid()); // Different team
 
         // Act
         var result = await _athleteService.GetByUserIdAsync(athlete.UserId);
@@ -636,7 +639,7 @@ public class AthleteServiceTests : BaseIntegrationTest
     {
         // Arrange
         var athlete = await CreateTestAthleteAsync();
-        MockTeamService.Setup(x => x.CurrentTeamId).Returns(Guid.NewGuid()); // Different team
+        MockTeamService.Setup(x => x.TeamId).Returns(Guid.NewGuid()); // Different team
 
         // Act
         var result = await _athleteService.IsAthleteInTeamAsync(athlete.Id);

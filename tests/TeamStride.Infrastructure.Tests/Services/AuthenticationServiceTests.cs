@@ -32,7 +32,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         _testUserId = Guid.NewGuid();
 
         // Setup team and user service mocks
-        MockTeamService.Setup(x => x.CurrentTeamId).Returns(_testTeamId);
+        MockTeamService.Setup(x => x.TeamId).Returns(_testTeamId);
         MockCurrentUserService.Setup(x => x.UserId).Returns(_testUserId);
 
         // Create mocks for dependencies
@@ -785,85 +785,6 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         result.Email.ShouldBe(existingUser.Email);
         result.TeamId.ShouldBe(team.Id);
         result.Role.ShouldBe(TeamRole.Coach); // Existing user's role
-    }
-
-    #endregion
-
-    #region CreateGlobalAdminAsync Tests
-
-    [Fact]
-    public async Task CreateGlobalAdminAsync_WhenRequestIsNull_ThrowsArgumentNullException()
-    {
-        // Act & Assert
-        await Should.ThrowAsync<ArgumentNullException>(() => _authenticationService.CreateGlobalAdminAsync(null!));
-    }
-
-    [Fact]
-    public async Task CreateGlobalAdminAsync_WhenEmailAlreadyExists_ThrowsAuthenticationException()
-    {
-        // Arrange
-        var existingUser = await CreateTestUserAsync();
-        var request = new RegisterRequestDto 
-        { 
-            Email = existingUser.Email!, 
-            Password = "Password123!", 
-            ConfirmPassword = "Password123!",
-            FirstName = "Global", 
-            LastName = "Admin",
-            Role = TeamRole.GlobalAdmin
-        };
-
-        _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(existingUser);
-
-        // Act & Assert
-        var exception = await Should.ThrowAsync<AuthenticationException>(() => _authenticationService.CreateGlobalAdminAsync(request));
-        exception.ErrorCode.ShouldBe(AuthenticationException.ErrorCodes.EmailAlreadyExists);
-        exception.Message.ShouldBe("Email already registered");
-    }
-
-    [Fact]
-    public async Task CreateGlobalAdminAsync_WithValidData_CreatesGlobalAdminAndReturnsAuthResponse()
-    {
-        // Arrange
-        var request = new RegisterRequestDto 
-        { 
-            Email = "admin@example.com", 
-            Password = "AdminPassword123!", 
-            ConfirmPassword = "AdminPassword123!",
-            FirstName = "Global", 
-            LastName = "Admin",
-            Role = TeamRole.GlobalAdmin
-        };
-
-        _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync((ApplicationUser?)null);
-        _mockUserManager.Setup(x => x.CreateAsync(It.IsAny<ApplicationUser>(), request.Password))
-            .ReturnsAsync(IdentityResult.Success)
-            .Callback<ApplicationUser, string>((user, password) => 
-            {
-                user.Id = Guid.NewGuid();
-                // Actually add the user to the database context
-                DbContext.Users.Add(user);
-                DbContext.SaveChanges();
-            });
-        _mockJwtTokenService.Setup(x => x.GenerateRefreshToken()).Returns("mock-refresh-token");
-
-        // Act
-        var result = await _authenticationService.CreateGlobalAdminAsync(request);
-
-        // Assert
-        result.ShouldNotBeNull();
-        result.Token.ShouldBe("mock-jwt-token");
-        result.Email.ShouldBe(request.Email);
-        result.FirstName.ShouldBe(request.FirstName);
-        result.LastName.ShouldBe(request.LastName);
-        result.TeamId.ShouldBeNull();
-        result.Role.ShouldBe(TeamRole.GlobalAdmin);
-        result.RequiresEmailConfirmation.ShouldBeFalse();
-
-        // Verify UserTeam was created with null TeamId for global admin
-        var userTeam = DbContext.UserTeams.FirstOrDefault(ut => ut.TeamId == null);
-        userTeam.ShouldNotBeNull();
-        userTeam.Role.ShouldBe(TeamRole.GlobalAdmin);
     }
 
     #endregion
