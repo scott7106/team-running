@@ -44,6 +44,7 @@ public class TeamRepositoryTests : BaseIntegrationTest
         // Arrange
         var userId = Guid.NewGuid();
         MockCurrentUserService.Setup(x => x.UserId).Returns(userId);
+        MockCurrentUserService.Setup(x => x.IsGlobalAdmin).Returns(true);
 
         // Create the user first
         var user = new ApplicationUser
@@ -135,14 +136,13 @@ public class TeamRepositoryTests : BaseIntegrationTest
         updatedTeam.ModifiedOn.ShouldNotBeNull();
     }
 
-
-
     [Fact]
     public async Task GetTeamBySubdomain_WhenUserIsTeamMember_ShouldReturnTeam()
     {
         // Arrange
         var userId = Guid.NewGuid();
         MockCurrentUserService.Setup(x => x.UserId).Returns(userId);
+        MockCurrentUserService.Setup(x => x.IsGlobalAdmin).Returns(true);
 
         // Create the user first
         var user = new ApplicationUser
