@@ -15,7 +15,7 @@ namespace TeamStride.Infrastructure.Identity;
 
 public interface IJwtTokenService
 {
-    Task<string> GenerateJwtTokenAsync(ApplicationUser user, Guid? teamId, TeamRole role);
+    Task<string> GenerateJwtTokenAsync(ApplicationUser user, Guid? teamId, TeamRole? teamRole, MemberType? memberType);
     string GenerateRefreshToken();
     ClaimsPrincipal? GetPrincipalFromToken(string token);
 }
@@ -31,10 +31,9 @@ public class JwtTokenService : IJwtTokenService
         _userManager = userManager;
     }
 
-    public async Task<string> GenerateJwtTokenAsync(ApplicationUser user, Guid? teamId, TeamRole role)
+    public async Task<string> GenerateJwtTokenAsync(ApplicationUser user, Guid? teamId, TeamRole? teamRole, MemberType? memberType)
     {
         ArgumentNullException.ThrowIfNull(user);
-        ArgumentNullException.ThrowIfNull(role);
 
         var claims = new List<Claim>
         {
@@ -43,10 +42,19 @@ public class JwtTokenService : IJwtTokenService
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
-        // Only add team_id claim if it's not null (for standard users)
         if (teamId.HasValue)
         {
             claims.Add(new Claim("team_id", teamId.Value.ToString()));
+        }
+
+        if (teamRole.HasValue)
+        {
+            claims.Add(new Claim("team_role", teamRole.Value.ToString()));
+        }
+
+        if (memberType.HasValue)
+        {
+            claims.Add(new Claim("member_type", memberType.Value.ToString()));
         }
 
         // Check if user has GlobalAdmin application role

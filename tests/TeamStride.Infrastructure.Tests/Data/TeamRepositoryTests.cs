@@ -45,14 +45,40 @@ public class TeamRepositoryTests : BaseIntegrationTest
         var userId = Guid.NewGuid();
         MockCurrentUserService.Setup(x => x.UserId).Returns(userId);
 
+        // Create the user first
+        var user = new ApplicationUser
+        {
+            Id = userId,
+            UserName = "testuser@example.com",
+            Email = "testuser@example.com",
+            EmailConfirmed = true,
+            FirstName = "Test",
+            LastName = "User"
+        };
+        DbContext.Users.Add(user);
+        await DbContext.SaveChangesAsync();
+
         var team = new Team
         {
             Name = "Test Team",
             Subdomain = "testteam",
             Status = TeamStatus.Active,
             Tier = TeamTier.Free,
-            CreatedOn = DateTime.UtcNow
+            CreatedOn = DateTime.UtcNow,
+            Users = new List<UserTeam>()
         };
+        
+        var userTeam = new UserTeam
+        {
+            UserId = userId,
+            User = user,
+            Role = TeamRole.TeamMember,
+            MemberType = MemberType.Coach,
+            IsActive = true,
+            JoinedOn = DateTime.UtcNow
+        };
+        
+        team.Users.Add(userTeam);
         DbContext.Teams.Add(team);
         await DbContext.SaveChangesAsync();
 

@@ -45,7 +45,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         _mockExternalAuthService = new Mock<IExternalAuthService>();
 
         // Setup default mock behaviors
-        _mockJwtTokenService.Setup(x => x.GenerateJwtTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<Guid?>(), It.IsAny<TeamRole>()))
+        _mockJwtTokenService.Setup(x => x.GenerateJwtTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<Guid?>(), It.IsAny<TeamRole?>(), It.IsAny<MemberType?>()))
             .ReturnsAsync("mock-jwt-token");
 
         _mockEmailService.Setup(x => x.SendEmailConfirmationAsync(It.IsAny<string>(), It.IsAny<string>()))

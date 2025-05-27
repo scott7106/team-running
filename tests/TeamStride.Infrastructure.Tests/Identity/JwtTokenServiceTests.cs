@@ -59,7 +59,7 @@ public class JwtTokenServiceTests
             .ReturnsAsync(new List<string> { "GlobalAdmin" });
 
         // Act
-        var token = await _jwtTokenService.GenerateJwtTokenAsync(user, teamId, role);
+        var token = await _jwtTokenService.GenerateJwtTokenAsync(user, teamId, role, MemberType.Coach);
 
         // Assert
         token.ShouldNotBeNullOrEmpty();
@@ -91,7 +91,7 @@ public class JwtTokenServiceTests
             .ReturnsAsync(new List<string> { "StandardUser" });
 
         // Act
-        var token = await _jwtTokenService.GenerateJwtTokenAsync(user, teamId, role);
+        var token = await _jwtTokenService.GenerateJwtTokenAsync(user, teamId, role, MemberType.Athlete);
 
         // Assert
         token.ShouldNotBeNullOrEmpty();
@@ -123,7 +123,7 @@ public class JwtTokenServiceTests
             .ReturnsAsync(new List<string>());
 
         // Act
-        var token = await _jwtTokenService.GenerateJwtTokenAsync(user, teamId, role);
+        var token = await _jwtTokenService.GenerateJwtTokenAsync(user, teamId, role, MemberType.Parent);
 
         // Assert
         token.ShouldNotBeNullOrEmpty();
