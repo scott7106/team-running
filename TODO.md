@@ -37,16 +37,19 @@
 - **Task**: Implement custom authorization attribute for global admin operations
 - **Files**: New file `src/TeamStride.Api/Authorization/RequireGlobalAdminAttribute.cs`
 - **Suggested Prompt**: "Create a custom authorization attribute called RequireGlobalAdminAttribute that checks if the current user has global admin privileges. This should verify the IsGlobalAdmin claim in the JWT token and deny access if the user is not a global admin."
+--done
 
 #### **2.2 Create RequireTeamAccess Authorization Attribute**
 - **Task**: Implement custom authorization attribute for team-level operations
 - **Files**: New file `src/TeamStride.Api/Authorization/RequireTeamAccessAttribute.cs`
 - **Suggested Prompt**: "Create a custom authorization attribute called RequireTeamAccessAttribute that checks if the current user has access to a specific team. This should support parameters for required roles (TeamOwner, TeamAdmin, TeamMember) and verify the user's team membership and role level."
+-- done
 
 #### **2.3 Create Authorization Policy Provider**
 - **Task**: Implement policy-based authorization for the simplified model
 - **Files**: New file `src/TeamStride.Api/Authorization/TeamStrideAuthorizationPolicyProvider.cs`
 - **Suggested Prompt**: "Create an authorization policy provider that defines policies for 'GlobalAdmin' and 'TeamAccess' with support for role-based requirements. Include policies for 'TeamOwner', 'TeamAdmin', and 'TeamMember' access levels."
+-- not required; skipped
 
 ### **Phase 3: JWT Token and Claims Updates**
 
@@ -54,11 +57,13 @@
 - **Task**: Modify JWT token to include simplified role claims and team context
 - **Files**: `src/TeamStride.Infrastructure/Identity/JwtTokenService.cs`
 - **Suggested Prompt**: "Update the JwtTokenService.GenerateJwtToken method to include claims for the simplified authorization model. Add 'IsGlobalAdmin', 'TeamRole', 'MemberType', and 'TeamId' claims. Ensure global admins get appropriate claims that allow them to bypass team restrictions."
+-- done
 
 #### **3.2 Update CurrentUserService**
 - **Task**: Add methods to retrieve simplified role information from claims
 - **Files**: `src/TeamStride.Infrastructure/Services/CurrentUserService.cs`
 - **Suggested Prompt**: "Update CurrentUserService to include properties and methods for the simplified authorization model: TeamRole, MemberType, TeamId from JWT claims. Add helper methods like IsTeamOwner, IsTeamAdmin, IsTeamMember, and CanAccessTeam(Guid teamId)."
+-- done
 
 ### **Phase 4: Team Context and Multi-Tenancy**
 

@@ -177,6 +177,145 @@ Notes:
    - Feature branches from main
    - Pull request workflow for merging back to main
 
+## Authorization
+
+TeamStride implements a simplified 3-tier authorization model with custom attributes for secure access control.
+
+### Authorization Model
+
+The application uses two main authorization patterns:
+
+1. **Global Admin Access**: Platform-wide administrative operations
+2. **Team-Based Access**: Team-specific operations with role hierarchy
+
+### Role Hierarchy
+
+| Role | Level | Description |
+|------|-------|-------------|
+| Global Admin | Platform | Full platform access, can manage all teams |
+| Team Owner | Team | Full team control including ownership and billing |
+| Team Admin | Team | Team management except ownership and billing |
+| Team Member | Team | Limited access based on member type |
+
+### Authorization Attributes
+
+#### RequireGlobalAdminAttribute
+
+Restricts access to global administrators only.
+
+```csharp
+[RequireGlobalAdmin]
+public IActionResult ManageAllTeams() { ... }
+```
+
+**Usage:**
+- Platform administration endpoints
+- Cross-team operations
+- System configuration
+
+#### RequireTeamAccessAttribute
+
+Enforces team-based access control with role hierarchy support.
+
+```csharp
+// Basic usage - requires any team member
+[RequireTeamAccess]
+public IActionResult GetTeamData() { ... }
+
+// Specify minimum role
+[RequireTeamAccess(TeamRole.TeamAdmin)]
+public IActionResult ManageTeam() { ... }
+
+// Disable route validation
+[RequireTeamAccess(TeamRole.TeamMember, requireTeamIdFromRoute: false)]
+public IActionResult GetMyTeamData() { ... }
+```
+
+**Parameters:**
+- `minimumRequiredRole`: Minimum role required (default: `TeamMember`)
+- `requireTeamIdFromRoute`: Validate team ID from route (default: `true`)
+
+**Role Access Matrix:**
+- `TeamOwner`: Can access TeamOwner, TeamAdmin, and TeamMember endpoints
+- `TeamAdmin`: Can access TeamAdmin and TeamMember endpoints  
+- `TeamMember`: Can only access TeamMember endpoints
+
+### JWT Claims
+
+The authorization system expects these JWT claims:
+
+| Claim | Description | Required |
+|-------|-------------|----------|
+| `is_global_admin` | Global admin flag | No |
+| `team_id` | User's team ID | Yes (unless global admin) |
+| `team_role` | User's team role | Yes (unless global admin) |
+| `member_type` | Business logic type (Coach, Athlete, Parent) | No |
+
+### Example Controller Implementation
+
+```csharp
+[ApiController]
+[Route("api/teams")]
+[Authorize] // Base authentication required
+public class TeamController : ControllerBase
+{
+    // Any team member can view team info
+    [HttpGet("{teamId:guid}")]
+    [RequireTeamAccess(TeamRole.TeamMember)]
+    public IActionResult GetTeam(Guid teamId) { ... }
+
+    // Only admins can update team settings
+    [HttpPut("{teamId:guid}")]
+    [RequireTeamAccess(TeamRole.TeamAdmin)]
+    public IActionResult UpdateTeam(Guid teamId) { ... }
+
+    // Only owners can delete teams
+    [HttpDelete("{teamId:guid}")]
+    [RequireTeamAccess(TeamRole.TeamOwner)]
+    public IActionResult DeleteTeam(Guid teamId) { ... }
+}
+
+[ApiController]
+[Route("api/admin")]
+[Authorize]
+public class AdminController : ControllerBase
+{
+    // Global admin only
+    [HttpGet("teams")]
+    [RequireGlobalAdmin]
+    public IActionResult GetAllTeams() { ... }
+
+    // Global admin only
+    [HttpPost("teams/{teamId:guid}/transfer-ownership")]
+    [RequireGlobalAdmin]
+    public IActionResult TransferTeamOwnership(Guid teamId) { ... }
+}
+```
+
+### Global Admin Bypass
+
+Users with `is_global_admin` claim set to `true` automatically bypass all team access restrictions and can access any endpoint regardless of team membership.
+
+### Route Parameter Detection
+
+`RequireTeamAccessAttribute` automatically detects team IDs from these route parameters:
+- `teamId` (preferred)
+- `id` (when used in team-related controllers)
+
+### Error Responses
+
+| Status Code | Scenario |
+|-------------|----------|
+| `401 Unauthorized` | User not authenticated |
+| `403 Forbidden` | Insufficient role or team access |
+
+### Testing
+
+Comprehensive unit tests are available in:
+- `tests/TeamStride.Api.Tests/Authorization/RequireTeamAccessAttributeTests.cs`
+
+For detailed authorization documentation, see `src/TeamStride.Api/Authorization/README.md`.
+
 ## Additional Information
 
 For detailed information about the project requirements and specifications, refer to the Product Requirements Document (PRD) in the repository. 

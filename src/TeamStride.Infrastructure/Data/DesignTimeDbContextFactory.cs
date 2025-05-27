@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
 using TeamStride.Domain.Interfaces;
+using TeamStride.Domain.Entities;
 using System;
 using System.IO;
 
@@ -21,15 +22,15 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<Applicatio
         optionsBuilder.UseSqlServer(configuration.GetConnectionString("DefaultConnection"));
 
         // Create mock services for design-time
-        var mockTeamService = new MockTeamService();
+        var mockCurrentTeamService = new MockCurrentTeamService();
         var mockCurrentUserService = new MockCurrentUserService();
 
-        return new ApplicationDbContext(optionsBuilder.Options, mockTeamService, mockCurrentUserService);
+        return new ApplicationDbContext(optionsBuilder.Options, mockCurrentTeamService, mockCurrentUserService);
     }
 }
 
 // Mock services for design-time
-internal class MockTeamService : ICurrentTeamService
+internal class MockCurrentTeamService : ICurrentTeamService
 {
     public Guid TeamId => Guid.Empty;
     public string GetSubdomain => "design-time";
@@ -45,4 +46,17 @@ internal class MockCurrentUserService : ICurrentUserService
     public string Email => "design.time@example.com";
     public string UserEmail => "design.time@example.com";
     public bool IsAuthenticated => true;
+    
+    // Simplified Authorization Model Properties
+    public bool IsGlobalAdmin => false;
+    public Guid? TeamId => Guid.Empty;
+    public TeamRole? TeamRole => Domain.Entities.TeamRole.TeamMember;
+    public MemberType? MemberType => Domain.Entities.MemberType.Coach;
+    
+    // Helper Methods for Role Checking
+    public bool IsTeamOwner => false;
+    public bool IsTeamAdmin => false;
+    public bool IsTeamMember => true;
+    public bool CanAccessTeam(Guid teamId) => true; // Design-time mock allows access
+    public bool HasMinimumTeamRole(TeamRole minimumRole) => true; // Design-time mock allows access
 } 
