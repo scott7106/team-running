@@ -22,5 +22,22 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.Role, opt => opt.MapFrom(src => src.Role.ToString()))
             .ForMember(dest => dest.User, opt => opt.MapFrom(src => src.User))
             .ForMember(dest => dest.Team, opt => opt.MapFrom(src => src.Team));
+
+        // Team Management mappings
+        CreateMap<Team, TeamManagementDto>()
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status))
+            .ForMember(dest => dest.Tier, opt => opt.MapFrom(src => src.Tier));
+
+        CreateMap<UserTeam, TeamMemberDto>()
+            .ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.User.Email))
+            .ForMember(dest => dest.FirstName, opt => opt.MapFrom(src => src.User.FirstName))
+            .ForMember(dest => dest.LastName, opt => opt.MapFrom(src => src.User.LastName))
+            .ForMember(dest => dest.DisplayName, opt => opt.MapFrom(src => $"{src.User.LastName}, {src.User.FirstName}"))
+            .ForMember(dest => dest.IsOwner, opt => opt.MapFrom(src => src.Role == TeamRole.Host));
+
+        CreateMap<OwnershipTransfer, OwnershipTransferDto>()
+            .ForMember(dest => dest.TeamName, opt => opt.MapFrom(src => src.Team.Name))
+            .ForMember(dest => dest.InitiatedByUserName, opt => opt.MapFrom(src => $"{src.InitiatedByUser.FirstName} {src.InitiatedByUser.LastName}"))
+            .ForMember(dest => dest.InitiatedOn, opt => opt.MapFrom(src => src.CreatedOn));
     }
 } 

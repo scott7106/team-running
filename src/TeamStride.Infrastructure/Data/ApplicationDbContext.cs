@@ -29,6 +29,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<UserTeam> UserTeams => Set<UserTeam>();
     public DbSet<Athlete> Athletes => Set<Athlete>();
     public DbSet<AthleteProfile> AthleteProfiles => Set<AthleteProfile>();
+    public DbSet<OwnershipTransfer> OwnershipTransfers => Set<OwnershipTransfer>();
     
     // Identity entities
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -64,13 +65,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 
         builder.Entity<UserTeam>()
             .HasOne(ut => ut.User)
-            .WithMany()
+            .WithMany(u => u.UserTeams)
             .HasForeignKey(ut => ut.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.Entity<UserTeam>()
             .HasOne(ut => ut.Team)
-            .WithMany()
+            .WithMany(t => t.Users)
             .HasForeignKey(ut => ut.TeamId)
             .OnDelete(DeleteBehavior.Restrict);
 
@@ -79,6 +80,30 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
             .WithMany()
             .HasForeignKey(rt => rt.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<OwnershipTransfer>()
+            .HasOne(ot => ot.Team)
+            .WithMany()
+            .HasForeignKey(ot => ot.TeamId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<OwnershipTransfer>()
+            .HasOne(ot => ot.InitiatedByUser)
+            .WithMany()
+            .HasForeignKey(ot => ot.InitiatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<OwnershipTransfer>()
+            .HasOne(ot => ot.ExistingMember)
+            .WithMany()
+            .HasForeignKey(ot => ot.ExistingMemberId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<OwnershipTransfer>()
+            .HasOne(ot => ot.CompletedByUser)
+            .WithMany()
+            .HasForeignKey(ot => ot.CompletedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 
     private void ConfigureGlobalQueryFilters(ModelBuilder builder)
@@ -101,6 +126,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         // Configure RefreshToken to filter out tokens for soft-deleted users
         builder.Entity<RefreshToken>().HasQueryFilter(rt => 
             rt.User != null && !rt.User.IsDeleted);
+        
+        // Configure OwnershipTransfer with soft delete filter
+        builder.Entity<OwnershipTransfer>().HasQueryFilter(e => !e.IsDeleted);
     }
 
     public override int SaveChanges()

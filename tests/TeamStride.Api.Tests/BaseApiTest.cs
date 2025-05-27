@@ -11,13 +11,13 @@ namespace TeamStride.Api.Tests;
 /// Base class for API integration tests.
 /// Provides test server setup with SQLite in-memory database.
 /// </summary>
-public abstract class BaseApiTest : IClassFixture<WebApplicationFactory<Program>>, IDisposable
+public abstract class BaseApiTest : IClassFixture<WebApplicationFactory<TeamStride.Api.Program>>, IDisposable
 {
     protected HttpClient Client { get; private set; }
-    protected WebApplicationFactory<Program> Factory { get; private set; }
+    protected WebApplicationFactory<TeamStride.Api.Program> Factory { get; private set; }
     protected ApplicationDbContext DbContext { get; private set; }
 
-    protected BaseApiTest(WebApplicationFactory<Program> factory)
+    protected BaseApiTest(WebApplicationFactory<TeamStride.Api.Program> factory)
     {
         Factory = factory.WithWebHostBuilder(builder =>
         {

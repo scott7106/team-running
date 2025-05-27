@@ -56,4 +56,20 @@ public class NullEmailService : IEmailService
 
         return Task.CompletedTask;
     }
+
+    public Task SendOwnershipTransferAsync(string email, string teamName, string initiatedByName, string transferLink, string? message = null)
+    {
+        _logger.LogInformation(
+            """
+            [DEV ONLY] Ownership transfer email would have been sent:
+            To: {Email}
+            Team: {TeamName}
+            Initiated By: {InitiatedBy}
+            Transfer Link: {Link}
+            Message: {Message}
+            """,
+            email, teamName, initiatedByName, transferLink, message ?? "None");
+
+        return Task.CompletedTask;
+    }
 } 

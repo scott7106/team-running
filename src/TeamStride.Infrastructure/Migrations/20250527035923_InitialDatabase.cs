@@ -60,6 +60,7 @@ namespace TeamStride.Infrastructure.Migrations
                     FirstName = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     LastName = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     DefaultTeamId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    IsGlobalAdmin = table.Column<bool>(type: "bit", nullable: false),
                     CreatedOn = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     ModifiedOn = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -142,7 +143,61 @@ namespace TeamStride.Infrastructure.Migrations
                         column: x => x.UserId,
                         principalTable: "Users",
                         principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "OwnershipTransfers",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    TeamId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    InitiatedByUserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    NewOwnerEmail = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    NewOwnerFirstName = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    NewOwnerLastName = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ExistingMemberId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Message = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ExpiresOn = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    TransferToken = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    CompletedOn = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CompletedByUserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    CreatedOn = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ModifiedOn = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ModifiedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedOn = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    DeletedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_OwnershipTransfers", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_OwnershipTransfers_Teams_TeamId",
+                        column: x => x.TeamId,
+                        principalTable: "Teams",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_OwnershipTransfers_Users_CompletedByUserId",
+                        column: x => x.CompletedByUserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_OwnershipTransfers_Users_ExistingMemberId",
+                        column: x => x.ExistingMemberId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_OwnershipTransfers_Users_InitiatedByUserId",
+                        column: x => x.InitiatedByUserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -159,11 +214,17 @@ namespace TeamStride.Infrastructure.Migrations
                     RevokedByIp = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ReplacedByToken = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ReasonRevoked = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    RevokedOn = table.Column<DateTime>(type: "datetime2", nullable: true)
+                    RevokedOn = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ApplicationUserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_RefreshTokens", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_RefreshTokens_Users_ApplicationUserId",
+                        column: x => x.ApplicationUserId,
+                        principalTable: "Users",
+                        principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_RefreshTokens_Users_UserId",
                         column: x => x.UserId,
@@ -263,7 +324,8 @@ namespace TeamStride.Infrastructure.Migrations
                         name: "FK_UserTeams_Teams_TeamId",
                         column: x => x.TeamId,
                         principalTable: "Teams",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_UserTeams_Users_UserId",
                         column: x => x.UserId,
@@ -338,6 +400,31 @@ namespace TeamStride.Infrastructure.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_OwnershipTransfers_CompletedByUserId",
+                table: "OwnershipTransfers",
+                column: "CompletedByUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OwnershipTransfers_ExistingMemberId",
+                table: "OwnershipTransfers",
+                column: "ExistingMemberId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OwnershipTransfers_InitiatedByUserId",
+                table: "OwnershipTransfers",
+                column: "InitiatedByUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OwnershipTransfers_TeamId",
+                table: "OwnershipTransfers",
+                column: "TeamId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RefreshTokens_ApplicationUserId",
+                table: "RefreshTokens",
+                column: "ApplicationUserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_RefreshTokens_UserId",
                 table: "RefreshTokens",
                 column: "UserId");
@@ -397,6 +484,9 @@ namespace TeamStride.Infrastructure.Migrations
         {
             migrationBuilder.DropTable(
                 name: "AthleteProfiles");
+
+            migrationBuilder.DropTable(
+                name: "OwnershipTransfers");
 
             migrationBuilder.DropTable(
                 name: "RefreshTokens");

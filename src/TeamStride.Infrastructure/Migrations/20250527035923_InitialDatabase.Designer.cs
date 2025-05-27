@@ -12,7 +12,7 @@ using TeamStride.Infrastructure.Data;
 namespace TeamStride.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250526211305_InitialDatabase")]
+    [Migration("20250527035923_InitialDatabase")]
     partial class InitialDatabase
     {
         /// <inheritdoc />
@@ -257,6 +257,84 @@ namespace TeamStride.Infrastructure.Migrations
                     b.ToTable("AthleteProfiles");
                 });
 
+            modelBuilder.Entity("TeamStride.Domain.Entities.OwnershipTransfer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CompletedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CompletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ExistingMemberId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ExpiresOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("InitiatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Message")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("ModifiedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NewOwnerEmail")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NewOwnerFirstName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NewOwnerLastName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TransferToken")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompletedByUserId");
+
+                    b.HasIndex("ExistingMemberId");
+
+                    b.HasIndex("InitiatedByUserId");
+
+                    b.HasIndex("TeamId");
+
+                    b.ToTable("OwnershipTransfers");
+                });
+
             modelBuilder.Entity("TeamStride.Domain.Entities.Team", b =>
                 {
                     b.Property<Guid>("Id")
@@ -447,6 +525,9 @@ namespace TeamStride.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsGlobalAdmin")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime?>("LastLoginOn")
                         .HasColumnType("datetime2");
 
@@ -515,6 +596,9 @@ namespace TeamStride.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("ApplicationUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("CreatedByIp")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -548,6 +632,8 @@ namespace TeamStride.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ApplicationUserId");
 
                     b.HasIndex("UserId");
 
@@ -610,7 +696,7 @@ namespace TeamStride.Infrastructure.Migrations
                     b.HasOne("TeamStride.Domain.Identity.ApplicationUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("User");
@@ -627,11 +713,45 @@ namespace TeamStride.Infrastructure.Migrations
                     b.Navigation("Athlete");
                 });
 
+            modelBuilder.Entity("TeamStride.Domain.Entities.OwnershipTransfer", b =>
+                {
+                    b.HasOne("TeamStride.Domain.Identity.ApplicationUser", "CompletedByUser")
+                        .WithMany()
+                        .HasForeignKey("CompletedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("TeamStride.Domain.Identity.ApplicationUser", "ExistingMember")
+                        .WithMany()
+                        .HasForeignKey("ExistingMemberId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("TeamStride.Domain.Identity.ApplicationUser", "InitiatedByUser")
+                        .WithMany()
+                        .HasForeignKey("InitiatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TeamStride.Domain.Entities.Team", "Team")
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CompletedByUser");
+
+                    b.Navigation("ExistingMember");
+
+                    b.Navigation("InitiatedByUser");
+
+                    b.Navigation("Team");
+                });
+
             modelBuilder.Entity("TeamStride.Domain.Entities.UserTeam", b =>
                 {
                     b.HasOne("TeamStride.Domain.Entities.Team", "Team")
                         .WithMany("Users")
-                        .HasForeignKey("TeamId");
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("TeamStride.Domain.Identity.ApplicationUser", "User")
                         .WithMany("UserTeams")
@@ -646,8 +766,12 @@ namespace TeamStride.Infrastructure.Migrations
 
             modelBuilder.Entity("TeamStride.Domain.Identity.RefreshToken", b =>
                 {
-                    b.HasOne("TeamStride.Domain.Identity.ApplicationUser", "User")
+                    b.HasOne("TeamStride.Domain.Identity.ApplicationUser", null)
                         .WithMany("RefreshTokens")
+                        .HasForeignKey("ApplicationUserId");
+
+                    b.HasOne("TeamStride.Domain.Identity.ApplicationUser", "User")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

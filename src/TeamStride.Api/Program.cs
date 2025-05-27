@@ -152,11 +152,14 @@ app.UseTeamResolution();
 
         try
         {
-            // Apply migrations
+            // Apply migrations only for relational databases (not in-memory)
             using (var scope = app.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                context.Database.Migrate();
+                if (context.Database.IsRelational())
+                {
+                    context.Database.Migrate();
+                }
             }
 
             Log.Information("Starting TeamStride API");

@@ -50,4 +50,23 @@ public class SendGridEmailService : IEmailService
 
         await SendEmailAsync(email, subject, htmlContent);
     }
+
+    public async Task SendOwnershipTransferAsync(string email, string teamName, string initiatedByName, string transferLink, string? message = null)
+    {
+        var subject = $"Team Ownership Transfer - {teamName}";
+        var messageSection = !string.IsNullOrEmpty(message) 
+            ? $"<p><strong>Message from {initiatedByName}:</strong></p><p style='font-style: italic;'>{message}</p>" 
+            : "";
+        
+        var htmlContent = $@"
+            <h2>Team Ownership Transfer</h2>
+            <p>You have been invited to become the owner of the team <strong>{teamName}</strong> by {initiatedByName}.</p>
+            {messageSection}
+            <p>To accept this ownership transfer, please click the link below:</p>
+            <p><a href='{transferLink}' style='background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Accept Ownership Transfer</a></p>
+            <p>If you did not expect this invitation, please ignore this email.</p>
+            <p><strong>Important:</strong> This link will expire in 7 days.</p>";
+
+        await SendEmailAsync(email, subject, htmlContent);
+    }
 } 
