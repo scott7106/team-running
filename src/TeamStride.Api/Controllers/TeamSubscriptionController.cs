@@ -11,10 +11,10 @@ namespace TeamStride.Api.Controllers;
 [Authorize]
 public class TeamSubscriptionController : BaseApiController
 {
-    private readonly ITeamManagementService _teamManagementService;
+    private readonly ITeamService _teamManagementService;
 
     public TeamSubscriptionController(
-        ITeamManagementService teamManagementService,
+        ITeamService teamManagementService,
         ILogger<TeamSubscriptionController> logger) : base(logger)
     {
         _teamManagementService = teamManagementService;
@@ -27,7 +27,7 @@ public class TeamSubscriptionController : BaseApiController
     /// <param name="dto">Subscription update data</param>
     /// <returns>Updated team details</returns>
     [HttpPut("teams/{teamId:guid}/subscription")]
-    [ProducesResponseType(typeof(TeamManagementDto), 200)]
+    [ProducesResponseType(typeof(TeamDto), 200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(401)]
     [ProducesResponseType(403)]
@@ -69,7 +69,7 @@ public class TeamSubscriptionController : BaseApiController
     /// <param name="dto">Branding update data</param>
     /// <returns>Updated team details</returns>
     [HttpPut("teams/{teamId:guid}/branding")]
-    [ProducesResponseType(typeof(TeamManagementDto), 200)]
+    [ProducesResponseType(typeof(TeamDto), 200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(401)]
     [ProducesResponseType(403)]

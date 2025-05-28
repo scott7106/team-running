@@ -4,20 +4,25 @@ This document summarizes the API controllers that have been implemented for the 
 
 ## Implemented Controllers
 
-### 1. TeamManagementController (`/api/teammanagement`)
+### 1. TeamsController (`/api/teams`)
 **Purpose**: Core team management operations including CRUD, subdomain management, and tier limits.
 
 **Endpoints**:
-- `GET /api/teammanagement` - Get paginated list of teams (Global Admin only)
-- `GET /api/teammanagement/{teamId}` - Get team by ID
-- `GET /api/teammanagement/subdomain/{subdomain}` - Get team by subdomain
-- `POST /api/teammanagement` - Create new team (Global Admin only)
-- `PUT /api/teammanagement/{teamId}` - Update team
-- `DELETE /api/teammanagement/{teamId}` - Delete team (soft delete)
-- `GET /api/teammanagement/subdomain/{subdomain}/availability` - Check subdomain availability
-- `PUT /api/teammanagement/{teamId}/subdomain` - Update team subdomain (Global Admin only)
-- `GET /api/teammanagement/tiers/{tier}/limits` - Get tier limits
-- `GET /api/teammanagement/{teamId}/can-add-athlete` - Check if team can add more athletes
+- `GET /api/teams` - Get paginated list of teams user has access to
+- `GET /api/teams/{teamId}` - Get team by ID
+- `GET /api/teams/subdomain/{subdomain}` - Get team by subdomain
+- `POST /api/teams` - Create new team
+- `PUT /api/teams/{teamId}` - Update team basic properties
+- `DELETE /api/teams/{teamId}` - Delete team (soft delete)
+- `GET /api/teams/subdomain/{subdomain}/availability` - Check subdomain availability
+- `PUT /api/teams/{teamId}/subdomain` - Update team subdomain
+- `GET /api/teams/tiers/{tier}/limits` - Get tier limits (no team access required)
+- `GET /api/teams/{teamId}/can-add-athlete` - Check if team can add more athletes (no team access required)
+
+**Authorization**:
+- All endpoints require `RequireTeamAccess` attribute except `GetTierLimits` and `CanAddAthlete`
+- Different role requirements: TeamMember, TeamAdmin, or TeamOwner based on operation
+- Global admins bypass all team access restrictions
 
 ### 2. OwnershipTransferController (`/api/ownershiptransfer`)
 **Purpose**: Team ownership transfer operations.
@@ -43,22 +48,40 @@ This document summarizes the API controllers that have been implemented for the 
 - `PUT /api/teammembers/teams/{teamId}/members/{userId}/role` - Update member role
 - `DELETE /api/teammembers/teams/{teamId}/members/{userId}` - Remove member from team
 
+### 5. GlobalAdminTeamsController (`/api/admin/teams`)
+**Purpose**: Global admin team management operations (bypasses normal team access restrictions).
+
+**Endpoints**:
+- `GET /api/admin/teams` - Get all teams with advanced filtering
+- `GET /api/admin/teams/deleted` - Get deleted teams that can be recovered
+- `GET /api/admin/teams/{teamId}` - Get team by ID (admin view)
+- `POST /api/admin/teams/with-new-owner` - Create team with new user as owner
+- `POST /api/admin/teams/with-existing-owner` - Create team with existing user as owner
+- `PUT /api/admin/teams/{teamId}` - Update team (all properties)
+- `DELETE /api/admin/teams/{teamId}` - Soft delete team
+- `DELETE /api/admin/teams/{teamId}/permanent` - Permanently delete team
+- `POST /api/admin/teams/{teamId}/recover` - Recover soft-deleted team
+- `POST /api/admin/teams/{teamId}/transfer-ownership` - Immediate ownership transfer
+- `GET /api/admin/teams/subdomain-availability` - Check subdomain availability
+
 ## Key Features
 
 ### Authentication & Authorization
 - All endpoints require authentication except ownership transfer completion
-- Role-based access control (Global Admin, Team Owner, Team Admin, etc.)
+- Role-based access control using `RequireTeamAccess` and `RequireGlobalAdmin` attributes
+- Hierarchical team roles: TeamOwner > TeamAdmin > TeamMember
+- Global admins bypass all team access restrictions
 - Proper error handling for unauthorized access
 
 ### Data Transfer Objects (DTOs)
-- `TeamManagementDto` - Complete team information with statistics
+- `TeamDto` - Standard team information with statistics
 - `CreateTeamDto` - Team creation data
 - `UpdateTeamDto` - Team update data
-- `TransferOwnershipDto` - Ownership transfer details
+- `GlobalAdminTeamDto` - Enhanced team information for admin operations
+- `OwnershipTransferDto` - Transfer status and details
 - `UpdateSubscriptionDto` - Subscription update data
 - `UpdateTeamBrandingDto` - Branding update data
 - `TeamMemberDto` - Team member information
-- `OwnershipTransferDto` - Transfer status and details
 - `TeamTierLimitsDto` - Tier limitations and features
 
 ### Error Handling
@@ -80,7 +103,12 @@ This document summarizes the API controllers that have been implemented for the 
 
 ## Service Integration
 
-All controllers integrate with the `ITeamManagementService` which provides:
+All controllers integrate with the appropriate services:
+- **TeamsController**: Uses `ITeamService` for standard team operations
+- **GlobalAdminTeamsController**: Uses `IGlobalAdminTeamService` for admin operations
+- **Other Controllers**: Use `ITeamService` for their specific domains
+
+Services provide:
 - Team CRUD operations
 - Ownership transfer management
 - Subscription and branding updates
@@ -99,7 +127,7 @@ Basic integration tests have been created to verify:
 ## Next Steps
 
 1. **Authentication Integration**: Implement JWT token authentication in tests
-2. **Advanced Testing**: Add authenticated test scenarios
+2. **Advanced Testing**: Add authenticated test scenarios for new TeamsController
 3. **API Documentation**: Enhance Swagger documentation with examples
 4. **Rate Limiting**: Implement rate limiting for public endpoints
 5. **Caching**: Add caching for frequently accessed data
@@ -118,4 +146,12 @@ All controllers inherit from `BaseApiController` which provides:
 - Consistent error handling
 - Logging integration
 - Common HTTP response helpers
-- Trace ID generation for debugging 
+- Trace ID generation for debugging
+
+## Authorization Model
+
+The new `RequireTeamAccess` attribute provides:
+- Automatic team ID validation from route parameters
+- Role hierarchy enforcement (TeamOwner > TeamAdmin > TeamMember)
+- Global admin bypass functionality
+- Flexible team ID source configuration (route-based or context-based) 

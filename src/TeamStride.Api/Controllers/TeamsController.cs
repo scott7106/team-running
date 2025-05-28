@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TeamStride.Api.Authorization;
 using TeamStride.Application.Common.Models;
 using TeamStride.Application.Teams.Dtos;
 using TeamStride.Application.Teams.Services;
@@ -8,22 +9,24 @@ using TeamStride.Domain.Entities;
 namespace TeamStride.Api.Controllers;
 
 /// <summary>
-/// Controller for team management operations including CRUD, ownership transfers, subscriptions, and member management
+/// Controller for core team management operations
 /// </summary>
+[ApiController]
+[Route("api/teams")]
 [Authorize]
-public class TeamManagementController : BaseApiController
+public class TeamsController : BaseApiController
 {
-    private readonly ITeamManagementService _teamManagementService;
+    private readonly ITeamService _teamService;
 
-    public TeamManagementController(
-        ITeamManagementService teamManagementService,
-        ILogger<TeamManagementController> logger) : base(logger)
+    public TeamsController(
+        ITeamService teamService,
+        ILogger<TeamsController> logger) : base(logger)
     {
-        _teamManagementService = teamManagementService;
+        _teamService = teamService;
     }
 
     /// <summary>
-    /// Gets a paginated list of teams (Global Admin only)
+    /// Gets a paginated list of teams the user has access to
     /// </summary>
     /// <param name="pageNumber">Page number (default: 1)</param>
     /// <param name="pageSize">Page size (default: 10)</param>
@@ -32,7 +35,8 @@ public class TeamManagementController : BaseApiController
     /// <param name="tier">Filter by team tier</param>
     /// <returns>Paginated list of teams</returns>
     [HttpGet]
-    [ProducesResponseType(typeof(PaginatedList<TeamManagementDto>), 200)]
+    [RequireTeamAccess(TeamRole.TeamMember, requireTeamIdFromRoute: false)]
+    [ProducesResponseType(typeof(PaginatedList<TeamDto>), 200)]
     [ProducesResponseType(401)]
     [ProducesResponseType(403)]
     public async Task<IActionResult> GetTeams(
@@ -44,7 +48,7 @@ public class TeamManagementController : BaseApiController
     {
         try
         {
-            var teams = await _teamManagementService.GetTeamsAsync(pageNumber, pageSize, searchQuery, status, tier);
+            var teams = await _teamService.GetTeamsAsync(pageNumber, pageSize, searchQuery, status, tier);
             return Ok(teams);
         }
         catch (UnauthorizedAccessException ex)
@@ -63,7 +67,8 @@ public class TeamManagementController : BaseApiController
     /// <param name="teamId">Team ID</param>
     /// <returns>Team details</returns>
     [HttpGet("{teamId:guid}")]
-    [ProducesResponseType(typeof(TeamManagementDto), 200)]
+    [RequireTeamAccess(TeamRole.TeamMember)]
+    [ProducesResponseType(typeof(TeamDto), 200)]
     [ProducesResponseType(401)]
     [ProducesResponseType(403)]
     [ProducesResponseType(404)]
@@ -71,7 +76,7 @@ public class TeamManagementController : BaseApiController
     {
         try
         {
-            var team = await _teamManagementService.GetTeamByIdAsync(teamId);
+            var team = await _teamService.GetTeamByIdAsync(teamId);
             return Ok(team);
         }
         catch (UnauthorizedAccessException ex)
@@ -84,7 +89,7 @@ public class TeamManagementController : BaseApiController
         }
         catch (Exception ex)
         {
-            return HandleError(ex, "Failed to retrieve team");
+            return HandleError(ex, $"Failed to retrieve team {teamId}");
         }
     }
 
@@ -94,15 +99,21 @@ public class TeamManagementController : BaseApiController
     /// <param name="subdomain">Team subdomain</param>
     /// <returns>Team details</returns>
     [HttpGet("subdomain/{subdomain}")]
-    [ProducesResponseType(typeof(TeamManagementDto), 200)]
+    [RequireTeamAccess(TeamRole.TeamMember, requireTeamIdFromRoute: false)]
+    [ProducesResponseType(typeof(TeamDto), 200)]
     [ProducesResponseType(401)]
     [ProducesResponseType(403)]
     [ProducesResponseType(404)]
     public async Task<IActionResult> GetTeamBySubdomain(string subdomain)
     {
+        if (string.IsNullOrWhiteSpace(subdomain))
+        {
+            return BadRequest("Subdomain is required");
+        }
+
         try
         {
-            var team = await _teamManagementService.GetTeamBySubdomainAsync(subdomain);
+            var team = await _teamService.GetTeamBySubdomainAsync(subdomain);
             return Ok(team);
         }
         catch (UnauthorizedAccessException ex)
@@ -115,17 +126,18 @@ public class TeamManagementController : BaseApiController
         }
         catch (Exception ex)
         {
-            return HandleError(ex, "Failed to retrieve team");
+            return HandleError(ex, $"Failed to retrieve team with subdomain {subdomain}");
         }
     }
 
     /// <summary>
-    /// Creates a new team (Global Admin only)
+    /// Creates a new team
     /// </summary>
     /// <param name="dto">Team creation data</param>
     /// <returns>Created team details</returns>
     [HttpPost]
-    [ProducesResponseType(typeof(TeamManagementDto), 201)]
+    [RequireTeamAccess(TeamRole.TeamMember, requireTeamIdFromRoute: false)]
+    [ProducesResponseType(typeof(TeamDto), 201)]
     [ProducesResponseType(400)]
     [ProducesResponseType(401)]
     [ProducesResponseType(403)]
@@ -138,7 +150,7 @@ public class TeamManagementController : BaseApiController
 
         try
         {
-            var team = await _teamManagementService.CreateTeamAsync(dto);
+            var team = await _teamService.CreateTeamAsync(dto);
             return CreatedAtAction(nameof(GetTeamById), new { teamId = team.Id }, team);
         }
         catch (UnauthorizedAccessException ex)
@@ -156,13 +168,14 @@ public class TeamManagementController : BaseApiController
     }
 
     /// <summary>
-    /// Updates a team
+    /// Updates a team's basic properties
     /// </summary>
     /// <param name="teamId">Team ID</param>
     /// <param name="dto">Team update data</param>
     /// <returns>Updated team details</returns>
     [HttpPut("{teamId:guid}")]
-    [ProducesResponseType(typeof(TeamManagementDto), 200)]
+    [RequireTeamAccess(TeamRole.TeamAdmin)]
+    [ProducesResponseType(typeof(TeamDto), 200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(401)]
     [ProducesResponseType(403)]
@@ -176,7 +189,7 @@ public class TeamManagementController : BaseApiController
 
         try
         {
-            var team = await _teamManagementService.UpdateTeamAsync(teamId, dto);
+            var team = await _teamService.UpdateTeamAsync(teamId, dto);
             return Ok(team);
         }
         catch (UnauthorizedAccessException ex)
@@ -193,7 +206,7 @@ public class TeamManagementController : BaseApiController
         }
         catch (Exception ex)
         {
-            return HandleError(ex, "Failed to update team");
+            return HandleError(ex, $"Failed to update team {teamId}");
         }
     }
 
@@ -203,6 +216,7 @@ public class TeamManagementController : BaseApiController
     /// <param name="teamId">Team ID</param>
     /// <returns>No content</returns>
     [HttpDelete("{teamId:guid}")]
+    [RequireTeamAccess(TeamRole.TeamOwner)]
     [ProducesResponseType(204)]
     [ProducesResponseType(401)]
     [ProducesResponseType(403)]
@@ -211,7 +225,7 @@ public class TeamManagementController : BaseApiController
     {
         try
         {
-            await _teamManagementService.DeleteTeamAsync(teamId);
+            await _teamService.DeleteTeamAsync(teamId);
             return NoContent();
         }
         catch (UnauthorizedAccessException ex)
@@ -222,9 +236,13 @@ public class TeamManagementController : BaseApiController
         {
             return NotFound(ex.Message);
         }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
         catch (Exception ex)
         {
-            return HandleError(ex, "Failed to delete team");
+            return HandleError(ex, $"Failed to delete team {teamId}");
         }
     }
 
@@ -234,13 +252,22 @@ public class TeamManagementController : BaseApiController
     /// <param name="subdomain">Subdomain to check</param>
     /// <returns>Availability status</returns>
     [HttpGet("subdomain/{subdomain}/availability")]
+    [RequireTeamAccess(TeamRole.TeamAdmin, requireTeamIdFromRoute: false)]
     [ProducesResponseType(typeof(bool), 200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(403)]
     public async Task<IActionResult> CheckSubdomainAvailability(string subdomain)
     {
+        if (string.IsNullOrWhiteSpace(subdomain))
+        {
+            return BadRequest("Subdomain is required");
+        }
+
         try
         {
-            var isAvailable = await _teamManagementService.IsSubdomainAvailableAsync(subdomain);
-            return Ok(new { subdomain, isAvailable });
+            var isAvailable = await _teamService.IsSubdomainAvailableAsync(subdomain);
+            return Ok(isAvailable);
         }
         catch (Exception ex)
         {
@@ -249,13 +276,14 @@ public class TeamManagementController : BaseApiController
     }
 
     /// <summary>
-    /// Updates a team's subdomain (Global Admin only)
+    /// Updates a team's subdomain
     /// </summary>
     /// <param name="teamId">Team ID</param>
     /// <param name="newSubdomain">New subdomain</param>
     /// <returns>Updated team details</returns>
     [HttpPut("{teamId:guid}/subdomain")]
-    [ProducesResponseType(typeof(TeamManagementDto), 200)]
+    [RequireTeamAccess(TeamRole.TeamOwner)]
+    [ProducesResponseType(typeof(TeamDto), 200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(401)]
     [ProducesResponseType(403)]
@@ -264,12 +292,12 @@ public class TeamManagementController : BaseApiController
     {
         if (string.IsNullOrWhiteSpace(newSubdomain))
         {
-            return BadRequest("Subdomain cannot be empty");
+            return BadRequest("New subdomain is required");
         }
 
         try
         {
-            var team = await _teamManagementService.UpdateSubdomainAsync(teamId, newSubdomain);
+            var team = await _teamService.UpdateSubdomainAsync(teamId, newSubdomain);
             return Ok(team);
         }
         catch (UnauthorizedAccessException ex)
@@ -286,7 +314,7 @@ public class TeamManagementController : BaseApiController
         }
         catch (Exception ex)
         {
-            return HandleError(ex, "Failed to update subdomain");
+            return HandleError(ex, $"Failed to update subdomain for team {teamId}");
         }
     }
 
@@ -294,24 +322,26 @@ public class TeamManagementController : BaseApiController
     /// Gets tier limits for a specific tier
     /// </summary>
     /// <param name="tier">Team tier</param>
-    /// <returns>Tier limits</returns>
+    /// <returns>Tier limits and features</returns>
     [HttpGet("tiers/{tier}/limits")]
     [ProducesResponseType(typeof(TeamTierLimitsDto), 200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(401)]
     public async Task<IActionResult> GetTierLimits(TeamTier tier)
     {
         try
         {
-            var limits = await _teamManagementService.GetTierLimitsAsync(tier);
+            var limits = await _teamService.GetTierLimitsAsync(tier);
             return Ok(limits);
         }
         catch (Exception ex)
         {
-            return HandleError(ex, "Failed to retrieve tier limits");
+            return HandleError(ex, $"Failed to get tier limits for {tier}");
         }
     }
 
     /// <summary>
-    /// Checks if a team can add more athletes
+    /// Checks if a team can add more athletes based on tier limits
     /// </summary>
     /// <param name="teamId">Team ID</param>
     /// <returns>Whether the team can add more athletes</returns>
@@ -324,12 +354,16 @@ public class TeamManagementController : BaseApiController
     {
         try
         {
-            var canAdd = await _teamManagementService.CanAddAthleteAsync(teamId);
-            return Ok(new { teamId, canAddAthlete = canAdd });
+            var canAdd = await _teamService.CanAddAthleteAsync(teamId);
+            return Ok(canAdd);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
         }
         catch (Exception ex)
         {
-            return HandleError(ex, "Failed to check athlete capacity");
+            return HandleError(ex, $"Failed to check athlete capacity for team {teamId}");
         }
     }
 } 

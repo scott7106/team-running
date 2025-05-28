@@ -11,10 +11,10 @@ namespace TeamStride.Api.Controllers;
 [Authorize]
 public class OwnershipTransferController : BaseApiController
 {
-    private readonly ITeamManagementService _teamManagementService;
+    private readonly ITeamService _teamManagementService;
 
     public OwnershipTransferController(
-        ITeamManagementService teamManagementService,
+        ITeamService teamManagementService,
         ILogger<OwnershipTransferController> logger) : base(logger)
     {
         _teamManagementService = teamManagementService;
@@ -32,7 +32,7 @@ public class OwnershipTransferController : BaseApiController
     [ProducesResponseType(401)]
     [ProducesResponseType(403)]
     [ProducesResponseType(404)]
-    public async Task<IActionResult> InitiateOwnershipTransfer(Guid teamId, [FromBody] TransferOwnershipDto dto)
+    public async Task<IActionResult> InitiateOwnershipTransfer(Guid teamId, [FromBody] InitiateOwnershipTransferDto dto)
     {
         if (!ModelState.IsValid)
         {
@@ -69,7 +69,7 @@ public class OwnershipTransferController : BaseApiController
     /// <returns>Updated team details</returns>
     [HttpPost("complete/{transferToken}")]
     [AllowAnonymous] // Allow anonymous access for completing transfers via email link
-    [ProducesResponseType(typeof(TeamManagementDto), 200)]
+    [ProducesResponseType(typeof(TeamDto), 200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
     public async Task<IActionResult> CompleteOwnershipTransfer(string transferToken)

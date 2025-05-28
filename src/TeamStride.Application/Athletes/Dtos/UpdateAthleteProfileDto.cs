@@ -1,9 +1,7 @@
 namespace TeamStride.Application.Athletes.Dtos;
 
-public class AthleteProfileDto
+public class UpdateAthleteProfileDto
 {
-    public Guid Id { get; set; }
-    public Guid AthleteId { get; set; }
     public string? PreferredEvents { get; set; }
     public string? PersonalBests { get; set; }
     public string? Goals { get; set; }

@@ -57,10 +57,10 @@ public class CurrentTeamService : ICurrentTeamService
         try
         {
             // Use service locator pattern to avoid circular dependency
-            var teamManagementService = _serviceProvider.GetService(typeof(ITeamManagementService)) as ITeamManagementService;
+            var teamManagementService = _serviceProvider.GetService(typeof(ITeamService)) as ITeamService;
             if (teamManagementService == null)
             {
-                _logger.LogWarning("TeamManagementService not available for team resolution");
+                _logger.LogWarning("TeamService not available for team resolution");
                 return false;
             }
 

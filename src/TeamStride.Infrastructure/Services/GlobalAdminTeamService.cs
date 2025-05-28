@@ -49,7 +49,7 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
     {
         await _authorizationService.RequireGlobalAdminAsync();
 
-        var query = _context.Teams
+        IQueryable<Team> query = _context.Teams
             .IgnoreQueryFilters() // Bypass global query filters for global admin
             .Where(t => !t.IsDeleted)
             .Include(t => t.Users.Where(ut => ut.Role == TeamRole.TeamOwner))
@@ -137,7 +137,7 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
     {
         await _authorizationService.RequireGlobalAdminAsync();
 
-        var query = _context.Teams
+        IQueryable<Team> query = _context.Teams
             .IgnoreQueryFilters() // Bypass global query filters
             .Where(t => t.IsDeleted)
             .Include(t => t.Users.Where(ut => ut.Role == TeamRole.TeamOwner))

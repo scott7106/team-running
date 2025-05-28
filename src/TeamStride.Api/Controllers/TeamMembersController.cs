@@ -13,10 +13,10 @@ namespace TeamStride.Api.Controllers;
 [Authorize]
 public class TeamMembersController : BaseApiController
 {
-    private readonly ITeamManagementService _teamManagementService;
+    private readonly ITeamService _teamManagementService;
 
     public TeamMembersController(
-        ITeamManagementService teamManagementService,
+        ITeamService teamManagementService,
         ILogger<TeamMembersController> logger) : base(logger)
     {
         _teamManagementService = teamManagementService;
