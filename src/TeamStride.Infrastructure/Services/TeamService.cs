@@ -122,7 +122,7 @@ public class TeamService : ITeamService
         await _authorizationService.RequireTeamAccessAsync(teamId);
 
         var team = await _context.Teams
-            .Include(t => t.Users.Where(ut => ut.Role == TeamRole.TeamOwner))
+            .Include(t => t.Users)
             .ThenInclude(ut => ut.User)
             .FirstOrDefaultAsync(t => t.Id == teamId);
 
@@ -140,7 +140,7 @@ public class TeamService : ITeamService
 
         var team = await _context.Teams
             .IgnoreQueryFilters() // Allow subdomain lookup without team context
-            .Include(t => t.Users.Where(ut => ut.Role == TeamRole.TeamOwner))
+            .Include(t => t.Users)
             .ThenInclude(ut => ut.User)
             .FirstOrDefaultAsync(t => t.Subdomain == subdomain && !t.IsDeleted);
 
@@ -408,6 +408,7 @@ public class TeamService : ITeamService
         ArgumentException.ThrowIfNullOrWhiteSpace(transferToken);
 
         var transfer = await _context.OwnershipTransfers
+            .IgnoreQueryFilters()
             .Include(ot => ot.Team)
             .Include(ot => ot.InitiatedByUser)
             .FirstOrDefaultAsync(ot => ot.TransferToken == transferToken);
@@ -822,12 +823,14 @@ public class TeamService : ITeamService
     {
         var dto = _mapper.Map<TeamDto>(team);
 
-        // Get owner information
+        // Get owner information - every team must have exactly one owner
         var owner = team.Users.FirstOrDefault(ut => ut.Role == TeamRole.TeamOwner);
-        if (owner?.User != null)
+        if (owner?.User == null)
         {
-            dto.Owner = _mapper.Map<TeamMemberDto>(owner);
+            throw new InvalidOperationException($"Team {team.Id} does not have a valid team owner. This is a data integrity issue.");
         }
+        
+        dto.Owner = _mapper.Map<TeamMemberDto>(owner);
 
         // Get statistics
         dto.MemberCount = team.Users.Count(ut => ut.IsActive);

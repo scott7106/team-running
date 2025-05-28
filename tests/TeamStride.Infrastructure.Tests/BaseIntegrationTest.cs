@@ -17,7 +17,7 @@ public abstract class BaseIntegrationTest : IDisposable
 {
     protected ApplicationDbContext DbContext { get; private set; }
     protected IServiceProvider ServiceProvider { get; private set; }
-    protected Mock<ICurrentTeamService> MockTeamService { get; private set; }
+    protected Mock<ICurrentTeamService> MockCurrentTeamService { get; private set; }
     protected Mock<ICurrentUserService> MockCurrentUserService { get; private set; }
 
     protected BaseIntegrationTest()
@@ -25,16 +25,16 @@ public abstract class BaseIntegrationTest : IDisposable
         var services = new ServiceCollection();
         
         // Create mocks for required services
-        MockTeamService = new Mock<ICurrentTeamService>();
+        MockCurrentTeamService = new Mock<ICurrentTeamService>();
         MockCurrentUserService = new Mock<ICurrentUserService>();
         
         // Setup default mock behavior
-        MockTeamService.Setup(x => x.TeamId).Returns(Guid.NewGuid());
+        MockCurrentTeamService.Setup(x => x.TeamId).Returns(Guid.NewGuid());
         MockCurrentUserService.Setup(x => x.UserId).Returns(Guid.NewGuid());
         MockCurrentUserService.Setup(x => x.IsAuthenticated).Returns(true);
         
         // Register mocked services
-        services.AddSingleton(MockTeamService.Object);
+        services.AddSingleton(MockCurrentTeamService.Object);
         services.AddSingleton(MockCurrentUserService.Object);
         
         // Add logging services

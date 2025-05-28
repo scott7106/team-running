@@ -32,7 +32,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         _testUserId = Guid.NewGuid();
 
         // Setup team and user service mocks
-        MockTeamService.Setup(x => x.TeamId).Returns(_testTeamId);
+        MockCurrentTeamService.Setup(x => x.TeamId).Returns(_testTeamId);
         MockCurrentUserService.Setup(x => x.UserId).Returns(_testUserId);
 
         // Create mocks for dependencies
