@@ -62,6 +62,7 @@ public class Program
         // Register application services
         builder.Services.AddScoped<ICurrentTeamService, CurrentTeamService>();
         builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+        builder.Services.AddScoped<TeamStride.Application.Common.Services.IAuthorizationService, TeamStride.Infrastructure.Services.AuthorizationService>();
         builder.Services
             .AddInfrastructureServices()
             .AddApplicationServices();

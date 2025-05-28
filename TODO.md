@@ -83,6 +83,7 @@
 - **Task**: Enhance middleware to automatically set team context from subdomain/JWT
 - **Files**: `src/TeamStride.Api/Middleware/TeamMiddleware.cs`
 - **Suggested Prompt**: "Enhance the TeamMiddleware to automatically resolve and set team context from subdomain or JWT claims. Ensure proper team validation and context setting for both subdomain-based access and API access. Add error handling for invalid team contexts."
+-- done
 
 ### **Phase 5: Service Layer Authorization Updates**
 
@@ -90,16 +91,19 @@
 - **Task**: Replace complex authorization checks with simplified RequireGlobalAdmin and RequireTeamAccess patterns
 - **Files**: `src/TeamStride.Infrastructure/Services/TeamManagementService.cs`
 - **Suggested Prompt**: "Refactor all authorization methods in TeamManagementService to use the simplified authorization model. Replace the current complex role checks with simple RequireGlobalAdmin and RequireTeamAccess patterns. Update methods like EnsureCanManageTeamAsync, EnsureCanDeleteTeamAsync, etc."
+-- no longer needed, removed TeamManagementService
 
 #### **5.2 Update AthleteService Authorization**
 - **Task**: Implement team-based authorization for athlete operations
 - **Files**: `src/TeamStride.Infrastructure/Services/AthleteService.cs`
 - **Suggested Prompt**: "Update AthleteService to use the simplified authorization model. Ensure all operations respect team context and user roles. Add authorization checks that verify users can only access athletes from their team (unless they're global admins)."
+-- no longer needed, removed AthleteService
 
 #### **5.3 Create Authorization Helper Service**
 - **Task**: Create centralized authorization logic for reuse across services
 - **Files**: New file `src/TeamStride.Application/Common/Services/IAuthorizationService.cs` and implementation
 - **Suggested Prompt**: "Create a centralized authorization service that implements the two main authorization patterns: RequireGlobalAdmin and RequireTeamAccess. This service should be used by all other services to ensure consistent authorization logic across the application."
+-- done
 
 ### **Phase 6: Controller Updates**
 
