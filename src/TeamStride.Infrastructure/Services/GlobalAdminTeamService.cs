@@ -8,6 +8,7 @@ using TeamStride.Application.Teams.Dtos;
 using TeamStride.Application.Teams.Services;
 using TeamStride.Domain.Entities;
 using TeamStride.Domain.Identity;
+using TeamStride.Domain.Interfaces;
 using TeamStride.Infrastructure.Data;
 
 namespace TeamStride.Infrastructure.Services;
@@ -23,19 +24,22 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IMapper _mapper;
     private readonly ILogger<GlobalAdminTeamService> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
     public GlobalAdminTeamService(
         ApplicationDbContext context,
         IAuthorizationService authorizationService,
         UserManager<ApplicationUser> userManager,
         IMapper mapper,
-        ILogger<GlobalAdminTeamService> logger)
+        ILogger<GlobalAdminTeamService> logger, 
+        ICurrentUserService currentUserService)
     {
         _context = context;
         _authorizationService = authorizationService;
         _userManager = userManager;
         _mapper = mapper;
         _logger = logger;
+        _currentUserService = currentUserService;
     }
 
     public async Task<PaginatedList<GlobalAdminTeamDto>> GetTeamsAsync(
@@ -194,7 +198,7 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
 
         var team = await _context.Teams
             .IgnoreQueryFilters() // Bypass global query filters
-            .Include(t => t.Users.Where(ut => ut.Role == TeamRole.TeamOwner))
+            .Include(t => t.Users)
             .ThenInclude(ut => ut.User)
             .FirstOrDefaultAsync(t => t.Id == teamId);
 
@@ -333,15 +337,6 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
         if (owner == null)
         {
             throw new InvalidOperationException($"User with ID {dto.OwnerId} not found");
-        }
-
-        // Check if user is already an owner of another team
-        var existingOwnership = await _context.UserTeams
-            .AnyAsync(ut => ut.UserId == dto.OwnerId && ut.Role == TeamRole.TeamOwner && ut.IsActive);
-        
-        if (existingOwnership)
-        {
-            throw new InvalidOperationException($"User {owner.Email} is already the owner of another team");
         }
 
         using var transaction = await _context.Database.BeginTransactionAsync();
@@ -496,6 +491,7 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
 
         // Deactivate all user-team relationships
         var userTeams = await _context.UserTeams
+            .IgnoreQueryFilters()
             .Where(ut => ut.TeamId == teamId)
             .ToListAsync();
 
@@ -532,6 +528,7 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
 
             // Remove ownership transfers
             var ownershipTransfers = await _context.OwnershipTransfers
+                .IgnoreQueryFilters()
                 .Where(ot => ot.TeamId == teamId)
                 .ToListAsync();
             _context.OwnershipTransfers.RemoveRange(ownershipTransfers);
@@ -539,7 +536,8 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
             // Remove the team
             _context.Teams.Remove(team);
 
-            await _context.SaveChangesAsync();
+            // Use the bypass method to avoid soft delete conversion
+            await _context.SaveChangesWithoutAuditAsync();
             await transaction.CommitAsync();
 
             _logger.LogInformation("Permanently deleted team {TeamId}", teamId);
@@ -584,6 +582,7 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
 
         // Reactivate user-team relationships
         var userTeams = await _context.UserTeams
+            .IgnoreQueryFilters()
             .Where(ut => ut.TeamId == teamId)
             .ToListAsync();
 
@@ -619,14 +618,14 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
             throw new InvalidOperationException($"User with ID {dto.NewOwnerId} not found");
         }
 
-        // Check if new owner is already an owner of another team
-        var existingOwnership = await _context.UserTeams
-            .AnyAsync(ut => ut.UserId == dto.NewOwnerId && ut.Role == TeamRole.TeamOwner && ut.IsActive);
-        
-        if (existingOwnership)
+        // Check if new owner is already the owner of this team
+        if (team.OwnerId == dto.NewOwnerId)
         {
-            throw new InvalidOperationException($"User {newOwner.Email} is already the owner of another team");
+            throw new InvalidOperationException($"User {newOwner.Email} is already the owner of this team");
         }
+
+        // Note: Removed validation that prevented users from owning multiple teams
+        // as per requirements: "a user can be a Team Owner of one team, Team Admin of another"
 
         using var transaction = await _context.Database.BeginTransactionAsync();
         try
@@ -635,15 +634,18 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
             var oldOwnerId = team.OwnerId;
             team.OwnerId = dto.NewOwnerId;
             team.ModifiedOn = DateTime.UtcNow;
-
-            // Update old owner's role to TeamAdmin
-            var oldOwnerTeam = await _context.UserTeams
-                .FirstOrDefaultAsync(ut => ut.UserId == oldOwnerId && ut.TeamId == teamId);
+            _context.Teams.Update(team);
             
+            // Remove old owner from TeamOwner role
+            var oldOwnerTeam = await _context.UserTeams
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(ut => ut.UserId == oldOwnerId && ut.TeamId == teamId);
+
             if (oldOwnerTeam != null)
             {
-                oldOwnerTeam.Role = TeamRole.TeamAdmin;
-                oldOwnerTeam.ModifiedOn = DateTime.UtcNow;
+                oldOwnerTeam.Role = TeamRole.TeamMember; // Change to member role
+                oldOwnerTeam.MemberType = MemberType.Coach; // Change to athlete type
+                _context.UserTeams.Update(oldOwnerTeam);
             }
 
             // Update new owner's role to TeamOwner
@@ -656,7 +658,7 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
                 newOwnerTeam.Role = TeamRole.TeamOwner;
                 newOwnerTeam.MemberType = MemberType.Coach;
                 newOwnerTeam.IsActive = true;
-                newOwnerTeam.ModifiedOn = DateTime.UtcNow;
+                _context.UserTeams.Update(newOwnerTeam);
             }
             else
             {
@@ -669,10 +671,8 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
                     MemberType = MemberType.Coach,
                     IsActive = true,
                     IsDefault = newOwner.DefaultTeamId == null,
-                    JoinedOn = DateTime.UtcNow,
-                    CreatedOn = DateTime.UtcNow
+                    JoinedOn = DateTime.UtcNow
                 };
-
                 _context.UserTeams.Add(newOwnerTeam);
             }
 
@@ -690,8 +690,18 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
 
             foreach (var transfer in pendingTransfers)
             {
+                if (transfer.NewOwnerEmail.Equals(newOwner.Email, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    transfer.Status = OwnershipTransferStatus.Completed;
+                    transfer.CompletedByUserId = _currentUserService.UserId;
+                    transfer.CompletedOn = DateTime.UtcNow;
+                    transfer.Message = dto.Message;
+                    continue;
+                }
+                
+                // Cancel other pending transfers
                 transfer.Status = OwnershipTransferStatus.Cancelled;
-                transfer.ModifiedOn = DateTime.UtcNow;
+                transfer.Message = "Team ownership transfer cancelled due to new transfer";
             }
 
             await _context.SaveChangesAsync();

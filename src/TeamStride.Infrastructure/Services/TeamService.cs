@@ -374,13 +374,8 @@ public class TeamService : ITeamService
         // Check if new owner is already an owner of another team
         if (newOwner != null)
         {
-            var existingOwnership = await _context.UserTeams
-                .AnyAsync(ut => ut.UserId == newOwner.Id && ut.Role == TeamRole.TeamOwner && ut.IsActive);
-
-            if (existingOwnership)
-            {
-                throw new InvalidOperationException($"User {newOwner.Email} is already the owner of another team");
-            }
+            // Note: Removed validation that prevented users from owning multiple teams
+            // as per requirements: "a user can be a Team Owner of one team, Team Admin of another"
         }
 
         var transfer = new OwnershipTransfer
@@ -448,14 +443,8 @@ public class TeamService : ITeamService
             throw new UnauthorizedAccessException("Only the intended new owner can complete this transfer");
         }
 
-        // Check if new owner is already an owner of another team
-        var existingOwnership = await _context.UserTeams
-            .AnyAsync(ut => ut.UserId == newOwner.Id && ut.Role == TeamRole.TeamOwner && ut.IsActive);
-
-        if (existingOwnership)
-        {
-            throw new InvalidOperationException("You are already the owner of another team");
-        }
+        // Note: Removed validation that prevented users from owning multiple teams
+        // as per requirements: "a user can be a Team Owner of one team, Team Admin of another"
 
         using var transaction = await _context.Database.BeginTransactionAsync();
         try

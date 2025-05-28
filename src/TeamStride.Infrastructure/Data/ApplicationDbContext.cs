@@ -14,6 +14,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 {
     private readonly ICurrentTeamService _currentTeamService;
     private readonly ICurrentUserService _currentUserService;
+    private bool _bypassAuditHandling = false;
 
     public ApplicationDbContext(
         DbContextOptions<ApplicationDbContext> options,
@@ -116,7 +117,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
             !e.IsDeleted && e.TeamId == _currentTeamService.TeamId);
         
         builder.Entity<UserTeam>().HasQueryFilter(e => 
-            !e.IsDeleted && e.TeamId == _currentTeamService.TeamId);
+            !e.IsDeleted && (_currentUserService.IsGlobalAdmin || e.TeamId == _currentTeamService.TeamId));
 
         // Configure entities with only soft delete filters
         builder.Entity<Team>().HasQueryFilter(e => 
@@ -132,27 +133,73 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         builder.Entity<OwnershipTransfer>().HasQueryFilter(e => !e.IsDeleted);
     }
 
+    /// <summary>
+    /// Saves changes without applying audit handling (allows permanent deletion).
+    /// Use this method when you need to bypass soft delete behavior.
+    /// </summary>
+    public async Task<int> SaveChangesWithoutAuditAsync(CancellationToken cancellationToken = default)
+    {
+        _bypassAuditHandling = true;
+        try
+        {
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+        finally
+        {
+            _bypassAuditHandling = false;
+        }
+    }
+
+    /// <summary>
+    /// Saves changes without applying audit handling (allows permanent deletion).
+    /// Use this method when you need to bypass soft delete behavior.
+    /// </summary>
+    public int SaveChangesWithoutAudit()
+    {
+        _bypassAuditHandling = true;
+        try
+        {
+            return base.SaveChanges();
+        }
+        finally
+        {
+            _bypassAuditHandling = false;
+        }
+    }
+
     public override int SaveChanges()
     {
-        HandleAuditFields();
+        if (!_bypassAuditHandling)
+        {
+            HandleAuditFields();
+        }
         return base.SaveChanges();
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
-        HandleAuditFields();
+        if (!_bypassAuditHandling)
+        {
+            HandleAuditFields();
+        }
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        HandleAuditFields();
+        if (!_bypassAuditHandling)
+        {
+            HandleAuditFields();
+        }
         return base.SaveChangesAsync(cancellationToken);
     }
 
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
-        HandleAuditFields();
+        if (!_bypassAuditHandling)
+        {
+            HandleAuditFields();
+        }
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 

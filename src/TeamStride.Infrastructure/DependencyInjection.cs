@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using TeamStride.Application.Athletes.Services;
+using TeamStride.Application.Teams.Services;
 using TeamStride.Infrastructure.Mapping;
 using TeamStride.Infrastructure.Services;
 
@@ -17,6 +18,10 @@ public static class DependencyInjection
                 typeof(Application.Users.Dtos.UserDto).Assembly  // Application assembly
             });
         });
+
+        // Register team services
+        services.AddScoped<ITeamService, TeamService>();
+        services.AddScoped<IGlobalAdminTeamService, GlobalAdminTeamService>();
 
         return services;
     }
