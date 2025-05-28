@@ -1,0 +1,27 @@
+using System.ComponentModel.DataAnnotations;
+using TeamStride.Domain.Entities;
+
+namespace TeamStride.Application.Teams.Dtos;
+
+/// <summary>
+/// DTO for creating a team with an existing user as owner
+/// </summary>
+public class CreateTeamWithExistingOwnerDto
+{
+    [Required]
+    [StringLength(100, MinimumLength = 2)]
+    public required string Name { get; set; }
+    
+    [Required]
+    [StringLength(50, MinimumLength = 3)]
+    [RegularExpression(@"^[a-z0-9-]+$", ErrorMessage = "Subdomain can only contain lowercase letters, numbers, and hyphens")]
+    public required string Subdomain { get; set; }
+    
+    [Required]
+    public required Guid OwnerId { get; set; }
+    
+    public TeamTier Tier { get; set; } = TeamTier.Free;
+    public string PrimaryColor { get; set; } = "#000000";
+    public string SecondaryColor { get; set; } = "#FFFFFF";
+    public DateTime? ExpiresOn { get; set; }
+} 

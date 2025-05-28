@@ -13,6 +13,9 @@ public class Team : AuditedEntity<Guid>
     public TeamTier Tier { get; set; }
     public DateTime? ExpiresOn { get; set; }
     
+    // Owner relationship - there can only be 1 owner
+    public Guid OwnerId { get; set; }
+    
     // Navigation properties
     public virtual ICollection<UserTeam> Users { get; set; } = new List<UserTeam>();
 }
