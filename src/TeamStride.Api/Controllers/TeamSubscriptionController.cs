@@ -11,13 +11,13 @@ namespace TeamStride.Api.Controllers;
 [Authorize]
 public class TeamSubscriptionController : BaseApiController
 {
-    private readonly ITeamService _teamManagementService;
+    private readonly IStandardTeamService _standardTeamService;
 
     public TeamSubscriptionController(
-        ITeamService teamManagementService,
+        IStandardTeamService standardTeamService,
         ILogger<TeamSubscriptionController> logger) : base(logger)
     {
-        _teamManagementService = teamManagementService;
+        _standardTeamService = standardTeamService;
     }
 
     /// <summary>
@@ -41,7 +41,7 @@ public class TeamSubscriptionController : BaseApiController
 
         try
         {
-            var team = await _teamManagementService.UpdateSubscriptionAsync(teamId, dto);
+            var team = await _standardTeamService.UpdateSubscriptionAsync(teamId, dto);
             return Ok(team);
         }
         catch (UnauthorizedAccessException ex)
@@ -83,7 +83,7 @@ public class TeamSubscriptionController : BaseApiController
 
         try
         {
-            var team = await _teamManagementService.UpdateBrandingAsync(teamId, dto);
+            var team = await _standardTeamService.UpdateBrandingAsync(teamId, dto);
             return Ok(team);
         }
         catch (UnauthorizedAccessException ex)

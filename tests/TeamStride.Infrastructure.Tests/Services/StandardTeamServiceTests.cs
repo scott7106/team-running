@@ -14,11 +14,11 @@ using TeamStride.Infrastructure.Services;
 
 namespace TeamStride.Infrastructure.Tests.Services;
 
-public class TeamServiceTests : BaseIntegrationTest
+public class StandardTeamServiceTests : BaseIntegrationTest
 {
-    private readonly TeamService _service;
+    private readonly StandardTeamService _service;
     private readonly Mock<IAuthorizationService> _mockAuthorizationService;
-    private readonly Mock<ILogger<TeamService>> _mockLogger;
+    private readonly Mock<ILogger<StandardTeamService>> _mockLogger;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IMapper _mapper;
 
@@ -28,10 +28,10 @@ public class TeamServiceTests : BaseIntegrationTest
     private ApplicationUser? _teamOwner;
     private Team? _team;
 
-    public TeamServiceTests()
+    public StandardTeamServiceTests()
     {
         _mockAuthorizationService = new Mock<IAuthorizationService>();
-        _mockLogger = new Mock<ILogger<TeamService>>();
+        _mockLogger = new Mock<ILogger<StandardTeamService>>();
         _userManager = ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         
         var config = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>());
@@ -47,7 +47,7 @@ public class TeamServiceTests : BaseIntegrationTest
         
         MockCurrentTeamService.Setup(x => x.TeamId).Returns(_teamId);
 
-        _service = new TeamService(
+        _service = new StandardTeamService(
             DbContext,
             _mockAuthorizationService.Object,
             MockCurrentUserService.Object,

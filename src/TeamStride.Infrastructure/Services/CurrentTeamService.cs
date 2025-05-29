@@ -82,14 +82,14 @@ public class CurrentTeamService : ICurrentTeamService
     {
         try
         {
-            var teamManagementService = _serviceProvider.GetService(typeof(ITeamService)) as ITeamService;
-            if (teamManagementService == null)
+            var standardTeamService = _serviceProvider.GetService(typeof(IStandardTeamService)) as IStandardTeamService;
+            if (standardTeamService == null)
             {
-                _logger.LogWarning("TeamService not available for team resolution");
+                _logger.LogWarning("StandardTeamService not available for team resolution");
                 return false;
             }
 
-            var team = await teamManagementService.GetTeamBySubdomainAsync(subdomain);
+            var team = await standardTeamService.GetTeamBySubdomainAsync(subdomain);
             if (team != null)
             {
                 _currentTeamId = team.Id;

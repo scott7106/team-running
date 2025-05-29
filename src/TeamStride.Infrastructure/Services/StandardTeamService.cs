@@ -18,14 +18,14 @@ namespace TeamStride.Infrastructure.Services;
 /// Implementation of team management service for standard users.
 /// Operations are scoped to teams the user has access to based on their roles.
 /// </summary>
-public class TeamService : ITeamService
+public class StandardTeamService : IStandardTeamService
 {
     private readonly ApplicationDbContext _context;
     private readonly IAuthorizationService _authorizationService;
     private readonly ICurrentUserService _currentUserService;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IMapper _mapper;
-    private readonly ILogger<TeamService> _logger;
+    private readonly ILogger<StandardTeamService> _logger;
 
     private IQueryable<Team> DbTeams => _context.Teams
         .WhereIf(_currentUserService.CurrentTeamId.HasValue,
@@ -35,13 +35,13 @@ public class TeamService : ITeamService
         .Include(t => t.Users)
         .ThenInclude(ut => ut.User);
 
-    public TeamService(
+    public StandardTeamService(
         ApplicationDbContext context,
         IAuthorizationService authorizationService,
         ICurrentUserService currentUserService,
         UserManager<ApplicationUser> userManager,
         IMapper mapper,
-        ILogger<TeamService> logger)
+        ILogger<StandardTeamService> logger)
     {
         _context = context;
         _authorizationService = authorizationService;

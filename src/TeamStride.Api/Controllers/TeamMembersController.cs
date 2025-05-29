@@ -13,13 +13,13 @@ namespace TeamStride.Api.Controllers;
 [Authorize]
 public class TeamMembersController : BaseApiController
 {
-    private readonly ITeamService _teamManagementService;
+    private readonly IStandardTeamService _standardTeamService;
 
     public TeamMembersController(
-        ITeamService teamManagementService,
+        IStandardTeamService standardTeamService,
         ILogger<TeamMembersController> logger) : base(logger)
     {
-        _teamManagementService = teamManagementService;
+        _standardTeamService = standardTeamService;
     }
 
     /// <summary>
@@ -43,7 +43,7 @@ public class TeamMembersController : BaseApiController
     {
         try
         {
-            var members = await _teamManagementService.GetTeamMembersAsync(teamId, pageNumber, pageSize, role);
+            var members = await _standardTeamService.GetTeamMembersAsync(teamId, pageNumber, pageSize, role);
             return Ok(members);
         }
         catch (UnauthorizedAccessException ex)
@@ -76,7 +76,7 @@ public class TeamMembersController : BaseApiController
     {
         try
         {
-            var member = await _teamManagementService.UpdateMemberRoleAsync(teamId, userId, newRole);
+            var member = await _standardTeamService.UpdateMemberRoleAsync(teamId, userId, newRole);
             return Ok(member);
         }
         catch (UnauthorizedAccessException ex)
@@ -112,7 +112,7 @@ public class TeamMembersController : BaseApiController
     {
         try
         {
-            await _teamManagementService.RemoveMemberAsync(teamId, userId);
+            await _standardTeamService.RemoveMemberAsync(teamId, userId);
             return NoContent();
         }
         catch (UnauthorizedAccessException ex)

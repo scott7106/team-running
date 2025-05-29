@@ -20,7 +20,7 @@ public static class DependencyInjection
         });
 
         // Register team services
-        services.AddScoped<ITeamService, TeamService>();
+        services.AddScoped<IStandardTeamService, StandardTeamService>();
         services.AddScoped<IGlobalAdminTeamService, GlobalAdminTeamService>();
 
         return services;

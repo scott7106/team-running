@@ -15,19 +15,19 @@ namespace TeamStride.Infrastructure.Tests.Examples;
 
 /// <summary>
 /// Example test class demonstrating the simplified testing approach
-/// Compare this to the existing TeamServiceTests to see the difference
+/// Compare this to the existing StandardTeamServiceTests to see the difference
 /// </summary>
-public class SimplifiedTeamServiceTest : BaseSecuredTest
+public class SimplifiedStandardTeamServiceTest : BaseSecuredTest
 {
     private readonly Mock<IAuthorizationService> _mockAuthorizationService;
-    private readonly Mock<ILogger<TeamService>> _mockLogger;
+    private readonly Mock<ILogger<StandardTeamService>> _mockLogger;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IMapper _mapper;
 
-    public SimplifiedTeamServiceTest()
+    public SimplifiedStandardTeamServiceTest()
     {
         _mockAuthorizationService = new Mock<IAuthorizationService>();
-        _mockLogger = new Mock<ILogger<TeamService>>();
+        _mockLogger = new Mock<ILogger<StandardTeamService>>();
         _userManager = ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         
         var config = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>());
@@ -40,7 +40,7 @@ public class SimplifiedTeamServiceTest : BaseSecuredTest
         // Arrange
         SetupGlobalAdminContext();
         
-        var service = new TeamService(
+        var service = new StandardTeamService(
             DbContext,
             _mockAuthorizationService.Object,
             MockCurrentUserService.Object,
@@ -75,7 +75,7 @@ public class SimplifiedTeamServiceTest : BaseSecuredTest
         
         SetupStandardUserContext(teamId, TeamRole.TeamMember, userId);
         
-        var service = new TeamService(
+        var service = new StandardTeamService(
             DbContext,
             _mockAuthorizationService.Object,
             MockCurrentUserService.Object,
@@ -109,7 +109,7 @@ public class SimplifiedTeamServiceTest : BaseSecuredTest
         // Arrange
         SetupAnonymousContext();
         
-        var service = new TeamService(
+        var service = new StandardTeamService(
             DbContext,
             _mockAuthorizationService.Object,
             MockCurrentUserService.Object,
@@ -134,7 +134,7 @@ public class SimplifiedTeamServiceTest : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireTeamAccessAsync(teamId, TeamRole.TeamMember))
             .Returns(Task.CompletedTask);
 
-        var service = new TeamService(
+        var service = new StandardTeamService(
             DbContext,
             _mockAuthorizationService.Object,
             MockCurrentUserService.Object,
@@ -168,7 +168,7 @@ public class SimplifiedTeamServiceTest : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireTeamAccessAsync(teamId, TeamRole.TeamMember))
             .Returns(Task.CompletedTask);
 
-        var service = new TeamService(
+        var service = new StandardTeamService(
             DbContext,
             _mockAuthorizationService.Object,
             MockCurrentUserService.Object,

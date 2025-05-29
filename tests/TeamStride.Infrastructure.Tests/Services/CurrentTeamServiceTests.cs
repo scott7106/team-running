@@ -18,7 +18,7 @@ public class CurrentTeamServiceTests
     private readonly Mock<IServiceProvider> _mockServiceProvider;
     private readonly Mock<HttpContext> _mockHttpContext;
     private readonly Mock<ClaimsPrincipal> _mockUser;
-    private readonly Mock<ITeamService> _mockTeamService;
+    private readonly Mock<IStandardTeamService> _mockStandardTeamService;
     private readonly CurrentTeamService _currentTeamService;
 
     public CurrentTeamServiceTests()
@@ -28,7 +28,7 @@ public class CurrentTeamServiceTests
         _mockServiceProvider = new Mock<IServiceProvider>();
         _mockHttpContext = new Mock<HttpContext>();
         _mockUser = new Mock<ClaimsPrincipal>();
-        _mockTeamService = new Mock<ITeamService>();
+        _mockStandardTeamService = new Mock<IStandardTeamService>();
         
         _currentTeamService = new CurrentTeamService(
             _mockLogger.Object,
@@ -466,7 +466,7 @@ public class CurrentTeamServiceTests
     {
         // Arrange
         var subdomain = "test-team";
-        _mockServiceProvider.Setup(x => x.GetService(typeof(ITeamService))).Returns((object?)null);
+        _mockServiceProvider.Setup(x => x.GetService(typeof(IStandardTeamService))).Returns((object?)null);
 
         // Act
         var result = await _currentTeamService.SetTeamFromSubdomainAsync(subdomain);
@@ -481,8 +481,8 @@ public class CurrentTeamServiceTests
     {
         // Arrange
         var subdomain = "nonexistent-team";
-        _mockServiceProvider.Setup(x => x.GetService(typeof(ITeamService))).Returns(_mockTeamService.Object);
-        _mockTeamService.Setup(x => x.GetTeamBySubdomainAsync(subdomain))
+        _mockServiceProvider.Setup(x => x.GetService(typeof(IStandardTeamService))).Returns(_mockStandardTeamService.Object);
+        _mockStandardTeamService.Setup(x => x.GetTeamBySubdomainAsync(subdomain))
             .ThrowsAsync(new InvalidOperationException($"Team with subdomain '{subdomain}' not found"));
 
         // Act
@@ -501,8 +501,8 @@ public class CurrentTeamServiceTests
         var teamId = Guid.NewGuid();
         var teamDto = new TeamDto { Id = teamId, Subdomain = subdomain };
         
-        _mockServiceProvider.Setup(x => x.GetService(typeof(ITeamService))).Returns(_mockTeamService.Object);
-        _mockTeamService.Setup(x => x.GetTeamBySubdomainAsync(subdomain)).ReturnsAsync(teamDto);
+        _mockServiceProvider.Setup(x => x.GetService(typeof(IStandardTeamService))).Returns(_mockStandardTeamService.Object);
+        _mockStandardTeamService.Setup(x => x.GetTeamBySubdomainAsync(subdomain)).ReturnsAsync(teamDto);
 
         // Act
         var result = await _currentTeamService.SetTeamFromSubdomainAsync(subdomain);
@@ -519,8 +519,8 @@ public class CurrentTeamServiceTests
     {
         // Arrange
         var subdomain = "test-team";
-        _mockServiceProvider.Setup(x => x.GetService(typeof(ITeamService))).Returns(_mockTeamService.Object);
-        _mockTeamService.Setup(x => x.GetTeamBySubdomainAsync(subdomain)).ThrowsAsync(new Exception("Database error"));
+        _mockServiceProvider.Setup(x => x.GetService(typeof(IStandardTeamService))).Returns(_mockStandardTeamService.Object);
+        _mockStandardTeamService.Setup(x => x.GetTeamBySubdomainAsync(subdomain)).ThrowsAsync(new Exception("Database error"));
 
         // Act
         var result = await _currentTeamService.SetTeamFromSubdomainAsync(subdomain);

@@ -124,14 +124,14 @@ public class AthleteService
 public class TeamController : ControllerBase
 {
     private readonly IAuthorizationService _authorizationService;
-    private readonly ITeamService _teamService;
+    private readonly IStandardTeamService _standardTeamService;
 
     public TeamController(
         IAuthorizationService authorizationService,
-        ITeamService teamService)
+        IStandardTeamService standardTeamService)
     {
         _authorizationService = authorizationService;
-        _teamService = teamService;
+        _standardTeamService = standardTeamService;
     }
 
     [HttpGet("{teamId:guid}")]
@@ -140,7 +140,7 @@ public class TeamController : ControllerBase
         // Ensure user can access this team
         await _authorizationService.RequireTeamAccessAsync(teamId);
         
-        var team = await _teamService.GetTeamAsync(teamId);
+        var team = await _standardTeamService.GetTeamAsync(teamId);
         return Ok(team);
     }
 
@@ -150,7 +150,7 @@ public class TeamController : ControllerBase
         // Require admin access to update team
         await _authorizationService.RequireTeamAdminAsync(teamId);
         
-        await _teamService.UpdateTeamAsync(teamId, dto);
+        await _standardTeamService.UpdateTeamAsync(teamId, dto);
         return NoContent();
     }
 
@@ -160,110 +160,8 @@ public class TeamController : ControllerBase
         // Only team owners can delete teams
         await _authorizationService.RequireTeamOwnershipAsync(teamId);
         
-        await _teamService.DeleteTeamAsync(teamId);
+        await _standardTeamService.DeleteTeamAsync(teamId);
         return NoContent();
     }
 }
 ```
-
-### Global Admin Operations
-
-```csharp
-[ApiController]
-[Route("api/admin")]
-[Authorize]
-public class AdminController : ControllerBase
-{
-    private readonly IAuthorizationService _authorizationService;
-    private readonly IAdminService _adminService;
-
-    [HttpGet("teams")]
-    public async Task<IActionResult> GetAllTeams()
-    {
-        // Global admin only operation
-        await _authorizationService.RequireGlobalAdminAsync();
-        
-        var teams = await _adminService.GetAllTeamsAsync();
-        return Ok(teams);
-    }
-
-    [HttpPost("teams/{teamId:guid}/transfer-ownership")]
-    public async Task<IActionResult> TransferTeamOwnership(Guid teamId, TransferOwnershipDto dto)
-    {
-        // Global admin only operation
-        await _authorizationService.RequireGlobalAdminAsync();
-        
-        await _adminService.TransferTeamOwnershipAsync(teamId, dto.NewOwnerId);
-        return NoContent();
-    }
-}
-```
-
-## Role Hierarchy
-
-The service respects the following role hierarchy:
-
-1. **Global Admin** (highest privileges)
-   - Bypasses all team-level restrictions
-   - Can access any team and perform any operation
-
-2. **Team Owner** (team-level highest)
-   - Full control over owned teams
-   - Can perform all team operations including ownership transfer
-
-3. **Team Admin** (team-level moderate)
-   - Can manage team but cannot transfer ownership
-   - Can perform most team operations except billing and ownership
-
-4. **Team Member** (team-level basic)
-   - Limited access based on member type (Coach, Athlete, Parent)
-   - Can view team data and perform member-specific operations
-
-## Error Handling
-
-The service throws `UnauthorizedAccessException` with descriptive messages:
-
-- `"User is not authenticated"`
-- `"Global admin privileges required"`
-- `"Access denied to team {teamId}"`
-- `"Minimum role {role} required"`
-- `"Team ownership required for team {teamId}"`
-
-## ITeamResource Interface
-
-Entities that belong to teams should implement `ITeamResource`:
-
-```csharp
-public class Athlete : ITeamResource
-{
-    public Guid Id { get; set; }
-    public Guid TeamId { get; set; }
-    public string Name { get; set; }
-    // ... other properties
-}
-
-public class Practice : ITeamResource
-{
-    public Guid Id { get; set; }
-    public Guid TeamId { get; set; }
-    public DateTime ScheduledDate { get; set; }
-    // ... other properties
-}
-```
-
-This enables resource-based authorization:
-
-```csharp
-// Automatically checks access to the athlete's team
-await _authorizationService.RequireResourceAccessAsync(athlete, TeamRole.TeamAdmin);
-```
-
-## Integration with Existing Authorization
-
-The centralized authorization service works alongside the existing authorization attributes:
-
-- **Controller Level**: Use `[RequireGlobalAdmin]` and `[RequireTeamAccess]` attributes
-- **Service Level**: Use `IAuthorizationService` methods for business logic authorization
-- **Both**: Provide defense in depth with multiple authorization layers
-
-This approach ensures that authorization is enforced at both the API boundary and within business logic, providing comprehensive security coverage. 

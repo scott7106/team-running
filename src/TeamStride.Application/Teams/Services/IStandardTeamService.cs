@@ -4,7 +4,7 @@ using TeamStride.Domain.Entities;
 
 namespace TeamStride.Application.Teams.Services;
 
-public interface ITeamService
+public interface IStandardTeamService
 {
     // Team Listing & Retrieval
     Task<PaginatedList<TeamDto>> GetTeamsAsync(

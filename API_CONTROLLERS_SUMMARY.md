@@ -104,9 +104,9 @@ This document summarizes the API controllers that have been implemented for the 
 ## Service Integration
 
 All controllers integrate with the appropriate services:
-- **TeamsController**: Uses `ITeamService` for standard team operations
+- **TeamsController**: Uses `IStandardTeamService` for standard team operations
 - **GlobalAdminTeamsController**: Uses `IGlobalAdminTeamService` for admin operations
-- **Other Controllers**: Use `ITeamService` for their specific domains
+- **Other Controllers**: Use `IStandardTeamService` for their specific domains
 
 Services provide:
 - Team CRUD operations

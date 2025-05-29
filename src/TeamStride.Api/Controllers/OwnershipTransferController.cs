@@ -11,13 +11,13 @@ namespace TeamStride.Api.Controllers;
 [Authorize]
 public class OwnershipTransferController : BaseApiController
 {
-    private readonly ITeamService _teamManagementService;
+    private readonly IStandardTeamService _standardTeamService;
 
     public OwnershipTransferController(
-        ITeamService teamManagementService,
+        IStandardTeamService standardTeamService,
         ILogger<OwnershipTransferController> logger) : base(logger)
     {
-        _teamManagementService = teamManagementService;
+        _standardTeamService = standardTeamService;
     }
 
     /// <summary>
@@ -41,7 +41,7 @@ public class OwnershipTransferController : BaseApiController
 
         try
         {
-            var transfer = await _teamManagementService.InitiateOwnershipTransferAsync(teamId, dto);
+            var transfer = await _standardTeamService.InitiateOwnershipTransferAsync(teamId, dto);
             return CreatedAtAction(nameof(GetPendingTransfers), new { teamId }, transfer);
         }
         catch (UnauthorizedAccessException ex)
@@ -81,7 +81,7 @@ public class OwnershipTransferController : BaseApiController
 
         try
         {
-            var team = await _teamManagementService.CompleteOwnershipTransferAsync(transferToken);
+            var team = await _standardTeamService.CompleteOwnershipTransferAsync(transferToken);
             return Ok(team);
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("Invalid transfer token"))
@@ -112,7 +112,7 @@ public class OwnershipTransferController : BaseApiController
     {
         try
         {
-            await _teamManagementService.CancelOwnershipTransferAsync(transferId);
+            await _standardTeamService.CancelOwnershipTransferAsync(transferId);
             return NoContent();
         }
         catch (UnauthorizedAccessException ex)
@@ -147,7 +147,7 @@ public class OwnershipTransferController : BaseApiController
     {
         try
         {
-            var transfers = await _teamManagementService.GetPendingTransfersAsync(teamId);
+            var transfers = await _standardTeamService.GetPendingTransfersAsync(teamId);
             return Ok(transfers);
         }
         catch (UnauthorizedAccessException ex)

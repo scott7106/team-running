@@ -16,13 +16,13 @@ namespace TeamStride.Api.Controllers;
 [Authorize]
 public class TeamsController : BaseApiController
 {
-    private readonly ITeamService _teamService;
+    private readonly IStandardTeamService _standardTeamService;
 
     public TeamsController(
-        ITeamService teamService,
+        IStandardTeamService standardTeamService,
         ILogger<TeamsController> logger) : base(logger)
     {
-        _teamService = teamService;
+        _standardTeamService = standardTeamService;
     }
 
     /// <summary>
@@ -48,7 +48,7 @@ public class TeamsController : BaseApiController
     {
         try
         {
-            var teams = await _teamService.GetTeamsAsync(pageNumber, pageSize, searchQuery, status, tier);
+            var teams = await _standardTeamService.GetTeamsAsync(pageNumber, pageSize, searchQuery, status, tier);
             return Ok(teams);
         }
         catch (UnauthorizedAccessException ex)
@@ -76,7 +76,7 @@ public class TeamsController : BaseApiController
     {
         try
         {
-            var team = await _teamService.GetTeamByIdAsync(teamId);
+            var team = await _standardTeamService.GetTeamByIdAsync(teamId);
             return Ok(team);
         }
         catch (UnauthorizedAccessException ex)
@@ -113,7 +113,7 @@ public class TeamsController : BaseApiController
 
         try
         {
-            var team = await _teamService.GetTeamBySubdomainAsync(subdomain);
+            var team = await _standardTeamService.GetTeamBySubdomainAsync(subdomain);
             return Ok(team);
         }
         catch (UnauthorizedAccessException ex)
@@ -150,7 +150,7 @@ public class TeamsController : BaseApiController
 
         try
         {
-            var team = await _teamService.CreateTeamAsync(dto);
+            var team = await _standardTeamService.CreateTeamAsync(dto);
             return CreatedAtAction(nameof(GetTeamById), new { teamId = team.Id }, team);
         }
         catch (UnauthorizedAccessException ex)
@@ -189,7 +189,7 @@ public class TeamsController : BaseApiController
 
         try
         {
-            var team = await _teamService.UpdateTeamAsync(teamId, dto);
+            var team = await _standardTeamService.UpdateTeamAsync(teamId, dto);
             return Ok(team);
         }
         catch (UnauthorizedAccessException ex)
@@ -225,7 +225,7 @@ public class TeamsController : BaseApiController
     {
         try
         {
-            await _teamService.DeleteTeamAsync(teamId);
+            await _standardTeamService.DeleteTeamAsync(teamId);
             return NoContent();
         }
         catch (UnauthorizedAccessException ex)
@@ -266,7 +266,7 @@ public class TeamsController : BaseApiController
 
         try
         {
-            var isAvailable = await _teamService.IsSubdomainAvailableAsync(subdomain);
+            var isAvailable = await _standardTeamService.IsSubdomainAvailableAsync(subdomain);
             return Ok(isAvailable);
         }
         catch (Exception ex)
@@ -297,7 +297,7 @@ public class TeamsController : BaseApiController
 
         try
         {
-            var team = await _teamService.UpdateSubdomainAsync(teamId, newSubdomain);
+            var team = await _standardTeamService.UpdateSubdomainAsync(teamId, newSubdomain);
             return Ok(team);
         }
         catch (UnauthorizedAccessException ex)
@@ -331,7 +331,7 @@ public class TeamsController : BaseApiController
     {
         try
         {
-            var limits = await _teamService.GetTierLimitsAsync(tier);
+            var limits = await _standardTeamService.GetTierLimitsAsync(tier);
             return Ok(limits);
         }
         catch (Exception ex)
@@ -354,7 +354,7 @@ public class TeamsController : BaseApiController
     {
         try
         {
-            var canAdd = await _teamService.CanAddAthleteAsync(teamId);
+            var canAdd = await _standardTeamService.CanAddAthleteAsync(teamId);
             return Ok(canAdd);
         }
         catch (UnauthorizedAccessException ex)
