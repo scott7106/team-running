@@ -27,14 +27,6 @@ public class StandardTeamService : IStandardTeamService
     private readonly IMapper _mapper;
     private readonly ILogger<StandardTeamService> _logger;
 
-    private IQueryable<Team> DbTeams => _context.Teams
-        .WhereIf(_currentUserService.CurrentTeamId.HasValue,
-            e => e.Users.Any(x => x.TeamId == _currentUserService.CurrentTeamId!.Value));
-    
-    private IQueryable<Team> DbTeamsWithDetails => DbTeams
-        .Include(t => t.Users)
-        .ThenInclude(ut => ut.User);
-
     public StandardTeamService(
         ApplicationDbContext context,
         IAuthorizationService authorizationService,
@@ -66,7 +58,10 @@ public class StandardTeamService : IStandardTeamService
             throw new UnauthorizedAccessException("User is not authenticated");
         }
 
-        IQueryable<Team> query = DbTeamsWithDetails;
+        IQueryable<Team> query = _context.Teams
+            .ApplyTeamMembershipFilter(_currentUserService.CurrentTeamId)
+            .Include(t => t.Users)
+            .ThenInclude(ut => ut.User);
 
         // Apply search filter
         if (!string.IsNullOrWhiteSpace(searchQuery))
@@ -112,7 +107,11 @@ public class StandardTeamService : IStandardTeamService
     {
         await _authorizationService.RequireTeamAccessAsync(teamId);
 
-        var team = await DbTeamsWithDetails.FirstOrDefaultAsync(t => t.Id == teamId);
+        var team = await _context.Teams
+            .ApplyTeamFilter(_currentUserService.CurrentTeamId)
+            .Include(t => t.Users)
+            .ThenInclude(ut => ut.User)
+            .FirstOrDefaultAsync(t => t.Id == teamId);
 
         if (team == null)
         {
@@ -125,10 +124,10 @@ public class StandardTeamService : IStandardTeamService
     public async Task<TeamDto> GetTeamBySubdomainAsync(string subdomain)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(subdomain);
-
-        // explicity chose not to use DbQuery here
-        var team = await DbTeamsWithDetails
-            .IgnoreQueryFilters() // Allow subdomain lookup without team context
+        
+        var team = await _context.Teams
+            .IgnoreQueryFilters() // do not apply any filters here
+            .Include(t => t.Users)
             .FirstOrDefaultAsync(t => t.Subdomain == subdomain && !t.IsDeleted);
 
         if (team == null)
@@ -139,10 +138,9 @@ public class StandardTeamService : IStandardTeamService
         // Check if user has access to this team (if authenticated)
         if (_currentUserService.IsAuthenticated && !_currentUserService.IsGlobalAdmin)
         {
-            var hasAccess = await _context.UserTeams
-                .AnyAsync(ut => ut.UserId == _currentUserService.UserId && 
-                               ut.TeamId == team.Id && 
-                               ut.IsActive);
+            var hasAccess = team.Users
+                .Any(ut => ut.UserId == _currentUserService.UserId && 
+                            ut.TeamId == team.Id && ut.IsActive);
 
             if (!hasAccess)
             {
@@ -174,7 +172,7 @@ public class StandardTeamService : IStandardTeamService
             throw new InvalidOperationException($"User with email '{dto.OwnerEmail}' not found. Use CreateTeamWithNewOwner for new users.");
         }
 
-        using var transaction = await _context.Database.BeginTransactionAsync();
+        await using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
             var team = new Team
@@ -247,7 +245,9 @@ public class StandardTeamService : IStandardTeamService
         ArgumentNullException.ThrowIfNull(dto);
         await _authorizationService.RequireTeamAccessAsync(teamId, TeamRole.TeamAdmin);
 
-        var team = await DbTeams.FirstOrDefaultAsync(t => t.Id == teamId);
+        var team = await _context.Teams
+            .ApplyTeamFilter(_currentUserService.CurrentTeamId)
+            .FirstOrDefaultAsync(t => t.Id == teamId);
         if (team == null)
         {
             throw new InvalidOperationException($"Team with ID {teamId} not found");
@@ -282,7 +282,9 @@ public class StandardTeamService : IStandardTeamService
     {
         await _authorizationService.RequireTeamOwnershipAsync(teamId);
 
-        var team = await DbTeams.FirstOrDefaultAsync(t => t.Id == teamId);
+        var team = await _context.Teams
+            .ApplyTeamFilter(_currentUserService.CurrentTeamId)
+            .FirstOrDefaultAsync(t => t.Id == teamId);
         if (team == null)
         {
             throw new InvalidOperationException($"Team with ID {teamId} not found");
@@ -319,7 +321,9 @@ public class StandardTeamService : IStandardTeamService
         ArgumentNullException.ThrowIfNull(dto);
         await _authorizationService.RequireTeamOwnershipAsync(teamId);
 
-        var team = await DbTeams.FirstOrDefaultAsync(t => t.Id == teamId);
+        var team = await _context.Teams
+            .ApplyTeamFilter(_currentUserService.CurrentTeamId)
+            .FirstOrDefaultAsync(t => t.Id == teamId);
         if (team == null)
         {
             throw new InvalidOperationException($"Team with ID {teamId} not found");
@@ -342,8 +346,7 @@ public class StandardTeamService : IStandardTeamService
             var existingMember = await _context.UserTeams
                 .Include(ut => ut.User)
                 .FirstOrDefaultAsync(ut => ut.UserId == dto.ExistingMemberId.Value && 
-                                          ut.TeamId == teamId && 
-                                          ut.IsActive);
+                                          ut.TeamId == teamId && ut.IsActive);
 
             if (existingMember == null)
             {
@@ -395,7 +398,6 @@ public class StandardTeamService : IStandardTeamService
         ArgumentException.ThrowIfNullOrWhiteSpace(transferToken);
 
         var transfer = await _context.OwnershipTransfers
-            .IgnoreQueryFilters()
             .Include(ot => ot.Team)
             .Include(ot => ot.InitiatedByUser)
             .FirstOrDefaultAsync(ot => ot.TransferToken == transferToken);
@@ -562,7 +564,10 @@ public class StandardTeamService : IStandardTeamService
         ArgumentNullException.ThrowIfNull(dto);
         await _authorizationService.RequireTeamOwnershipAsync(teamId);
 
-        var team = await DbTeams.FirstOrDefaultAsync(t => t.Id == teamId);
+        var team = await _context.Teams
+            .ApplyTeamFilter(_currentUserService.CurrentTeamId)
+            .Include(t => t.Users)
+            .FirstOrDefaultAsync(t => t.Id == teamId);
         if (team == null)
         {
             throw new InvalidOperationException($"Team with ID {teamId} not found");
@@ -573,10 +578,8 @@ public class StandardTeamService : IStandardTeamService
         {
             // Check if downgrade is allowed (e.g., athlete count within new tier limits)
             var tierLimits = GetTierLimits(dto.NewTier);
-            var athleteCount = await _context.UserTeams
-                .CountAsync(ut => ut.TeamId == teamId && 
-                                 ut.IsActive && 
-                                 ut.MemberType == MemberType.Athlete);
+            var athleteCount = team.Users
+                .Count(ut => ut.TeamId == teamId && ut.IsActive && ut.MemberType == MemberType.Athlete);
 
             if (athleteCount > tierLimits.MaxAthletes)
             {
@@ -603,7 +606,9 @@ public class StandardTeamService : IStandardTeamService
         ArgumentNullException.ThrowIfNull(dto);
         await _authorizationService.RequireTeamAccessAsync(teamId, TeamRole.TeamAdmin);
 
-        var team = await DbTeams.FirstOrDefaultAsync(t => t.Id == teamId);
+        var team = await _context.Teams
+            .ApplyTeamFilter(_currentUserService.CurrentTeamId)
+            .FirstOrDefaultAsync(t => t.Id == teamId);
         if (team == null)
         {
             throw new InvalidOperationException($"Team with ID {teamId} not found");
@@ -742,9 +747,8 @@ public class StandardTeamService : IStandardTeamService
         ArgumentException.ThrowIfNullOrWhiteSpace(subdomain);
 
         var normalizedSubdomain = subdomain.ToLower();
-        // explicity chose not to use DbQuery here
         var exists = await _context.Teams
-            .IgnoreQueryFilters()
+            .IgnoreQueryFilters() // do not apply any filters here
             .AnyAsync(t => t.Subdomain == normalizedSubdomain && !t.IsDeleted);
 
         return !exists;
@@ -755,7 +759,9 @@ public class StandardTeamService : IStandardTeamService
         ArgumentException.ThrowIfNullOrWhiteSpace(newSubdomain);
         await _authorizationService.RequireTeamOwnershipAsync(teamId);
 
-        var team = await DbTeams.FirstOrDefaultAsync(t => t.Id == teamId);
+        var team = await _context.Teams
+            .ApplyTeamFilter(_currentUserService.CurrentTeamId)
+            .FirstOrDefaultAsync(t => t.Id == teamId);
         if (team == null)
         {
             throw new InvalidOperationException($"Team with ID {teamId} not found");
@@ -792,17 +798,18 @@ public class StandardTeamService : IStandardTeamService
     {
         await _authorizationService.RequireTeamAccessAsync(teamId);
 
-        var team = await DbTeams.FirstOrDefaultAsync(t => t.Id == teamId);
+        var team = await _context.Teams
+            .ApplyTeamFilter(_currentUserService.CurrentTeamId)
+            .Include(t => t.Users)
+            .FirstOrDefaultAsync(t => t.Id == teamId);
         if (team == null)
         {
             return false;
         }
 
         var tierLimits = GetTierLimits(team.Tier);
-        var currentAthleteCount = await _context.UserTeams
-            .CountAsync(ut => ut.TeamId == teamId && 
-                             ut.IsActive && 
-                             ut.MemberType == MemberType.Athlete);
+        var currentAthleteCount = team.Users
+            .Count(ut => ut.TeamId == teamId && ut.IsActive && ut.MemberType == MemberType.Athlete);
 
         return currentAthleteCount < tierLimits.MaxAthletes;
     }
