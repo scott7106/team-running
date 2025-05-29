@@ -23,7 +23,7 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<Applicatio
         var mockCurrentTeamService = new MockCurrentTeamService();
         var mockCurrentUserService = new MockCurrentUserService();
 
-        return new ApplicationDbContext(optionsBuilder.Options, mockCurrentTeamService, mockCurrentUserService);
+        return new ApplicationDbContext(optionsBuilder.Options, mockCurrentUserService);
     }
 }
 

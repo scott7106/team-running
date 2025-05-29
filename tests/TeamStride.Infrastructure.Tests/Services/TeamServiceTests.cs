@@ -5,13 +5,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Shouldly;
-using TeamStride.Application.Common.Models;
 using TeamStride.Application.Common.Services;
 using TeamStride.Application.Teams.Dtos;
 using TeamStride.Domain.Entities;
 using TeamStride.Domain.Identity;
-using TeamStride.Domain.Interfaces;
-using TeamStride.Infrastructure.Data;
 using TeamStride.Infrastructure.Mapping;
 using TeamStride.Infrastructure.Services;
 
@@ -54,7 +51,6 @@ public class TeamServiceTests : BaseIntegrationTest
             DbContext,
             _mockAuthorizationService.Object,
             MockCurrentUserService.Object,
-            MockCurrentTeamService.Object,
             _userManager,
             _mapper,
             _mockLogger.Object);

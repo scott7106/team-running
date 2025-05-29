@@ -17,8 +17,8 @@ public abstract class BaseIntegrationTest : IDisposable
 {
     protected ApplicationDbContext DbContext { get; private set; }
     protected IServiceProvider ServiceProvider { get; private set; }
-    protected Mock<ICurrentTeamService> MockCurrentTeamService { get; private set; }
-    protected Mock<ICurrentUserService> MockCurrentUserService { get; private set; }
+    protected Mock<ICurrentTeamService> MockCurrentTeamService { get; set; }
+    protected Mock<ICurrentUserService> MockCurrentUserService { get; set; }
 
     protected BaseIntegrationTest()
     {

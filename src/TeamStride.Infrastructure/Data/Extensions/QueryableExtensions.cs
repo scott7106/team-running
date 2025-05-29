@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using TeamStride.Domain.Common;
 
@@ -28,5 +29,20 @@ public static class QueryableExtensions
     public static IQueryable<T> IncludeDeleted<T>(this IQueryable<T> query) where T : class, IAuditedEntity
     {
         return query.IgnoreQueryFilters();
+    }
+    
+    /// <summary>
+    /// Conditionally applies a filter to the query based on the provided condition.
+    /// </summary>
+    /// <param name="query">The queryable object</param>
+    /// <param name="condition">a boolean expression</param>
+    /// <param name="predicate">the constraint to add if the expression is true</param>
+    /// <typeparam name="T"></typeparam>
+    /// <returns></returns>
+    public static IQueryable<T> WhereIf<T>(this IQueryable<T> query, bool condition, Expression<Func<T, bool>> predicate)
+    {
+        return condition
+            ? query.Where(predicate)
+            : query;
     }
 } 

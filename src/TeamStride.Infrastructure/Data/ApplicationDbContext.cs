@@ -12,12 +12,11 @@ namespace TeamStride.Infrastructure.Data;
 
 public class ApplicationDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>
 {
-    private readonly ICurrentUserService _currentUserService;
+    public readonly ICurrentUserService _currentUserService;
     private bool _bypassAuditHandling = false;
 
     public ApplicationDbContext(
         DbContextOptions<ApplicationDbContext> options,
-        ICurrentTeamService currentTeamService,
         ICurrentUserService currentUserService) : base(options)
     {
         _currentUserService = currentUserService;
@@ -29,7 +28,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<Athlete> Athletes => Set<Athlete>();
     public DbSet<AthleteProfile> AthleteProfiles => Set<AthleteProfile>();
     public DbSet<OwnershipTransfer> OwnershipTransfers => Set<OwnershipTransfer>();
-    
+
     // Identity entities
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
@@ -107,26 +106,17 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 
     private void ConfigureGlobalQueryFilters(ModelBuilder builder)
     {
-        // Configure multi-team entities with soft delete filters
-        builder.Entity<Athlete>().HasQueryFilter(e => 
-            !e.IsDeleted && (_currentUserService.IsGlobalAdmin || e.TeamId == _currentUserService.CurrentTeamId));
-        
-        builder.Entity<AthleteProfile>().HasQueryFilter(e => 
-            !e.IsDeleted && (_currentUserService.IsGlobalAdmin || e.TeamId == _currentUserService.CurrentTeamId));
-        
-        builder.Entity<UserTeam>().HasQueryFilter(e => 
-            !e.IsDeleted && (_currentUserService.IsGlobalAdmin || e.TeamId == _currentUserService.CurrentTeamId));
-
         // Configure entities with only soft delete filters
-        builder.Entity<Team>().HasQueryFilter(e => 
-            !e.IsDeleted && (_currentUserService.IsGlobalAdmin || e.Id == _currentUserService.CurrentTeamId));
-        
+        builder.Entity<Athlete>().HasQueryFilter(e => !e.IsDeleted);
+        builder.Entity<AthleteProfile>().HasQueryFilter(e => !e.IsDeleted);
+        builder.Entity<UserTeam>().HasQueryFilter(e => !e.IsDeleted);
+        builder.Entity<Team>().HasQueryFilter(e => !e.IsDeleted);
         builder.Entity<ApplicationUser>().HasQueryFilter(e => !e.IsDeleted);
-        
+
         // Configure RefreshToken to filter out tokens for soft-deleted users
-        builder.Entity<RefreshToken>().HasQueryFilter(rt => 
+        builder.Entity<RefreshToken>().HasQueryFilter(rt =>
             rt.User != null && !rt.User.IsDeleted);
-        
+
         // Configure OwnershipTransfer with soft delete filter
         builder.Entity<OwnershipTransfer>().HasQueryFilter(e => !e.IsDeleted);
     }
@@ -171,6 +161,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         {
             HandleAuditFields();
         }
+
         return base.SaveChanges();
     }
 
@@ -180,6 +171,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         {
             HandleAuditFields();
         }
+
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
@@ -189,15 +181,18 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         {
             HandleAuditFields();
         }
+
         return base.SaveChangesAsync(cancellationToken);
     }
 
-    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default)
     {
         if (!_bypassAuditHandling)
         {
             HandleAuditFields();
         }
+
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
@@ -205,4 +200,4 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     {
         ChangeTracker.HandleAuditableEntities(_currentUserService);
     }
-} 
+}
