@@ -1,28 +1,49 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Shouldly;
-using TeamStride.Infrastructure.Services;
+using System.Security.Claims;
+using TeamStride.Application.Teams.Dtos;
+using TeamStride.Application.Teams.Services;
+using TeamStride.Domain.Entities;
 using TeamStride.Domain.Interfaces;
-using Microsoft.Extensions.DependencyInjection;
+using TeamStride.Infrastructure.Services;
 
 namespace TeamStride.Infrastructure.Tests.Services;
 
 public class CurrentTeamServiceTests
 {
     private readonly Mock<ILogger<CurrentTeamService>> _mockLogger;
-    private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+    private readonly Mock<IHttpContextAccessor> _mockHttpContextAccessor;
     private readonly Mock<IServiceProvider> _mockServiceProvider;
+    private readonly Mock<HttpContext> _mockHttpContext;
+    private readonly Mock<ClaimsPrincipal> _mockUser;
+    private readonly Mock<ITeamService> _mockTeamService;
     private readonly CurrentTeamService _currentTeamService;
 
     public CurrentTeamServiceTests()
     {
         _mockLogger = new Mock<ILogger<CurrentTeamService>>();
-        _mockCurrentUserService = new Mock<ICurrentUserService>();
+        _mockHttpContextAccessor = new Mock<IHttpContextAccessor>();
         _mockServiceProvider = new Mock<IServiceProvider>();
+        _mockHttpContext = new Mock<HttpContext>();
+        _mockUser = new Mock<ClaimsPrincipal>();
+        _mockTeamService = new Mock<ITeamService>();
+        
         _currentTeamService = new CurrentTeamService(
-            _mockLogger.Object, 
-            _mockCurrentUserService.Object, 
+            _mockLogger.Object,
+            _mockHttpContextAccessor.Object,
             _mockServiceProvider.Object);
+    }
+
+    private void SetupHttpContext(List<Claim>? claims = null)
+    {
+        claims ??= new List<Claim>();
+        var identity = new ClaimsIdentity(claims, "test");
+        var user = new ClaimsPrincipal(identity);
+
+        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
+        _mockHttpContext.Setup(x => x.User).Returns(user);
     }
 
     #region IsTeamSet Tests
@@ -291,11 +312,233 @@ public class CurrentTeamServiceTests
 
     #endregion
 
+    #region TeamRole and MemberType Properties Tests
+
+    [Fact]
+    public void TeamRole_WhenHttpContextIsNull_ReturnsNull()
+    {
+        // Arrange
+        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns((HttpContext?)null);
+
+        // Act
+        var result = _currentTeamService.TeamRole;
+
+        // Assert
+        result.ShouldBeNull();
+    }
+
+    [Fact]
+    public void TeamRole_WhenClaimDoesNotExist_ReturnsNull()
+    {
+        // Arrange
+        SetupHttpContext();
+
+        // Act
+        var result = _currentTeamService.TeamRole;
+
+        // Assert
+        result.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData("TeamOwner", TeamRole.TeamOwner)]
+    [InlineData("TeamAdmin", TeamRole.TeamAdmin)]
+    [InlineData("TeamMember", TeamRole.TeamMember)]
+    public void TeamRole_WhenValidClaim_ReturnsCorrectRole(string claimValue, TeamRole expectedRole)
+    {
+        // Arrange
+        var claims = new List<Claim> { new("team_role", claimValue) };
+        SetupHttpContext(claims);
+
+        // Act
+        var result = _currentTeamService.TeamRole;
+
+        // Assert
+        result.ShouldBe(expectedRole);
+    }
+
+    [Fact]
+    public void TeamRole_WhenInvalidClaim_ReturnsNull()
+    {
+        // Arrange
+        var claims = new List<Claim> { new("team_role", "InvalidRole") };
+        SetupHttpContext(claims);
+
+        // Act
+        var result = _currentTeamService.TeamRole;
+
+        // Assert
+        result.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData("Coach", MemberType.Coach)]
+    [InlineData("Athlete", MemberType.Athlete)]
+    [InlineData("Parent", MemberType.Parent)]
+    public void MemberType_WhenValidClaim_ReturnsCorrectType(string claimValue, MemberType expectedType)
+    {
+        // Arrange
+        var claims = new List<Claim> { new("member_type", claimValue) };
+        SetupHttpContext(claims);
+
+        // Act
+        var result = _currentTeamService.MemberType;
+
+        // Assert
+        result.ShouldBe(expectedType);
+    }
+
+    [Fact]
+    public void MemberType_WhenInvalidClaim_ReturnsNull()
+    {
+        // Arrange
+        var claims = new List<Claim> { new("member_type", "InvalidType") };
+        SetupHttpContext(claims);
+
+        // Act
+        var result = _currentTeamService.MemberType;
+
+        // Assert
+        result.ShouldBeNull();
+    }
+
+    #endregion
+
+    #region Helper Properties Tests
+
+    [Theory]
+    [InlineData("TeamOwner", true)]
+    [InlineData("TeamAdmin", false)]
+    [InlineData("TeamMember", false)]
+    public void IsTeamOwner_ReturnsCorrectValue(string roleValue, bool expected)
+    {
+        // Arrange
+        var claims = new List<Claim> { new("team_role", roleValue) };
+        SetupHttpContext(claims);
+
+        // Act
+        var result = _currentTeamService.IsTeamOwner;
+
+        // Assert
+        result.ShouldBe(expected);
+    }
+
+    [Theory]
+    [InlineData("TeamOwner", false)]
+    [InlineData("TeamAdmin", true)]
+    [InlineData("TeamMember", false)]
+    public void IsTeamAdmin_ReturnsCorrectValue(string roleValue, bool expected)
+    {
+        // Arrange
+        var claims = new List<Claim> { new("team_role", roleValue) };
+        SetupHttpContext(claims);
+
+        // Act
+        var result = _currentTeamService.IsTeamAdmin;
+
+        // Assert
+        result.ShouldBe(expected);
+    }
+
+    [Theory]
+    [InlineData("TeamOwner", false)]
+    [InlineData("TeamAdmin", false)]
+    [InlineData("TeamMember", true)]
+    public void IsTeamMember_ReturnsCorrectValue(string roleValue, bool expected)
+    {
+        // Arrange
+        var claims = new List<Claim> { new("team_role", roleValue) };
+        SetupHttpContext(claims);
+
+        // Act
+        var result = _currentTeamService.IsTeamMember;
+
+        // Assert
+        result.ShouldBe(expected);
+    }
+
+    #endregion
+
+    #region SetTeamFromSubdomainAsync Tests
+
+    [Fact]
+    public async Task SetTeamFromSubdomainAsync_WhenTeamServiceNotAvailable_ReturnsFalse()
+    {
+        // Arrange
+        var subdomain = "test-team";
+        _mockServiceProvider.Setup(x => x.GetService(typeof(ITeamService))).Returns((object?)null);
+
+        // Act
+        var result = await _currentTeamService.SetTeamFromSubdomainAsync(subdomain);
+
+        // Assert
+        result.ShouldBeFalse();
+        _currentTeamService.IsTeamSet.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task SetTeamFromSubdomainAsync_WhenTeamNotFound_ReturnsFalse()
+    {
+        // Arrange
+        var subdomain = "nonexistent-team";
+        _mockServiceProvider.Setup(x => x.GetService(typeof(ITeamService))).Returns(_mockTeamService.Object);
+        _mockTeamService.Setup(x => x.GetTeamBySubdomainAsync(subdomain))
+            .ThrowsAsync(new InvalidOperationException($"Team with subdomain '{subdomain}' not found"));
+
+        // Act
+        var result = await _currentTeamService.SetTeamFromSubdomainAsync(subdomain);
+
+        // Assert
+        result.ShouldBeFalse();
+        _currentTeamService.IsTeamSet.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task SetTeamFromSubdomainAsync_WhenTeamFound_ReturnsTrue()
+    {
+        // Arrange
+        var subdomain = "test-team";
+        var teamId = Guid.NewGuid();
+        var teamDto = new TeamDto { Id = teamId, Subdomain = subdomain };
+        
+        _mockServiceProvider.Setup(x => x.GetService(typeof(ITeamService))).Returns(_mockTeamService.Object);
+        _mockTeamService.Setup(x => x.GetTeamBySubdomainAsync(subdomain)).ReturnsAsync(teamDto);
+
+        // Act
+        var result = await _currentTeamService.SetTeamFromSubdomainAsync(subdomain);
+
+        // Assert
+        result.ShouldBeTrue();
+        _currentTeamService.IsTeamSet.ShouldBeTrue();
+        _currentTeamService.TeamId.ShouldBe(teamId);
+        _currentTeamService.GetSubdomain.ShouldBe(subdomain);
+    }
+
+    [Fact]
+    public async Task SetTeamFromSubdomainAsync_WhenExceptionThrown_ReturnsFalse()
+    {
+        // Arrange
+        var subdomain = "test-team";
+        _mockServiceProvider.Setup(x => x.GetService(typeof(ITeamService))).Returns(_mockTeamService.Object);
+        _mockTeamService.Setup(x => x.GetTeamBySubdomainAsync(subdomain)).ThrowsAsync(new Exception("Database error"));
+
+        // Act
+        var result = await _currentTeamService.SetTeamFromSubdomainAsync(subdomain);
+
+        // Assert
+        result.ShouldBeFalse();
+        _currentTeamService.IsTeamSet.ShouldBeFalse();
+    }
+
+    #endregion
+
+    #region SetTeamFromJwtClaims Tests
+
     [Fact]
     public void SetTeamFromJwtClaims_WhenUserNotAuthenticated_ReturnsFalse()
     {
         // Arrange
-        _mockCurrentUserService.Setup(x => x.IsAuthenticated).Returns(false);
+        SetupHttpContext();
 
         // Act
         var result = _currentTeamService.SetTeamFromJwtClaims();
@@ -304,4 +547,219 @@ public class CurrentTeamServiceTests
         result.ShouldBeFalse();
         _currentTeamService.IsTeamSet.ShouldBeFalse();
     }
+
+    [Fact]
+    public void SetTeamFromJwtClaims_WhenNoTeamIdClaim_ReturnsFalse()
+    {
+        // Arrange
+        var claims = new List<Claim>();
+        var identity = new ClaimsIdentity(claims, "test");
+        identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()));
+        var user = new ClaimsPrincipal(identity);
+
+        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
+        _mockHttpContext.Setup(x => x.User).Returns(user);
+
+        // Act
+        var result = _currentTeamService.SetTeamFromJwtClaims();
+
+        // Assert
+        result.ShouldBeFalse();
+        _currentTeamService.IsTeamSet.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void SetTeamFromJwtClaims_WhenGlobalAdmin_ReturnsTrue()
+    {
+        // Arrange
+        var teamId = Guid.NewGuid();
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+            new("team_id", teamId.ToString()),
+            new("is_global_admin", "true")
+        };
+        var identity = new ClaimsIdentity(claims, "test");
+        var user = new ClaimsPrincipal(identity);
+
+        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
+        _mockHttpContext.Setup(x => x.User).Returns(user);
+
+        // Act
+        var result = _currentTeamService.SetTeamFromJwtClaims();
+
+        // Assert
+        result.ShouldBeTrue();
+        _currentTeamService.IsTeamSet.ShouldBeTrue();
+        _currentTeamService.TeamId.ShouldBe(teamId);
+    }
+
+    [Fact]
+    public void SetTeamFromJwtClaims_WhenValidTeamAccess_ReturnsTrue()
+    {
+        // Arrange
+        var teamId = Guid.NewGuid();
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+            new("team_id", teamId.ToString()),
+            new("team_role", "TeamMember")
+        };
+        var identity = new ClaimsIdentity(claims, "test");
+        var user = new ClaimsPrincipal(identity);
+
+        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
+        _mockHttpContext.Setup(x => x.User).Returns(user);
+
+        // Act
+        var result = _currentTeamService.SetTeamFromJwtClaims();
+
+        // Assert
+        result.ShouldBeTrue();
+        _currentTeamService.IsTeamSet.ShouldBeTrue();
+        _currentTeamService.TeamId.ShouldBe(teamId);
+    }
+
+    #endregion
+
+    #region Authorization Methods Tests
+
+    [Fact]
+    public void CanAccessCurrentTeam_WhenTeamNotSet_ReturnsFalse()
+    {
+        // Act
+        var result = _currentTeamService.CanAccessCurrentTeam();
+
+        // Assert
+        result.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void CanAccessCurrentTeam_WhenGlobalAdmin_ReturnsTrue()
+    {
+        // Arrange
+        var teamId = Guid.NewGuid();
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+            new("team_id", teamId.ToString()),
+            new("is_global_admin", "true")
+        };
+        var identity = new ClaimsIdentity(claims, "test");
+        var user = new ClaimsPrincipal(identity);
+
+        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
+        _mockHttpContext.Setup(x => x.User).Returns(user);
+        _currentTeamService.SetTeamId(teamId);
+
+        // Act
+        var result = _currentTeamService.CanAccessCurrentTeam();
+
+        // Assert
+        result.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData(TeamRole.TeamOwner, TeamRole.TeamOwner, true)]
+    [InlineData(TeamRole.TeamOwner, TeamRole.TeamAdmin, true)]
+    [InlineData(TeamRole.TeamOwner, TeamRole.TeamMember, true)]
+    [InlineData(TeamRole.TeamAdmin, TeamRole.TeamOwner, false)]
+    [InlineData(TeamRole.TeamAdmin, TeamRole.TeamAdmin, true)]
+    [InlineData(TeamRole.TeamAdmin, TeamRole.TeamMember, true)]
+    [InlineData(TeamRole.TeamMember, TeamRole.TeamOwner, false)]
+    [InlineData(TeamRole.TeamMember, TeamRole.TeamAdmin, false)]
+    [InlineData(TeamRole.TeamMember, TeamRole.TeamMember, true)]
+    public void HasMinimumTeamRole_WithRoleHierarchy_ReturnsCorrectValue(TeamRole userRole, TeamRole minimumRole, bool expected)
+    {
+        // Arrange
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+            new("team_role", userRole.ToString())
+        };
+        var identity = new ClaimsIdentity(claims, "test");
+        var user = new ClaimsPrincipal(identity);
+
+        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
+        _mockHttpContext.Setup(x => x.User).Returns(user);
+
+        // Act
+        var result = _currentTeamService.HasMinimumTeamRole(minimumRole);
+
+        // Assert
+        result.ShouldBe(expected);
+    }
+
+    [Fact]
+    public void HasMinimumTeamRole_WhenGlobalAdmin_ReturnsTrue()
+    {
+        // Arrange
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+            new("is_global_admin", "true")
+        };
+        var identity = new ClaimsIdentity(claims, "test");
+        var user = new ClaimsPrincipal(identity);
+
+        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
+        _mockHttpContext.Setup(x => x.User).Returns(user);
+
+        // Act
+        var result = _currentTeamService.HasMinimumTeamRole(TeamRole.TeamOwner);
+
+        // Assert
+        result.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void CanAccessTeam_WhenTeamMatches_ReturnsTrue()
+    {
+        // Arrange
+        var teamId = Guid.NewGuid();
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+            new("team_id", teamId.ToString()),
+            new("team_role", "TeamMember")
+        };
+        var identity = new ClaimsIdentity(claims, "test");
+        var user = new ClaimsPrincipal(identity);
+
+        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
+        _mockHttpContext.Setup(x => x.User).Returns(user);
+
+        // Act
+        var result = _currentTeamService.CanAccessTeam(teamId);
+
+        // Assert
+        result.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void CanAccessTeam_WhenTeamDoesNotMatch_ReturnsFalse()
+    {
+        // Arrange
+        var userTeamId = Guid.NewGuid();
+        var requestedTeamId = Guid.NewGuid();
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+            new("team_id", userTeamId.ToString()),
+            new("team_role", "TeamMember")
+        };
+        var identity = new ClaimsIdentity(claims, "test");
+        var user = new ClaimsPrincipal(identity);
+
+        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
+        _mockHttpContext.Setup(x => x.User).Returns(user);
+
+        // Act
+        var result = _currentTeamService.CanAccessTeam(requestedTeamId);
+
+        // Assert
+        result.ShouldBeFalse();
+    }
+
+    #endregion
 } 

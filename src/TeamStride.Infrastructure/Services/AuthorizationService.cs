@@ -68,12 +68,12 @@ public class AuthorizationService : IAuthorizationService
         if (!_currentUserService.HasMinimumTeamRole(minimumRole))
         {
             _logger.LogWarning("Access denied - user {UserId} has role {UserRole} but {MinimumRole} required for team {TeamId}", 
-                _currentUserService.UserId, _currentUserService.TeamRole, minimumRole, teamId);
+                _currentUserService.UserId, _currentUserService.HasMinimumTeamRole(minimumRole), minimumRole, teamId);
             throw new UnauthorizedAccessException($"Minimum role {minimumRole} required");
         }
 
         _logger.LogDebug("Team access granted for user {UserId} with role {UserRole} to team {TeamId}", 
-            _currentUserService.UserId, _currentUserService.TeamRole, teamId);
+            _currentUserService.UserId, _currentUserService.HasMinimumTeamRole(minimumRole), teamId);
         return Task.CompletedTask;
     }
 
@@ -94,7 +94,7 @@ public class AuthorizationService : IAuthorizationService
         }
 
         // Check if user can access the team and is the owner
-        if (!_currentUserService.CanAccessTeam(teamId) || !_currentUserService.IsTeamOwner)
+        if (!_currentUserService.CanAccessTeam(teamId) || !_currentUserService.HasMinimumTeamRole(TeamRole.TeamOwner))
         {
             _logger.LogWarning("Ownership denied - user {UserId} is not the owner of team {TeamId}", 
                 _currentUserService.UserId, teamId);
@@ -145,7 +145,7 @@ public class AuthorizationService : IAuthorizationService
         }
 
         // Check if user can access the team and is the owner
-        var isOwner = _currentUserService.CanAccessTeam(teamId) && _currentUserService.IsTeamOwner;
+        var isOwner = _currentUserService.CanAccessTeam(teamId) && _currentUserService.HasMinimumTeamRole(TeamRole.TeamOwner);
         return Task.FromResult(isOwner);
     }
 
@@ -166,11 +166,6 @@ public class AuthorizationService : IAuthorizationService
 
     public Task<bool> CanAccessResourceAsync<T>(T resource, TeamRole minimumRole = TeamRole.TeamMember) where T : ITeamResource
     {
-        if (resource == null)
-        {
-            return Task.FromResult(false);
-        }
-
-        return CanAccessTeamAsync(resource.TeamId, minimumRole);
+        return resource == null ? Task.FromResult(false) : CanAccessTeamAsync(resource.TeamId, minimumRole);
     }
 } 

@@ -123,7 +123,6 @@ public class AuthorizationServiceTests
         _mockCurrentUserService.Setup(x => x.CanAccessTeam(teamId)).Returns(true);
         _mockCurrentUserService.Setup(x => x.HasMinimumTeamRole(TeamRole.TeamAdmin)).Returns(false);
         _mockCurrentUserService.Setup(x => x.UserId).Returns(userId);
-        _mockCurrentUserService.Setup(x => x.TeamRole).Returns(TeamRole.TeamMember);
 
         // Act & Assert
         var exception = await Should.ThrowAsync<UnauthorizedAccessException>(
@@ -143,7 +142,6 @@ public class AuthorizationServiceTests
         _mockCurrentUserService.Setup(x => x.CanAccessTeam(teamId)).Returns(true);
         _mockCurrentUserService.Setup(x => x.HasMinimumTeamRole(TeamRole.TeamMember)).Returns(true);
         _mockCurrentUserService.Setup(x => x.UserId).Returns(userId);
-        _mockCurrentUserService.Setup(x => x.TeamRole).Returns(TeamRole.TeamMember);
 
         // Act & Assert
         await Should.NotThrowAsync(() => _authorizationService.RequireTeamAccessAsync(teamId));
@@ -189,7 +187,7 @@ public class AuthorizationServiceTests
         _mockCurrentUserService.Setup(x => x.IsAuthenticated).Returns(true);
         _mockCurrentUserService.Setup(x => x.IsGlobalAdmin).Returns(false);
         _mockCurrentUserService.Setup(x => x.CanAccessTeam(teamId)).Returns(true);
-        _mockCurrentUserService.Setup(x => x.IsTeamOwner).Returns(false);
+        _mockCurrentUserService.Setup(x => x.HasMinimumTeamRole(TeamRole.TeamOwner)).Returns(false);
         _mockCurrentUserService.Setup(x => x.UserId).Returns(userId);
 
         // Act & Assert
@@ -208,7 +206,7 @@ public class AuthorizationServiceTests
         _mockCurrentUserService.Setup(x => x.IsAuthenticated).Returns(true);
         _mockCurrentUserService.Setup(x => x.IsGlobalAdmin).Returns(false);
         _mockCurrentUserService.Setup(x => x.CanAccessTeam(teamId)).Returns(true);
-        _mockCurrentUserService.Setup(x => x.IsTeamOwner).Returns(true);
+        _mockCurrentUserService.Setup(x => x.HasMinimumTeamRole(TeamRole.TeamOwner)).Returns(true);
         _mockCurrentUserService.Setup(x => x.UserId).Returns(userId);
 
         // Act & Assert
@@ -230,7 +228,6 @@ public class AuthorizationServiceTests
         _mockCurrentUserService.Setup(x => x.CanAccessTeam(teamId)).Returns(true);
         _mockCurrentUserService.Setup(x => x.HasMinimumTeamRole(TeamRole.TeamAdmin)).Returns(true);
         _mockCurrentUserService.Setup(x => x.UserId).Returns(userId);
-        _mockCurrentUserService.Setup(x => x.TeamRole).Returns(TeamRole.TeamAdmin);
 
         // Act & Assert
         await Should.NotThrowAsync(() => _authorizationService.RequireTeamAdminAsync(teamId));
@@ -343,7 +340,7 @@ public class AuthorizationServiceTests
         _mockCurrentUserService.Setup(x => x.IsAuthenticated).Returns(true);
         _mockCurrentUserService.Setup(x => x.IsGlobalAdmin).Returns(false);
         _mockCurrentUserService.Setup(x => x.CanAccessTeam(teamId)).Returns(true);
-        _mockCurrentUserService.Setup(x => x.IsTeamOwner).Returns(true);
+        _mockCurrentUserService.Setup(x => x.HasMinimumTeamRole(TeamRole.TeamOwner)).Returns(true);
 
         // Act
         var result = await _authorizationService.IsTeamOwnerAsync(teamId);
@@ -360,7 +357,7 @@ public class AuthorizationServiceTests
         _mockCurrentUserService.Setup(x => x.IsAuthenticated).Returns(true);
         _mockCurrentUserService.Setup(x => x.IsGlobalAdmin).Returns(false);
         _mockCurrentUserService.Setup(x => x.CanAccessTeam(teamId)).Returns(true);
-        _mockCurrentUserService.Setup(x => x.IsTeamOwner).Returns(false);
+        _mockCurrentUserService.Setup(x => x.HasMinimumTeamRole(TeamRole.TeamOwner)).Returns(false);
 
         // Act
         var result = await _authorizationService.IsTeamOwnerAsync(teamId);
@@ -420,7 +417,6 @@ public class AuthorizationServiceTests
         _mockCurrentUserService.Setup(x => x.CanAccessTeam(teamId)).Returns(true);
         _mockCurrentUserService.Setup(x => x.HasMinimumTeamRole(TeamRole.TeamMember)).Returns(true);
         _mockCurrentUserService.Setup(x => x.UserId).Returns(userId);
-        _mockCurrentUserService.Setup(x => x.TeamRole).Returns(TeamRole.TeamMember);
 
         // Act & Assert
         await Should.NotThrowAsync(() => _authorizationService.RequireResourceAccessAsync(resource));

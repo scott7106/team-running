@@ -8,10 +8,14 @@ namespace TeamStride.Infrastructure.Services;
 public class CurrentUserService : ICurrentUserService
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ICurrentTeamService _currentTeamService;
 
-    public CurrentUserService(IHttpContextAccessor httpContextAccessor)
+    public CurrentUserService(
+        IHttpContextAccessor httpContextAccessor,
+        ICurrentTeamService currentTeamService)
     {
         _httpContextAccessor = httpContextAccessor;
+        _currentTeamService = currentTeamService;
     }
 
     public Guid? UserId
@@ -46,6 +50,8 @@ public class CurrentUserService : ICurrentUserService
         }
     }
 
+    public Guid? CurrentTeamId => _currentTeamService.TeamId;
+
     public TeamRole? TeamRole
     {
         get
@@ -71,34 +77,8 @@ public class CurrentUserService : ICurrentUserService
 
     public bool IsTeamMember => TeamRole == Domain.Entities.TeamRole.TeamMember;
 
-    public bool CanAccessTeam(Guid teamId)
-    {
-        // Global admins can access any team
-        if (IsGlobalAdmin)
-            return true;
+    // Delegate team-related queries to ICurrentTeamService
+    public bool CanAccessTeam(Guid teamId) => _currentTeamService.CanAccessTeam(teamId);
 
-        // Standard users can only access their assigned team
-        return TeamId.HasValue && TeamId.Value == teamId;
-    }
-
-    public bool HasMinimumTeamRole(TeamRole minimumRole)
-    {
-        // Global admins bypass all team role requirements
-        if (IsGlobalAdmin)
-            return true;
-
-        // Check if user has a team role
-        if (!TeamRole.HasValue)
-            return false;
-
-        // Define role hierarchy (lower values = higher privileges)
-        var roleHierarchy = new Dictionary<TeamRole, int>
-        {
-            { Domain.Entities.TeamRole.TeamOwner, 1 },
-            { Domain.Entities.TeamRole.TeamAdmin, 2 },
-            { Domain.Entities.TeamRole.TeamMember, 3 }
-        };
-
-        return roleHierarchy[TeamRole.Value] <= roleHierarchy[minimumRole];
-    }
+    public bool HasMinimumTeamRole(TeamRole minimumRole) => _currentTeamService.HasMinimumTeamRole(minimumRole);
 } 

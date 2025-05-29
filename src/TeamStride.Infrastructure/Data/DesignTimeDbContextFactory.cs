@@ -3,9 +3,6 @@ using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
 using TeamStride.Domain.Interfaces;
 using TeamStride.Domain.Entities;
-using System;
-using System.IO;
-using System.Threading.Tasks;
 
 namespace TeamStride.Infrastructure.Data;
 
@@ -36,31 +33,32 @@ internal class MockCurrentTeamService : ICurrentTeamService
     public Guid TeamId => Guid.Empty;
     public string GetSubdomain => "design-time";
     public bool IsTeamSet => false;
+    public TeamRole? TeamRole => null;
+    public MemberType? MemberType => null;
     public void SetTeamId(Guid teamId) { }
     public void SetTeamSubdomain(string subdomain) { }
     public Task<bool> SetTeamFromSubdomainAsync(string subdomain) => Task.FromResult(false);
     public bool SetTeamFromJwtClaims() => false;
     public void ClearTeam() { }
+    public bool IsTeamOwner => false;
+    public bool IsTeamAdmin => false;
+    public bool IsTeamMember => false;
+    public bool CanAccessCurrentTeam() => false;
+    public bool HasMinimumTeamRole(TeamRole minimumRole) => false;
+    public bool CanAccessTeam(Guid teamId) => false;
 }
 
 internal class MockCurrentUserService : ICurrentUserService
 {
     public Guid? UserId => Guid.Empty;
-    public string UserName => "DesignTime";
-    public string Email => "design.time@example.com";
     public string UserEmail => "design.time@example.com";
     public bool IsAuthenticated => true;
     
     // Simplified Authorization Model Properties
     public bool IsGlobalAdmin => false;
-    public Guid? TeamId => Guid.Empty;
-    public TeamRole? TeamRole => Domain.Entities.TeamRole.TeamMember;
-    public MemberType? MemberType => Domain.Entities.MemberType.Coach;
     
     // Helper Methods for Role Checking
-    public bool IsTeamOwner => false;
-    public bool IsTeamAdmin => false;
-    public bool IsTeamMember => true;
     public bool CanAccessTeam(Guid teamId) => true; // Design-time mock allows access
     public bool HasMinimumTeamRole(TeamRole minimumRole) => true; // Design-time mock allows access
+    public Guid? CurrentTeamId => Guid.Empty;
 } 

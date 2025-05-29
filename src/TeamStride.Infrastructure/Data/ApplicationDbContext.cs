@@ -12,7 +12,6 @@ namespace TeamStride.Infrastructure.Data;
 
 public class ApplicationDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>
 {
-    private readonly ICurrentTeamService _currentTeamService;
     private readonly ICurrentUserService _currentUserService;
     private bool _bypassAuditHandling = false;
 
@@ -21,7 +20,6 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         ICurrentTeamService currentTeamService,
         ICurrentUserService currentUserService) : base(options)
     {
-        _currentTeamService = currentTeamService;
         _currentUserService = currentUserService;
     }
 
@@ -111,17 +109,17 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     {
         // Configure multi-team entities with soft delete filters
         builder.Entity<Athlete>().HasQueryFilter(e => 
-            !e.IsDeleted && e.TeamId == _currentTeamService.TeamId);
+            !e.IsDeleted && (_currentUserService.IsGlobalAdmin || e.TeamId == _currentUserService.CurrentTeamId));
         
         builder.Entity<AthleteProfile>().HasQueryFilter(e => 
-            !e.IsDeleted && e.TeamId == _currentTeamService.TeamId);
+            !e.IsDeleted && (_currentUserService.IsGlobalAdmin || e.TeamId == _currentUserService.CurrentTeamId));
         
         builder.Entity<UserTeam>().HasQueryFilter(e => 
-            !e.IsDeleted && (_currentUserService.IsGlobalAdmin || e.TeamId == _currentTeamService.TeamId));
+            !e.IsDeleted && (_currentUserService.IsGlobalAdmin || e.TeamId == _currentUserService.CurrentTeamId));
 
         // Configure entities with only soft delete filters
         builder.Entity<Team>().HasQueryFilter(e => 
-            !e.IsDeleted && (_currentUserService.IsGlobalAdmin || e.Users.Any(ut => ut.UserId == _currentUserService.UserId)));
+            !e.IsDeleted && (_currentUserService.IsGlobalAdmin || e.Id == _currentUserService.CurrentTeamId));
         
         builder.Entity<ApplicationUser>().HasQueryFilter(e => !e.IsDeleted);
         

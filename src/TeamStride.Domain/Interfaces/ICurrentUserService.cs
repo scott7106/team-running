@@ -10,14 +10,9 @@ public interface ICurrentUserService
     
     // Simplified Authorization Model Properties
     bool IsGlobalAdmin { get; }
-    Guid? TeamId { get; }
-    TeamRole? TeamRole { get; }
-    MemberType? MemberType { get; }
     
-    // Helper Methods for Role Checking
-    bool IsTeamOwner { get; }
-    bool IsTeamAdmin { get; }
-    bool IsTeamMember { get; }
+    // Team-related queries that delegate to ICurrentTeamService
     bool CanAccessTeam(Guid teamId);
     bool HasMinimumTeamRole(TeamRole minimumRole);
+    Guid? CurrentTeamId { get; }
 } 
