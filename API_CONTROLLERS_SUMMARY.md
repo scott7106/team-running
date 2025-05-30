@@ -64,13 +64,56 @@ This document summarizes the API controllers that have been implemented for the 
 - `POST /api/admin/teams/{teamId}/transfer-ownership` - Immediate ownership transfer
 - `GET /api/admin/teams/subdomain-availability` - Check subdomain availability
 
+### 6. AuthenticationController (`/api/Authentication`)
+**Purpose**: User authentication and account management operations.
+
+**Endpoints**:
+- `POST /api/Authentication/register` - Register new user account
+- `POST /api/Authentication/login` - User login with credentials
+- `POST /api/Authentication/refresh-token` - Refresh JWT token
+- `GET /api/Authentication/confirm-email` - Confirm user email address (Anonymous)
+- `POST /api/Authentication/forgot-password` - Initiate password reset process
+- `POST /api/Authentication/reset-password` - Reset password with token (Anonymous)
+- `POST /api/Authentication/change-password` - Change password for authenticated user
+- `POST /api/Authentication/logout` - User logout
+- `GET /api/Authentication/external-login/{provider}` - Get external login URL
+- `GET /api/Authentication/external-login/{provider}/callback` - Get external login callback URL
+- `POST /api/Authentication/external-login` - Process external authentication
+
+**Authorization**:
+- Most endpoints are public (registration, login, password reset)
+- `change-password` and `logout` require authentication
+- Email confirmation and password reset support anonymous access via tokens
+
+### 7. TenantSwitcherController (`/api/tenant-switcher`)
+**Purpose**: Multi-tenant operations for users with access to multiple teams.
+
+**Endpoints**:
+- `GET /api/tenant-switcher/tenants` - Get all tenants (teams) user has access to
+
+**Authorization**:
+- All endpoints require authentication
+- Returns teams the current user can switch between
+
+### 8. HealthController (`/api/Health`)
+**Purpose**: API health monitoring and status checks.
+
+**Endpoints**:
+- `GET /api/Health` - Get API health status and timestamp
+
+**Authorization**:
+- Public endpoint (no authentication required)
+- Returns health status and current timestamp
+
 ## Key Features
 
 ### Authentication & Authorization
-- All endpoints require authentication except ownership transfer completion
+- All endpoints require authentication except health check, ownership transfer completion, email confirmation, and password reset
 - Role-based access control using `RequireTeamAccess` and `RequireGlobalAdmin` attributes
 - Hierarchical team roles: TeamOwner > TeamAdmin > TeamMember
 - Global admins bypass all team access restrictions
+- Support for external authentication providers
+- JWT token-based authentication with refresh token support
 - Proper error handling for unauthorized access
 
 ### Data Transfer Objects (DTOs)
@@ -83,6 +126,11 @@ This document summarizes the API controllers that have been implemented for the 
 - `UpdateTeamBrandingDto` - Branding update data
 - `TeamMemberDto` - Team member information
 - `TeamTierLimitsDto` - Tier limitations and features
+- `TenantDto` - Tenant/team information for switching
+- `AuthResponseDto` - Authentication response with tokens
+- `RegisterRequestDto` - User registration data
+- `LoginRequestDto` - User login credentials
+- `ExternalAuthRequestDto` - External authentication data
 
 ### Error Handling
 - Consistent error responses with trace IDs
@@ -95,6 +143,8 @@ This document summarizes the API controllers that have been implemented for the 
 - Custom validation for business rules
 - Subdomain format validation
 - Color code validation for branding
+- Email format validation
+- Password complexity requirements
 
 ### Pagination
 - Built-in pagination support for list endpoints
@@ -106,6 +156,8 @@ This document summarizes the API controllers that have been implemented for the 
 All controllers integrate with the appropriate services:
 - **TeamsController**: Uses `IStandardTeamService` for standard team operations
 - **GlobalAdminTeamsController**: Uses `IGlobalAdminTeamService` for admin operations
+- **AuthenticationController**: Uses `ITeamStrideAuthenticationService` for authentication operations
+- **TenantSwitcherController**: Uses `ITenantSwitcherService` for multi-tenant operations
 - **Other Controllers**: Use `IStandardTeamService` for their specific domains
 
 Services provide:
@@ -115,6 +167,8 @@ Services provide:
 - Member management
 - Authorization checks
 - Tier limit validation
+- User authentication and account management
+- Multi-tenant access management
 
 ## Testing
 
@@ -126,12 +180,14 @@ Basic integration tests have been created to verify:
 
 ## Next Steps
 
-1. **Authentication Integration**: Implement JWT token authentication in tests
-2. **Advanced Testing**: Add authenticated test scenarios for new TeamsController
-3. **API Documentation**: Enhance Swagger documentation with examples
+1. **Athletes Management**: Implement AthletesController for athlete CRUD operations
+2. **Advanced Testing**: Add comprehensive authenticated test scenarios for all controllers
+3. **API Documentation**: Enhance Swagger documentation with examples and detailed descriptions
 4. **Rate Limiting**: Implement rate limiting for public endpoints
-5. **Caching**: Add caching for frequently accessed data
-6. **Monitoring**: Add logging and metrics collection
+5. **Caching**: Add caching for frequently accessed data like tier limits
+6. **Monitoring**: Add detailed logging and metrics collection
+7. **External Integration**: Complete external authentication provider setup
+8. **Email Templates**: Implement branded email templates for notifications
 
 ## Architecture Notes
 
@@ -154,4 +210,21 @@ The new `RequireTeamAccess` attribute provides:
 - Automatic team ID validation from route parameters
 - Role hierarchy enforcement (TeamOwner > TeamAdmin > TeamMember)
 - Global admin bypass functionality
-- Flexible team ID source configuration (route-based or context-based) 
+- Flexible team ID source configuration (route-based or context-based)
+
+The `RequireGlobalAdmin` attribute provides:
+- Global administrator access control
+- Bypass mechanism for all team-level restrictions
+- Centralized admin operation authorization
+
+## Notable Missing Features
+
+While the application has a complete `Athlete` domain model with services and DTOs, there is currently **no AthletesController** implemented. The athlete management functionality exists in the service layer but lacks HTTP API endpoints. This represents a significant gap that should be addressed in the next development iteration.
+
+The athlete domain includes:
+- Complete CRUD operations in `IAthleteService`
+- Rich athlete profile management
+- Team roster operations
+- Captain role management
+- Physical and waiver status tracking
+- Athletic performance data 
