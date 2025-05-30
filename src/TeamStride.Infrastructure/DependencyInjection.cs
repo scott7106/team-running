@@ -23,6 +23,7 @@ public static class DependencyInjection
         // Register team services
         services.AddScoped<IStandardTeamService, StandardTeamService>();
         services.AddScoped<IGlobalAdminTeamService, GlobalAdminTeamService>();
+        services.AddScoped<ITenantSwitcherService, TenantSwitcherService>();
 
         // Register user services
         services.AddScoped<IGlobalAdminUserService, GlobalAdminUserService>();
