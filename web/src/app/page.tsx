@@ -317,14 +317,14 @@ export default function Home() {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {/* Free Plan */}
-            <div className="bg-white rounded-lg shadow-lg p-8 border-2 border-gray-200">
+            <div className="bg-white rounded-lg shadow-lg p-8 border-2 border-gray-200 flex flex-col">
               <div className="text-center">
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Free</h3>
                 <div className="text-4xl font-bold text-gray-900 mb-4">$0<span className="text-lg text-gray-600">/month</span></div>
                 <p className="text-gray-600 mb-6">Perfect for small teams getting started</p>
               </div>
               
-              <ul className="space-y-3 mb-8">
+              <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex items-center">
                   <span className="text-green-500 mr-3">✓</span>
                   <span className="text-gray-700">Up to 7 athletes</span>
@@ -343,20 +343,20 @@ export default function Home() {
                 </li>
               </ul>
               
-              <button className="w-full bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors">
+              <button className="w-full bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors mt-auto">
                 Get Started Free
               </button>
             </div>
             
             {/* Standard Plan */}
-            <div className="bg-white rounded-lg shadow-lg p-8 border-2 border-gray-200">
+            <div className="bg-white rounded-lg shadow-lg p-8 border-2 border-gray-200 flex flex-col">
               <div className="text-center">
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Standard</h3>
-                <div className="text-4xl font-bold text-gray-900 mb-4">$29<span className="text-lg text-gray-600">/month</span></div>
+                <div className="text-4xl font-bold text-gray-900 mb-4">$39<span className="text-lg text-gray-600">/year</span></div>
                 <p className="text-gray-600 mb-6">Great for growing teams</p>
               </div>
               
-              <ul className="space-y-3 mb-8">
+              <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex items-center">
                   <span className="text-green-500 mr-3">✓</span>
                   <span className="text-gray-700">Up to 30 athletes</span>
@@ -375,13 +375,13 @@ export default function Home() {
                 </li>
               </ul>
               
-              <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+              <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors mt-auto">
                 Start Standard Plan
               </button>
             </div>
             
             {/* Premium Plan */}
-            <div className="bg-white rounded-lg shadow-lg p-8 border-2 border-blue-500 relative">
+            <div className="bg-white rounded-lg shadow-lg p-8 border-2 border-blue-500 relative flex flex-col">
               <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                 <span className="bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
                   Most Popular
@@ -390,11 +390,11 @@ export default function Home() {
               
               <div className="text-center">
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Premium</h3>
-                <div className="text-4xl font-bold text-gray-900 mb-4">$79<span className="text-lg text-gray-600">/month</span></div>
+                <div className="text-4xl font-bold text-gray-900 mb-4">$79<span className="text-lg text-gray-600">/year</span></div>
                 <p className="text-gray-600 mb-6">Everything you need for serious teams</p>
               </div>
               
-              <ul className="space-y-3 mb-8">
+              <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex items-center">
                   <span className="text-green-500 mr-3">✓</span>
                   <span className="text-gray-700">Unlimited athletes</span>
@@ -417,7 +417,7 @@ export default function Home() {
                 </li>
               </ul>
               
-              <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+              <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors mt-auto">
                 Start Premium Plan
               </button>
             </div>
