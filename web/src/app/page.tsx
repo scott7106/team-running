@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faUsers, 
@@ -10,9 +10,47 @@ import {
   faTrophy, 
   faClock 
 } from '@fortawesome/free-solid-svg-icons';
+import { 
+  faMicrosoft, 
+  faGoogle 
+} from '@fortawesome/free-brands-svg-icons';
 
 export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
+  const [teamCode, setTeamCode] = useState('');
+  const [isTeamCodeFromDomain, setIsTeamCodeFromDomain] = useState(false);
+
+  useEffect(() => {
+    // Only run on client side
+    if (typeof window === 'undefined') return;
+
+    // Check for subdomain in current URL
+    const hostname = window.location.hostname;
+    const parts = hostname.split('.');
+    
+    // Check if it's a subdomain of teamstride.net (e.g., team-name.teamstride.net)
+    if (parts.length >= 3 && parts[parts.length - 2] === 'teamstride' && parts[parts.length - 1] === 'net') {
+      const subdomain = parts[0];
+      if (subdomain && subdomain !== 'www') {
+        setTeamCode(subdomain);
+        setIsTeamCodeFromDomain(true);
+        return;
+      }
+    }
+
+    // Check for team parameter in query string
+    const urlParams = new URLSearchParams(window.location.search);
+    const teamParam = urlParams.get('subdomain');
+    if (teamParam) {
+      setTeamCode(teamParam);
+      setIsTeamCodeFromDomain(true);
+      return;
+    }
+
+    // Reset if no domain or query param found
+    setTeamCode('');
+    setIsTeamCodeFromDomain(false);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -53,18 +91,31 @@ export default function Home() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Team Subdomain
+                  Team Code
                 </label>
                 <div className="flex">
                   <input
                     type="text"
-                    placeholder="yourteam"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="your-team-code"
+                    value={teamCode}
+                    onChange={(e) => setTeamCode(e.target.value)}
+                    readOnly={isTeamCodeFromDomain}
+                    className={`flex-1 px-3 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-300 text-gray-900 ${
+                      isTeamCodeFromDomain ? 'bg-gray-50 cursor-not-allowed' : ''
+                    }`}
                   />
                   <span className="px-3 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg text-sm text-gray-600">
-                    .teamstride.com
+                    .teamstride.net
                   </span>
                 </div>
+                {isTeamCodeFromDomain && (
+                  <p className="text-xs text-blue-600 mt-1 flex items-center">
+                    <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    Team code detected from your domain
+                  </p>
+                )}
               </div>
               
               <div>
@@ -74,7 +125,7 @@ export default function Home() {
                 <input
                   type="email"
                   placeholder="coach@example.com"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-300 text-gray-900"
                 />
               </div>
               
@@ -85,7 +136,7 @@ export default function Home() {
                 <input
                   type="password"
                   placeholder="••••••••"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-300 text-gray-900"
                 />
               </div>
               
@@ -98,10 +149,12 @@ export default function Home() {
               </div>
               
               <div className="grid grid-cols-2 gap-3">
-                <button className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                <button className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700">
+                  <FontAwesomeIcon icon={faMicrosoft} className="w-4 h-4 mr-2 text-blue-600" />
                   <span className="text-sm font-medium">Microsoft</span>
                 </button>
-                <button className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                <button className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700">
+                  <FontAwesomeIcon icon={faGoogle} className="w-4 h-4 mr-2 text-red-500" />
                   <span className="text-sm font-medium">Google</span>
                 </button>
               </div>
