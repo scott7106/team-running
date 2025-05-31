@@ -52,6 +52,15 @@ public class TeamMiddleware
                 return;
             }
 
+            // Add this for development testing only
+            #if DEBUG
+            if (host.StartsWith("localhost") && context.Request.Query.ContainsKey("subdomain"))
+            {
+                subdomain = context.Request.Query["subdomain"].ToString();
+                _logger.LogInformation("Using subdomain from query parameter for development: {Subdomain}", subdomain);
+            }
+            #endif
+
             // Try to resolve team from subdomain first
             var teamResolvedFromSubdomain = await teamService.SetTeamFromSubdomainAsync(subdomain);
             
