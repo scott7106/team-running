@@ -28,6 +28,9 @@ public static class DependencyInjection
         // Register user services
         services.AddScoped<IGlobalAdminUserService, GlobalAdminUserService>();
 
+        // Register athlete services
+        services.AddScoped<IAthleteService, AthleteService>();
+
         return services;
     }
 

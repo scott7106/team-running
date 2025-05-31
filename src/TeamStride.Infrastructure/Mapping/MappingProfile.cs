@@ -3,6 +3,7 @@ using TeamStride.Domain.Entities;
 using TeamStride.Application.Users.Dtos;
 using TeamStride.Application.Teams.Dtos;
 using TeamStride.Domain.Identity;
+using TeamStride.Application.Athletes.Dtos;
 
 namespace TeamStride.Infrastructure.Mapping;
 
@@ -63,5 +64,26 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.TeamName, opt => opt.MapFrom(src => src.Team.Name))
             .ForMember(dest => dest.InitiatedByUserName, opt => opt.MapFrom(src => $"{src.InitiatedByUser.FirstName} {src.InitiatedByUser.LastName}"))
             .ForMember(dest => dest.InitiatedOn, opt => opt.MapFrom(src => src.CreatedOn));
+
+        CreateMap<Athlete, AthleteDto>()
+            .ForMember(d => d.UserId, o => o.MapFrom(s => s.UserId.HasValue ? s.UserId.Value.ToString() : null))
+            .ForMember(d => d.FirstName, o => o.MapFrom(s => s.FirstName))
+            .ForMember(d => d.LastName, o => o.MapFrom(s => s.LastName))
+            .ForMember(d => d.Email, o => o.MapFrom(s => s.User != null ? s.User.Email : null));
+
+        CreateMap<CreateAthleteDto, ApplicationUser>()
+            .ForMember(d => d.UserName, o => o.MapFrom(s => s.Email));
+
+        CreateMap<CreateAthleteDto, Athlete>()
+            .ForMember(d => d.Profile, o => o.Ignore())
+            .ForMember(d => d.User, o => o.Ignore());
+
+        CreateMap<UpdateAthleteDto, Athlete>()
+            .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
+
+        CreateMap<AthleteProfile, AthleteProfileDto>();
+        CreateMap<CreateAthleteProfileDto, AthleteProfile>();
+        CreateMap<UpdateAthleteProfileDto, AthleteProfile>()
+            .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
     }
 } 

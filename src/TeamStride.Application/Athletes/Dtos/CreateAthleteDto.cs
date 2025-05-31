@@ -5,15 +5,16 @@ namespace TeamStride.Application.Athletes.Dtos;
 
 public class CreateAthleteDto
 {
-    [Required]
     [EmailAddress]
-    public required string Email { get; set; }
+    public string? Email { get; set; }
 
     [Required]
-    public required string FirstName { get; set; }
+    [StringLength(100, MinimumLength = 1)]
+    public string FirstName { get; set; } = string.Empty;
 
     [Required]
-    public required string LastName { get; set; }
+    [StringLength(100, MinimumLength = 1)]
+    public string LastName { get; set; } = string.Empty;
 
     public AthleteRole Role { get; set; } = AthleteRole.Athlete;
     public string? JerseyNumber { get; set; }
