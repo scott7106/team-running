@@ -10,6 +10,6 @@ public class AuthResponseDto
     public required string FirstName { get; set; }
     public required string LastName { get; set; }
     public Guid? TeamId { get; set; }
-    public required TeamRole Role { get; set; }
+    public TeamRole? Role { get; set; }
     public bool RequiresEmailConfirmation { get; set; }
 } 

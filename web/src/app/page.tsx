@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faUsers, 
@@ -8,49 +9,234 @@ import {
   faRunning, 
   faComments, 
   faTrophy, 
-  faClock 
+  faClock,
+  faExclamationTriangle,
+  faTimes
 } from '@fortawesome/free-solid-svg-icons';
 import { 
   faMicrosoft, 
   faGoogle 
 } from '@fortawesome/free-brands-svg-icons';
 
+interface AuthResponse {
+  token: string;
+  refreshToken: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  teamId?: string;
+  role?: string;
+  requiresEmailConfirmation: boolean;
+}
+
+interface TenantDto {
+  teamId: string;
+  teamName: string;
+  subdomain: string;
+  primaryColor: string;
+  secondaryColor: string;
+}
+
 export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
-  const [teamCode, setTeamCode] = useState('');
-  const [isTeamCodeFromDomain, setIsTeamCodeFromDomain] = useState(false);
+  const [showTeamSelector, setShowTeamSelector] = useState(false);
+  const [loginForm, setLoginForm] = useState({
+    email: '',
+    password: ''
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [availableTeams, setAvailableTeams] = useState<TenantDto[]>([]);
+  
+  const router = useRouter();
 
-  useEffect(() => {
-    // Only run on client side
-    if (typeof window === 'undefined') return;
-
-    // Check for subdomain in current URL
-    const hostname = window.location.hostname;
-    const parts = hostname.split('.');
+  // Get current subdomain info
+  const getCurrentSubdomain = () => {
+    if (typeof window === 'undefined') return null;
     
-    // Check if it's a subdomain of teamstride.net (e.g., team-name.teamstride.net)
-    if (parts.length >= 3 && parts[parts.length - 2] === 'teamstride' && parts[parts.length - 1] === 'net') {
-      const subdomain = parts[0];
-      if (subdomain && subdomain !== 'www') {
-        setTeamCode(subdomain);
-        setIsTeamCodeFromDomain(true);
+    const host = window.location.host;
+    const hostParts = host.split('.');
+    
+    // Check if we have a subdomain (more than 2 parts or localhost with query param)
+    if (host.includes('localhost') && new URLSearchParams(window.location.search).has('subdomain')) {
+      return new URLSearchParams(window.location.search).get('subdomain');
+    }
+    
+    if (hostParts.length > 2 && !host.startsWith('api.') && !host.startsWith('www.')) {
+      return hostParts[0];
+    }
+    
+    return null;
+  };
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setLoginError('');
+
+    try {
+      const subdomain = getCurrentSubdomain();
+      let teamId: string | undefined;
+
+      // If we have a subdomain, try to get the team by subdomain
+      if (subdomain) {
+        try {
+          const teamResponse = await fetch(`/api/teams/subdomain/${subdomain}`, {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (teamResponse.ok) {
+            const teamData = await teamResponse.json();
+            teamId = teamData.id;
+          }
+        } catch (error) {
+          console.warn('Could not fetch team by subdomain:', error);
+        }
+      }
+
+      // Attempt login
+      const loginResponse = await fetch('/api/authentication/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: loginForm.email,
+          password: loginForm.password,
+          teamId: teamId || null
+        }),
+      });
+
+      if (!loginResponse.ok) {
+        setLoginError('Invalid login credentials');
         return;
       }
-    }
 
-    // Check for team parameter in query string
-    const urlParams = new URLSearchParams(window.location.search);
-    const teamParam = urlParams.get('subdomain');
-    if (teamParam) {
-      setTeamCode(teamParam);
-      setIsTeamCodeFromDomain(true);
-      return;
-    }
+      const authData: AuthResponse = await loginResponse.json();
 
-    // Reset if no domain or query param found
-    setTeamCode('');
-    setIsTeamCodeFromDomain(false);
-  }, []);
+      // Store tokens
+      localStorage.setItem('token', authData.token);
+      localStorage.setItem('refreshToken', authData.refreshToken);
+
+      // Now handle the routing logic
+      await handlePostLoginRouting(authData, subdomain);
+      
+    } catch (error) {
+      console.error('Login error:', error);
+      setLoginError('Login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePostLoginRouting = async (authData: AuthResponse, currentSubdomain: string | null) => {
+    try {
+      // Check if user is global admin by making a test call to global admin endpoint
+      let isGlobalAdmin = false;
+      try {
+        const adminResponse = await fetch('/api/admin/teams?pageSize=1', {
+          headers: {
+            'Authorization': `Bearer ${authData.token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        isGlobalAdmin = adminResponse.ok;
+      } catch {
+        // Not a global admin, continue with normal flow
+      }
+
+      // 1. If we have a team subdomain, verify access and route accordingly
+      if (currentSubdomain && authData.teamId) {
+        // User authenticated for specific team via subdomain
+        routeToTeamPage(authData.teamId);
+        return;
+      }
+
+      // 2. If no subdomain, check user permissions
+      if (!currentSubdomain) {
+        // 3. If user is global admin, route to admin page
+        if (isGlobalAdmin) {
+          routeToAdminPage();
+          return;
+        }
+
+        // 4. Check number of teams user has access to
+        const teamsResponse = await fetch('/api/tenant-switcher/tenants', {
+          headers: {
+            'Authorization': `Bearer ${authData.token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (teamsResponse.ok) {
+          const teams: TenantDto[] = await teamsResponse.json();
+
+          if (teams.length === 0) {
+            setLoginError('You do not have access to any teams. Please contact your administrator.');
+            return;
+          }
+
+          if (teams.length === 1) {
+            // 4. User has access to only 1 team - route directly
+            routeToTeamPage(teams[0].teamId, teams[0].subdomain);
+            return;
+          }
+
+          // 5. User has access to multiple teams - show team selector
+          setAvailableTeams(teams);
+          setShowLogin(false);
+          setShowTeamSelector(true);
+          return;
+        }
+      }
+
+      // Fallback - something went wrong
+      setLoginError('Unable to determine team access. Please try again.');
+      
+    } catch (error) {
+      console.error('Post-login routing error:', error);
+      setLoginError('Login succeeded but routing failed. Please try again.');
+    }
+  };
+
+  const routeToAdminPage = () => {
+    window.location.href = '/admin';
+  };
+
+  const routeToTeamPage = (teamId: string, subdomain?: string) => {
+    if (subdomain) {
+      // Route to team subdomain
+      const protocol = window.location.protocol;
+      const hostname = window.location.hostname;
+      const port = window.location.port ? `:${window.location.port}` : '';
+      
+      if (hostname.includes('localhost')) {
+        // For development, use query parameter
+        window.location.href = `${protocol}//${hostname}${port}/team?subdomain=${subdomain}`;
+      } else {
+        // For production, use subdomain
+        const baseDomain = hostname.split('.').slice(-2).join('.');
+        window.location.href = `${protocol}//${subdomain}.${baseDomain}${port}/team`;
+      }
+    } else {
+      // Route to team page without subdomain
+      router.push(`/team/${teamId}`);
+    }
+  };
+
+  const handleTeamSelection = (team: TenantDto) => {
+    routeToTeamPage(team.teamId, team.subdomain);
+  };
+
+  const resetLoginState = () => {
+    setShowLogin(false);
+    setShowTeamSelector(false);
+    setLoginForm({ email: '', password: '' });
+    setLoginError('');
+    setAvailableTeams([]);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -81,51 +267,42 @@ export default function Home() {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Login to TeamStride</h2>
               <button
-                onClick={() => setShowLogin(false)}
+                onClick={resetLoginState}
                 className="text-gray-400 hover:text-gray-600"
               >
-                ✕
+                <FontAwesomeIcon icon={faTimes} />
               </button>
             </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Team Code
-                </label>
-                <div className="flex">
-                  <input
-                    type="text"
-                    placeholder="your-team-code"
-                    value={teamCode}
-                    onChange={(e) => setTeamCode(e.target.value)}
-                    readOnly={isTeamCodeFromDomain}
-                    className={`flex-1 px-3 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-300 text-gray-900 ${
-                      isTeamCodeFromDomain ? 'bg-gray-50 cursor-not-allowed' : ''
-                    }`}
-                  />
-                  <span className="px-3 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg text-sm text-gray-600">
-                    .teamstride.net
-                  </span>
+
+            {/* Error Alert */}
+            {loginError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start">
+                <FontAwesomeIcon icon={faExclamationTriangle} className="text-red-500 mt-0.5 mr-2" />
+                <div className="flex-1">
+                  <p className="text-sm text-red-700">{loginError}</p>
                 </div>
-                {isTeamCodeFromDomain && (
-                  <p className="text-xs text-blue-600 mt-1 flex items-center">
-                    <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                    </svg>
-                    Team code detected from your domain
-                  </p>
-                )}
+                <button
+                  onClick={() => setLoginError('')}
+                  className="text-red-400 hover:text-red-600 ml-2"
+                >
+                  <FontAwesomeIcon icon={faTimes} className="w-3 h-3" />
+                </button>
               </div>
-              
+            )}
+            
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Email
                 </label>
                 <input
                   type="email"
+                  required
+                  value={loginForm.email}
+                  onChange={(e) => setLoginForm(prev => ({ ...prev, email: e.target.value }))}
                   placeholder="coach@example.com"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-300 text-gray-900"
+                  disabled={isLoading}
                 />
               </div>
               
@@ -135,29 +312,79 @@ export default function Home() {
                 </label>
                 <input
                   type="password"
+                  required
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))}
                   placeholder="••••••••"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-300 text-gray-900"
+                  disabled={isLoading}
                 />
               </div>
               
-              <button className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                Sign In
+              <button 
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Signing In...' : 'Sign In'}
               </button>
-              
-              <div className="text-center text-sm text-gray-600">
-                Or sign in with
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <button className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700">
-                  <FontAwesomeIcon icon={faMicrosoft} className="w-4 h-4 mr-2 text-blue-600" />
-                  <span className="text-sm font-medium">Microsoft</span>
+            </form>
+            
+            <div className="text-center text-sm text-gray-600 mt-4">
+              Or sign in with
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <button 
+                type="button"
+                disabled={isLoading}
+                className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 disabled:opacity-50"
+              >
+                <FontAwesomeIcon icon={faMicrosoft} className="w-4 h-4 mr-2 text-blue-600" />
+                <span className="text-sm font-medium">Microsoft</span>
+              </button>
+              <button 
+                type="button"
+                disabled={isLoading}
+                className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 disabled:opacity-50"
+              >
+                <FontAwesomeIcon icon={faGoogle} className="w-4 h-4 mr-2 text-red-500" />
+                <span className="text-sm font-medium">Google</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Team Selector Modal */}
+      {showTeamSelector && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Select Team</h2>
+              <button
+                onClick={resetLoginState}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+            
+            <p className="text-gray-600 mb-4">
+              You have access to multiple teams. Please select which team you&apos;d like to access:
+            </p>
+            
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {availableTeams.map((team) => (
+                <button
+                  key={team.teamId}
+                  onClick={() => handleTeamSelection(team)}
+                  className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                >
+                  <div className="font-medium text-gray-900">{team.teamName}</div>
+                  <div className="text-sm text-gray-500">{team.subdomain}.teamstride.com</div>
                 </button>
-                <button className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700">
-                  <FontAwesomeIcon icon={faGoogle} className="w-4 h-4 mr-2 text-red-500" />
-                  <span className="text-sm font-medium">Google</span>
-                </button>
-              </div>
+              ))}
             </div>
           </div>
         </div>

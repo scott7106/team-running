@@ -51,7 +51,6 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.Email);
         ArgumentNullException.ThrowIfNull(request.Password);
-        ArgumentNullException.ThrowIfNull(request.TeamId);
 
         var user = await _userManager.FindByEmailAsync(request.Email) ??
             throw new AuthenticationException("Invalid credentials", AuthenticationException.ErrorCodes.InvalidCredentials);
@@ -71,18 +70,57 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             throw new AuthenticationException("Email not confirmed", AuthenticationException.ErrorCodes.EmailNotConfirmed);
         }
 
-        // Get team and role
-        var userTeam = await _context.UserTeams
-            .FirstOrDefaultAsync(ut => ut.UserId == user.Id && (ut.TeamId == null || ut.TeamId == request.TeamId)) ??
-            throw new AuthenticationException("Invalid team", AuthenticationException.ErrorCodes.TenantNotFound);
+        // Check if user is a global admin
+        var userRoles = await _userManager.GetRolesAsync(user);
+        var isGlobalAdmin = userRoles.Contains("GlobalAdmin");
+        
+        // Handle team-specific authentication if TeamId is provided
+        UserTeam? userTeam = null;
+        if (request.TeamId.HasValue)
+        {
+            userTeam = await _context.UserTeams
+                .FirstOrDefaultAsync(ut => ut.UserId == user.Id && ut.TeamId == request.TeamId.Value && ut.IsActive);
+            
+            if (userTeam == null && !isGlobalAdmin)
+            {
+                throw new AuthenticationException("Invalid team access", AuthenticationException.ErrorCodes.TenantNotFound);
+            }
+        }
+        else if (!isGlobalAdmin)
+        {
+            // If no TeamId provided and user is not global admin, get their default team or any active team
+            userTeam = await _context.UserTeams
+                .Where(ut => ut.UserId == user.Id && ut.IsActive)
+                .OrderByDescending(ut => ut.TeamId == user.DefaultTeamId) // Prefer default team
+                .ThenBy(ut => ut.JoinedOn) // Then by join date
+                .FirstOrDefaultAsync();
+            
+            // If no teams found for non-global admin user, throw exception
+            if (userTeam == null)
+            {
+                throw new AuthenticationException("User has no active teams", AuthenticationException.ErrorCodes.TenantNotFound);
+            }
+        }
 
         // Update last login
         user.LastLoginOn = DateTime.UtcNow;
         await _userManager.UpdateAsync(user);
 
-        // Generate tokens
-        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, userTeam.TeamId, userTeam.Role, userTeam.MemberType);
-        var refreshToken = await CreateRefreshTokenAsync(user, userTeam.TeamId ?? Guid.Empty);
+        // Generate tokens - pass null values for team info if not available or if global admin
+        var teamId = userTeam?.TeamId;
+        var teamRole = userTeam?.Role;
+        var memberType = userTeam?.MemberType;
+        
+        // For global admins, we don't set team-specific claims in the initial token
+        if (isGlobalAdmin && !request.TeamId.HasValue)
+        {
+            teamId = null;
+            teamRole = null;
+            memberType = null;
+        }
+
+        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teamId, teamRole, memberType);
+        var refreshToken = await CreateRefreshTokenAsync(user, teamId ?? Guid.Empty);
 
         return new AuthResponseDto
         {
@@ -91,8 +129,8 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             Email = user.Email ?? string.Empty,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            TeamId = userTeam.TeamId,
-            Role = userTeam.Role,
+            TeamId = teamId,
+            Role = teamRole,
             RequiresEmailConfirmation = false
         };
     }

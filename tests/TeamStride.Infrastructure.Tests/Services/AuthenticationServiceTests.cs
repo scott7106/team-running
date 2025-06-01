@@ -54,6 +54,10 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         _mockEmailService.Setup(x => x.SendPasswordResetAsync(It.IsAny<string>(), It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
+        // Setup default UserManager mocks to return empty roles (non-admin users)
+        _mockUserManager.Setup(x => x.GetRolesAsync(It.IsAny<ApplicationUser>()))
+            .ReturnsAsync(new List<string>());
+
         // Create the service
         _authenticationService = new AuthenticationService(
             _mockUserManager.Object,
@@ -105,10 +109,16 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     public async Task LoginAsync_WhenTeamIdIsNull_ThrowsArgumentNullException()
     {
         // Arrange
-        var request = new LoginRequestDto { Email = "test@example.com", Password = "password", TeamId = null! };
+        var user = await CreateTestUserAsync();
+        var request = new LoginRequestDto { Email = user.Email!, Password = "password", TeamId = null };
 
-        // Act & Assert
-        await Should.ThrowAsync<ArgumentNullException>(() => _authenticationService.LoginAsync(request));
+        _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
+        _mockUserManager.Setup(x => x.CheckPasswordAsync(user, request.Password)).ReturnsAsync(true);
+        _mockUserManager.Setup(x => x.GetRolesAsync(user)).ReturnsAsync(new List<string>()); // Non-admin user
+
+        // Act & Assert - Should now throw AuthenticationException because user has no teams and no TeamId provided
+        var exception = await Should.ThrowAsync<AuthenticationException>(() => _authenticationService.LoginAsync(request));
+        exception.ErrorCode.ShouldBe(AuthenticationException.ErrorCodes.TenantNotFound);
     }
 
     [Fact]
@@ -164,6 +174,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
         _mockUserManager.Setup(x => x.CheckPasswordAsync(user, request.Password)).ReturnsAsync(true);
+        _mockUserManager.Setup(x => x.GetRolesAsync(user)).ReturnsAsync(new List<string>()); // Non-admin user
 
         // Act & Assert
         var exception = await Should.ThrowAsync<AuthenticationException>(() => _authenticationService.LoginAsync(request));
@@ -181,11 +192,12 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
         _mockUserManager.Setup(x => x.CheckPasswordAsync(user, request.Password)).ReturnsAsync(true);
+        _mockUserManager.Setup(x => x.GetRolesAsync(user)).ReturnsAsync(new List<string>()); // Non-admin user
 
         // Act & Assert
         var exception = await Should.ThrowAsync<AuthenticationException>(() => _authenticationService.LoginAsync(request));
         exception.ErrorCode.ShouldBe(AuthenticationException.ErrorCodes.TenantNotFound);
-        exception.Message.ShouldBe("Invalid team");
+        exception.Message.ShouldBe("Invalid team access");
     }
 
     [Fact]
@@ -198,6 +210,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
         _mockUserManager.Setup(x => x.CheckPasswordAsync(user, request.Password)).ReturnsAsync(true);
+        _mockUserManager.Setup(x => x.GetRolesAsync(user)).ReturnsAsync(new List<string>()); // Non-admin user
         _mockUserManager.Setup(x => x.UpdateAsync(user)).ReturnsAsync(IdentityResult.Success);
         _mockJwtTokenService.Setup(x => x.GenerateRefreshToken()).Returns("mock-refresh-token");
 
