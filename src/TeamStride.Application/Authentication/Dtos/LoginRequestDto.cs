@@ -10,6 +10,4 @@ public class LoginRequestDto
 
     [Required]
     public required string Password { get; set; }
-
-    public Guid? TeamId { get; set; }
 } 

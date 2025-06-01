@@ -76,41 +76,33 @@ export default function Home() {
 
     try {
       const subdomain = getCurrentSubdomain();
-      let teamId: string | undefined;
 
-      // If we have a subdomain, try to get the team by subdomain
-      if (subdomain) {
-        try {
-          const teamResponse = await fetch(`/api/teams/subdomain/${subdomain}`, {
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-          
-          if (teamResponse.ok) {
-            const teamData = await teamResponse.json();
-            teamId = teamData.id;
-          }
-        } catch (error) {
-          console.warn('Could not fetch team by subdomain:', error);
-        }
-      }
+      const loginPayload = {
+        email: loginForm.email,
+        password: loginForm.password
+      };
 
-      // Attempt login
+      // Attempt login with ONLY email and password (no teamId)
       const loginResponse = await fetch('/api/authentication/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          email: loginForm.email,
-          password: loginForm.password,
-          teamId: teamId || null
-        }),
+        body: JSON.stringify(loginPayload),
       });
 
       if (!loginResponse.ok) {
-        setLoginError('Invalid login credentials');
+        const errorText = await loginResponse.text();
+        
+        let errorMessage = 'Invalid login credentials';
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.detail || errorJson.message || errorMessage;
+        } catch {
+          // Could not parse error as JSON, use default message
+        }
+        
+        setLoginError(errorMessage);
         return;
       }
 
@@ -120,7 +112,7 @@ export default function Home() {
       localStorage.setItem('token', authData.token);
       localStorage.setItem('refreshToken', authData.refreshToken);
 
-      // Now handle the routing logic
+      // Now handle the routing logic with the current subdomain context
       await handlePostLoginRouting(authData, subdomain);
       
     } catch (error) {

@@ -52,8 +52,12 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         ArgumentNullException.ThrowIfNull(request.Email);
         ArgumentNullException.ThrowIfNull(request.Password);
 
-        var user = await _userManager.FindByEmailAsync(request.Email) ??
+        var user = await _userManager.FindByEmailAsync(request.Email);
+        
+        if (user == null)
+        {
             throw new AuthenticationException("Invalid credentials", AuthenticationException.ErrorCodes.InvalidCredentials);
+        }
 
         if (!user.IsActive)
         {
@@ -74,53 +78,13 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         var userRoles = await _userManager.GetRolesAsync(user);
         var isGlobalAdmin = userRoles.Contains("GlobalAdmin");
         
-        // Handle team-specific authentication if TeamId is provided
-        UserTeam? userTeam = null;
-        if (request.TeamId.HasValue)
-        {
-            userTeam = await _context.UserTeams
-                .FirstOrDefaultAsync(ut => ut.UserId == user.Id && ut.TeamId == request.TeamId.Value && ut.IsActive);
-            
-            if (userTeam == null && !isGlobalAdmin)
-            {
-                throw new AuthenticationException("Invalid team access", AuthenticationException.ErrorCodes.TenantNotFound);
-            }
-        }
-        else if (!isGlobalAdmin)
-        {
-            // If no TeamId provided and user is not global admin, get their default team or any active team
-            userTeam = await _context.UserTeams
-                .Where(ut => ut.UserId == user.Id && ut.IsActive)
-                .OrderByDescending(ut => ut.TeamId == user.DefaultTeamId) // Prefer default team
-                .ThenBy(ut => ut.JoinedOn) // Then by join date
-                .FirstOrDefaultAsync();
-            
-            // If no teams found for non-global admin user, throw exception
-            if (userTeam == null)
-            {
-                throw new AuthenticationException("User has no active teams", AuthenticationException.ErrorCodes.TenantNotFound);
-            }
-        }
-
         // Update last login
         user.LastLoginOn = DateTime.UtcNow;
         await _userManager.UpdateAsync(user);
 
-        // Generate tokens - pass null values for team info if not available or if global admin
-        var teamId = userTeam?.TeamId;
-        var teamRole = userTeam?.Role;
-        var memberType = userTeam?.MemberType;
-        
-        // For global admins, we don't set team-specific claims in the initial token
-        if (isGlobalAdmin && !request.TeamId.HasValue)
-        {
-            teamId = null;
-            teamRole = null;
-            memberType = null;
-        }
-
-        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teamId, teamRole, memberType);
-        var refreshToken = await CreateRefreshTokenAsync(user, teamId ?? Guid.Empty);
+        // Generate tokens without team context - team context will be determined later
+        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, null, null, null);
+        var refreshToken = await CreateRefreshTokenAsync(user, null);
 
         return new AuthResponseDto
         {
@@ -129,8 +93,8 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             Email = user.Email ?? string.Empty,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            TeamId = teamId,
-            Role = teamRole,
+            TeamId = null, // No team context in authentication
+            Role = null,   // No role context in authentication
             RequiresEmailConfirmation = false
         };
     }

@@ -10,9 +10,16 @@ const nextConfig: NextConfig = {
     }
   }),
   
-  // For development, keep the default behavior
+  // For development, proxy API requests to the backend
   ...(process.env.NODE_ENV === 'development' && {
-    // Add any development-specific config here if needed
+    async rewrites() {
+      return [
+        {
+          source: '/api/:path*',
+          destination: 'http://localhost:5295/api/:path*'
+        }
+      ];
+    }
   })
 };
 
