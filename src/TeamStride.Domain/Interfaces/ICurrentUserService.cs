@@ -6,6 +6,8 @@ public interface ICurrentUserService
 {
     Guid? UserId { get; }
     string? UserEmail { get; }
+    string? FirstName { get; }
+    string? LastName { get; }
     bool IsAuthenticated { get; }
     
     // Simplified Authorization Model Properties

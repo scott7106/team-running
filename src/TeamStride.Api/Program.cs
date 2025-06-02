@@ -87,7 +87,8 @@ public class Program
             .AddTeamStrideIdentity(builder.Configuration)
             .AddEmailService(builder.Configuration, isDevelopment)
             .AddGlobalAdminSeeder(builder.Configuration)
-            .AddApplicationRoleSeeder();
+            .AddApplicationRoleSeeder()
+            .AddDevelopmentTestDataSeeder(builder.Configuration);
 
         // Configure JWT authentication
         builder.Services.AddAuthentication(options =>

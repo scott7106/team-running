@@ -29,6 +29,10 @@ public class CurrentUserService : ICurrentUserService
 
     public string? UserEmail => _httpContextAccessor.HttpContext?.User?.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
 
+    public string? FirstName => _httpContextAccessor.HttpContext?.User?.FindFirst("first_name")?.Value;
+
+    public string? LastName => _httpContextAccessor.HttpContext?.User?.FindFirst("last_name")?.Value;
+
     public bool IsAuthenticated => _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false;
 
     // Simplified Authorization Model Properties

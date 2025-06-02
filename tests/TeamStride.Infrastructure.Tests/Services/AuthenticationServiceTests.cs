@@ -89,7 +89,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     public async Task LoginAsync_WhenEmailIsNull_ThrowsArgumentNullException()
     {
         // Arrange
-        var request = new LoginRequestDto { Email = null!, Password = "password", TeamId = _testTeamId };
+        var request = new LoginRequestDto { Email = null!, Password = "password" };
 
         // Act & Assert
         await Should.ThrowAsync<ArgumentNullException>(() => _authenticationService.LoginAsync(request));
@@ -99,33 +99,17 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     public async Task LoginAsync_WhenPasswordIsNull_ThrowsArgumentNullException()
     {
         // Arrange
-        var request = new LoginRequestDto { Email = "test@example.com", Password = null!, TeamId = _testTeamId };
+        var request = new LoginRequestDto { Email = "test@example.com", Password = null! };
 
         // Act & Assert
         await Should.ThrowAsync<ArgumentNullException>(() => _authenticationService.LoginAsync(request));
     }
 
     [Fact]
-    public async Task LoginAsync_WhenTeamIdIsNull_ThrowsArgumentNullException()
-    {
-        // Arrange
-        var user = await CreateTestUserAsync();
-        var request = new LoginRequestDto { Email = user.Email!, Password = "password", TeamId = null };
-
-        _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
-        _mockUserManager.Setup(x => x.CheckPasswordAsync(user, request.Password)).ReturnsAsync(true);
-        _mockUserManager.Setup(x => x.GetRolesAsync(user)).ReturnsAsync(new List<string>()); // Non-admin user
-
-        // Act & Assert - Should now throw AuthenticationException because user has no teams and no TeamId provided
-        var exception = await Should.ThrowAsync<AuthenticationException>(() => _authenticationService.LoginAsync(request));
-        exception.ErrorCode.ShouldBe(AuthenticationException.ErrorCodes.TenantNotFound);
-    }
-
-    [Fact]
     public async Task LoginAsync_WhenUserNotFound_ThrowsAuthenticationException()
     {
         // Arrange
-        var request = new LoginRequestDto { Email = "nonexistent@example.com", Password = "password", TeamId = _testTeamId };
+        var request = new LoginRequestDto { Email = "nonexistent@example.com", Password = "password" };
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync((ApplicationUser?)null);
 
         // Act & Assert
@@ -139,7 +123,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     {
         // Arrange
         var user = await CreateTestUserAsync(isActive: false);
-        var request = new LoginRequestDto { Email = user.Email!, Password = "password", TeamId = _testTeamId };
+        var request = new LoginRequestDto { Email = user.Email!, Password = "password" };
         
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
 
@@ -154,7 +138,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     {
         // Arrange
         var user = await CreateTestUserAsync();
-        var request = new LoginRequestDto { Email = user.Email!, Password = "wrongpassword", TeamId = _testTeamId };
+        var request = new LoginRequestDto { Email = user.Email!, Password = "wrongpassword" };
         
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
         _mockUserManager.Setup(x => x.CheckPasswordAsync(user, request.Password)).ReturnsAsync(false);
@@ -170,7 +154,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     {
         // Arrange
         var user = await CreateTestUserAsync(emailConfirmed: false);
-        var request = new LoginRequestDto { Email = user.Email!, Password = "password", TeamId = _testTeamId };
+        var request = new LoginRequestDto { Email = user.Email!, Password = "password" };
         
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
         _mockUserManager.Setup(x => x.CheckPasswordAsync(user, request.Password)).ReturnsAsync(true);
@@ -183,30 +167,12 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     }
 
     [Fact]
-    public async Task LoginAsync_WhenUserTeamNotFound_ThrowsAuthenticationException()
-    {
-        // Arrange
-        var user = await CreateTestUserAsync();
-        var differentTeamId = Guid.NewGuid();
-        var request = new LoginRequestDto { Email = user.Email!, Password = "password", TeamId = differentTeamId };
-        
-        _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
-        _mockUserManager.Setup(x => x.CheckPasswordAsync(user, request.Password)).ReturnsAsync(true);
-        _mockUserManager.Setup(x => x.GetRolesAsync(user)).ReturnsAsync(new List<string>()); // Non-admin user
-
-        // Act & Assert
-        var exception = await Should.ThrowAsync<AuthenticationException>(() => _authenticationService.LoginAsync(request));
-        exception.ErrorCode.ShouldBe(AuthenticationException.ErrorCodes.TenantNotFound);
-        exception.Message.ShouldBe("Invalid team access");
-    }
-
-    [Fact]
     public async Task LoginAsync_WithValidCredentials_ReturnsAuthResponse()
     {
         // Arrange
         var user = await CreateTestUserAsync();
         var userTeam = await CreateTestUserTeamAsync(user.Id, _testTeamId);
-        var request = new LoginRequestDto { Email = user.Email!, Password = "password", TeamId = _testTeamId };
+        var request = new LoginRequestDto { Email = user.Email!, Password = "password" };
         
         _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
         _mockUserManager.Setup(x => x.CheckPasswordAsync(user, request.Password)).ReturnsAsync(true);
@@ -223,7 +189,6 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         result.Email.ShouldBe(user.Email);
         result.FirstName.ShouldBe(user.FirstName);
         result.LastName.ShouldBe(user.LastName);
-        result.TeamId.ShouldBe(_testTeamId);
         result.Role.ShouldBe(userTeam.Role);
         result.RequiresEmailConfirmation.ShouldBeFalse();
         result.RefreshToken.ShouldNotBeNullOrEmpty();

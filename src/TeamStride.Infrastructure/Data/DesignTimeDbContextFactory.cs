@@ -51,7 +51,9 @@ internal class MockCurrentTeamService : ICurrentTeamService
 internal class MockCurrentUserService : ICurrentUserService
 {
     public Guid? UserId => Guid.Empty;
-    public string UserEmail => "design.time@example.com";
+    public string? UserEmail => "design.time@example.com";
+    public string? FirstName => "Design";
+    public string? LastName => "Time";
     public bool IsAuthenticated => true;
     
     // Simplified Authorization Model Properties

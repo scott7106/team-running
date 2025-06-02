@@ -27,4 +27,17 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+
+    public static IServiceCollection AddDevelopmentTestDataSeeder(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.Configure<DevelopmentTestDataConfiguration>(
+            configuration.GetSection("DevelopmentTestData"));
+
+        services.AddTransient<DevelopmentTestDataSeeder>();
+        services.AddHostedService<DevelopmentTestDataSeederHostedService>();
+
+        return services;
+    }
 } 
