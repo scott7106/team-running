@@ -54,7 +54,8 @@ export default function LoginPage() {
     if (token) {
       try {
         if (!isTokenExpired(token)) {
-          router.push('/');
+          // User is already authenticated, route them to appropriate page
+          handleAlreadyAuthenticatedUser(token);
         } else {
           // Token is expired, remove it
           localStorage.removeItem('token');
@@ -86,6 +87,27 @@ export default function LoginPage() {
     }
     
     return null;
+  };
+
+  const handleAlreadyAuthenticatedUser = async (token: string) => {
+    try {
+      // Create a mock auth response from the existing token
+      const authData: AuthResponse = {
+        token,
+        refreshToken: localStorage.getItem('refreshToken') || '',
+        email: '',
+        firstName: '',
+        lastName: '',
+        requiresEmailConfirmation: false
+      };
+
+      const subdomain = getCurrentSubdomain();
+      await handlePostLoginRouting(authData, subdomain);
+    } catch (error) {
+      console.error('Error routing already authenticated user:', error);
+      // If routing fails, just go to home page as fallback
+      router.push('/');
+    }
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {

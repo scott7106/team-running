@@ -1,44 +1,19 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faBuilding, 
-  faArrowLeft,
   faPlus,
   faSearch
 } from '@fortawesome/free-solid-svg-icons';
+import AdminLayout from '@/components/AdminLayout';
 
 export default function AdminTeamsPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    // Check if user is authenticated
-    const token = localStorage.getItem('token');
-    if (!token) {
-      router.push('/');
-      return;
-    }
-  }, [router]);
-
-  const handleBack = () => {
-    router.push('/admin');
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <AdminLayout pageTitle="Team Management" currentSection="teams">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <button
-            onClick={handleBack}
-            className="flex items-center text-gray-600 hover:text-gray-800 mb-4"
-          >
-            <FontAwesomeIcon icon={faArrowLeft} className="w-4 h-4 mr-2" />
-            Back to Admin Dashboard
-          </button>
-          
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Team Management</h1>
@@ -98,6 +73,6 @@ export default function AdminTeamsPage() {
           </div>
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 } 
