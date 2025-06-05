@@ -13,6 +13,7 @@ import {
   faMicrosoft, 
   faGoogle 
 } from '@fortawesome/free-brands-svg-icons';
+import { isTokenExpired } from '../../utils/auth';
 
 interface AuthResponse {
   token: string;
@@ -48,10 +49,23 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check if user is already logged in
+    // Check if user is already logged in with a valid token
     const token = localStorage.getItem('token');
     if (token) {
-      router.push('/');
+      try {
+        if (!isTokenExpired(token)) {
+          router.push('/');
+        } else {
+          // Token is expired, remove it
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+        }
+      } catch (error) {
+        console.error('Error validating token:', error);
+        // If validation fails, remove potentially invalid tokens
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+      }
     }
   }, [router]);
 
