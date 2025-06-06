@@ -5,7 +5,7 @@ import { useIdleTimeout } from '@/utils/useIdleTimeout';
 import { logout } from '@/utils/auth';
 import IdleTimeoutModal from './IdleTimeoutModal';
 
-const TIMEOUT_DURATION = 2 * 60 * 1000; // 2 minutes in milliseconds
+const TIMEOUT_DURATION = 5 * 60 * 1000; // 2 minutes in milliseconds
 const WARNING_DURATION = 1 * 60 * 1000; // 1 minute warning in milliseconds
 
 export default function AuthenticatedIdleTimeout() {
