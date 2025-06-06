@@ -488,4 +488,92 @@ public class AuthenticationService : ITeamStrideAuthenticationService
 
         return refreshToken;
     }
+
+    public async Task<bool> ValidateHeartbeatAsync(Guid userId, string fingerprint)
+    {
+        Console.WriteLine($"🔍 ValidateHeartbeatAsync: Starting validation for user {userId}");
+        
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null)
+        {
+            Console.WriteLine($"❌ ValidateHeartbeatAsync: User {userId} not found");
+            return false;
+        }
+        
+        if (!user.IsActive)
+        {
+            Console.WriteLine($"❌ ValidateHeartbeatAsync: User {userId} is not active");
+            return false;
+        }
+        
+        Console.WriteLine($"🔍 ValidateHeartbeatAsync: User found and active. ForceLogoutAfter: {user.ForceLogoutAfter}");
+        
+        // Check if user has been force-logged out
+        if (user.ForceLogoutAfter.HasValue && user.ForceLogoutAfter < DateTime.UtcNow)
+        {
+            Console.WriteLine($"❌ ValidateHeartbeatAsync: User {userId} was force-logged out at {user.ForceLogoutAfter}");
+            return false;
+        }
+        
+        Console.WriteLine($"🔍 ValidateHeartbeatAsync: Updating last activity for user {userId}");
+        
+        // Update last activity
+        user.LastActivityOn = DateTime.UtcNow;
+        await _userManager.UpdateAsync(user);
+        
+        Console.WriteLine($"🔍 ValidateHeartbeatAsync: Validating fingerprint for user {userId}");
+        
+        // Optional: Store/validate fingerprint
+        await ValidateOrStoreFingerprint(userId, fingerprint);
+        
+        Console.WriteLine($"✅ ValidateHeartbeatAsync: Success for user {userId}");
+        return true;
+    }
+
+    private async Task ValidateOrStoreFingerprint(Guid userId, string fingerprint)
+    {
+        var existingFingerprint = await _context.UserSessions
+            .Where(us => us.UserId == userId && us.IsActive)
+            .Select(us => us.Fingerprint)
+            .FirstOrDefaultAsync();
+        
+        if (existingFingerprint == null)
+        {
+            // First time - store fingerprint
+            var session = new UserSession
+            {
+                UserId = userId,
+                Fingerprint = fingerprint,
+                CreatedOn = DateTime.UtcNow,
+                LastActiveOn = DateTime.UtcNow,
+                IsActive = true
+            };
+            
+            _context.UserSessions.Add(session);
+            await _context.SaveChangesAsync();
+        }
+        else if (existingFingerprint != fingerprint)
+        {
+            // Fingerprint mismatch - potential security issue
+            _logger.LogWarning("Fingerprint mismatch for user {UserId}. Stored: {Stored}, Current: {Current}", 
+                userId, existingFingerprint, fingerprint);
+            
+            // You could choose to invalidate the session here
+            // For now, we'll log and continue, but you might want to return false
+        }
+    }
+
+    public async Task<bool> ForceUserLogoutAsync(Guid userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null) return false;
+        
+        user.ForceLogoutAfter = DateTime.UtcNow;
+        await _userManager.UpdateAsync(user);
+        
+        // Revoke all refresh tokens
+        await LogoutAsync(userId);
+        
+        return true;
+    }
 } 

@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { logout } from './auth';
 
 interface UseIdleTimeoutOptions {
   timeout: number; // in milliseconds
@@ -96,8 +95,9 @@ export function useIdleTimeout({
     });
     
     clearAllTimers();
+    
+    // Let the component handle the logout decision
     onIdle?.();
-    logout();
   }, [onIdle, clearAllTimers]);
 
   const handleWarning = useCallback(() => {
@@ -133,7 +133,8 @@ export function useIdleTimeout({
     // Only set timeout if not disabled
     if (timeout > 0 && warningTime > 0) {
       // Set warning timeout (timeout - warningTime)
-      warningTimeoutRef.current = setTimeout(handleWarning, timeout - warningTime);
+      const warningDelay = timeout - warningTime;
+      warningTimeoutRef.current = setTimeout(handleWarning, warningDelay);
     }
   }, [timeout, warningTime, onActive, handleWarning, clearAllTimers]);
 
@@ -175,7 +176,7 @@ export function useIdleTimeout({
       });
       clearAllTimers();
     };
-  }, [timeout, warningTime]); // Only depend on the timeout values, not the functions
+  }, [timeout, warningTime, handleActivity, reset, clearAllTimers]);
 
   return {
     isIdle: uiState.isIdle,

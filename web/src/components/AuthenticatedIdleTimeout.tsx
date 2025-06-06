@@ -5,7 +5,7 @@ import { useIdleTimeout } from '@/utils/useIdleTimeout';
 import { logout } from '@/utils/auth';
 import IdleTimeoutModal from './IdleTimeoutModal';
 
-const TIMEOUT_DURATION = 5 * 60 * 1000; // 2 minutes in milliseconds
+const TIMEOUT_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 const WARNING_DURATION = 1 * 60 * 1000; // 1 minute warning in milliseconds
 
 export default function AuthenticatedIdleTimeout() {
@@ -19,7 +19,8 @@ export default function AuthenticatedIdleTimeout() {
 
   // Create stable callbacks that don't change on re-renders
   const handleIdle = useCallback(() => {
-    // User logged out due to inactivity
+    // User has been idle for the full timeout period - logout
+    logout();
   }, []);
 
   const handleWarning = useCallback(() => {
@@ -37,7 +38,7 @@ export default function AuthenticatedIdleTimeout() {
     onIdle: handleIdle,
     onWarning: handleWarning,
     onActive: handleActive
-  }), []); // Empty dependency array - callbacks are stable
+  }), [handleIdle, handleWarning, handleActive]); // Include callbacks in dependencies
 
   const {
     showWarning,
@@ -81,6 +82,8 @@ export default function AuthenticatedIdleTimeout() {
   const handleLogoutNow = useCallback(() => {
     logout();
   }, []);
+
+  // Focus validation is now handled by SessionSecurityProvider
 
   // Only render for authenticated users
   if (!isAuthenticated) {

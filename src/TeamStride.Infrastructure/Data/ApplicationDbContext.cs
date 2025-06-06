@@ -31,6 +31,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 
     // Identity entities
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<UserSession> UserSessions => Set<UserSession>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -102,6 +103,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
             .WithMany()
             .HasForeignKey(ot => ot.CompletedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<UserSession>()
+            .HasOne(us => us.User)
+            .WithMany(u => u.Sessions)
+            .HasForeignKey(us => us.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 
     private void ConfigureGlobalQueryFilters(ModelBuilder builder)
@@ -119,6 +126,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 
         // Configure OwnershipTransfer with soft delete filter
         builder.Entity<OwnershipTransfer>().HasQueryFilter(e => !e.IsDeleted);
+
+        // Configure UserSession to filter out sessions for soft-deleted users
+        builder.Entity<UserSession>().HasQueryFilter(us =>
+            us.User != null && !us.User.IsDeleted);
     }
 
     /// <summary>

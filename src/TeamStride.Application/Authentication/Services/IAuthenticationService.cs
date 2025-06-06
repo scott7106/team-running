@@ -12,6 +12,8 @@ public interface ITeamStrideAuthenticationService
     Task<bool> ResetPasswordAsync(Guid userId, string token, string newPassword);
     Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword);
     Task<bool> LogoutAsync(Guid userId);
+    Task<bool> ValidateHeartbeatAsync(Guid userId, string fingerprint);
+    Task<bool> ForceUserLogoutAsync(Guid userId);
     Task<string> GetExternalLoginUrlAsync(string provider, string? teamId = null);
     Task<string> GetExternalLoginCallbackUrlAsync(string provider);
     Task<AuthResponseDto> ExternalLoginAsync(ExternalAuthRequestDto request);

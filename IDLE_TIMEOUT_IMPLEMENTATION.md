@@ -1,161 +1,268 @@
-# Idle Timeout Implementation
+# Idle Timeout Implementation Documentation
 
 ## Overview
 
-The idle timeout feature automatically logs users out after 5 minutes of inactivity, with a warning modal appearing 1 minute before logout. This enhances security by ensuring that unattended sessions are terminated.
+The TeamStride application implements a comprehensive idle timeout system to automatically log out users after periods of inactivity, ensuring security and session management. The implementation combines client-side activity detection with server-side session validation through a heartbeat mechanism.
 
-## Features
+## Architecture Components
 
-- **5-minute total timeout**: Users are logged out after 5 minutes of inactivity
-- **1-minute warning**: A modal appears 4 minutes after inactivity starts
-- **Real-time countdown**: The warning modal shows remaining time in MM:SS format
-- **Activity detection**: Monitors mouse movement, clicks, keyboard input, scrolling, and touch events
-- **Scope limitation**: Only active on authenticated pages (not on public pages like `/` and `/login`)
-- **Cross-tab awareness**: Listens for storage changes to handle logout in other tabs
+### 1. Client-Side Components
 
-## Implementation Details
+#### Core Hook: `useIdleTimeout`
+**Location**: `web/src/utils/useIdleTimeout.ts`
 
-### Files Created/Modified
+The `useIdleTimeout` hook is the foundation of the idle timeout system, providing:
 
-1. **`web/src/utils/useIdleTimeout.ts`** - Custom React hook for idle timeout logic
-2. **`web/src/components/IdleTimeoutModal.tsx`** - Warning modal component
-3. **`web/src/components/AuthenticatedIdleTimeout.tsx`** - Authentication-aware timeout wrapper
-4. **`web/src/components/IdleTimeoutProvider.tsx`** - Provider component for route-based timeout
-5. **`web/src/app/layout.tsx`** - Modified to include the IdleTimeoutProvider
-6. **`web/src/app/test-idle/page.tsx`** - Test page for demonstrating the functionality
+- **Activity Detection**: Monitors user activity through DOM events
+- **Warning System**: Shows warnings before automatic logout
+- **Countdown Timer**: Displays remaining time during warning period
+- **Configurable Timeouts**: Supports customizable timeout and warning durations
 
-### Architecture
+**Key Features**:
+- Monitors activity events: `mousedown`, `mousemove`, `keypress`, `scroll`, `touchstart`, `click`
+- Uses refs to prevent unnecessary re-renders
+- Throttles activity detection (1-second intervals)
+- Provides countdown functionality during warning period
 
-```
-RootLayout
-└── IdleTimeoutProvider (checks if page requires auth)
-    └── AuthenticatedIdleTimeout (checks if user is authenticated)
-        ├── useIdleTimeout hook (manages timers and activity detection)
-        └── IdleTimeoutModal (displays warning and countdown)
-```
-
-### Activity Events Monitored
-
-- `mousedown` - Mouse button press
-- `mousemove` - Mouse movement
-- `keypress` - Keyboard input
-- `scroll` - Page scrolling
-- `touchstart` - Touch screen interaction
-- `click` - Mouse clicks
-
-### Timer Logic
-
-1. **Initial state**: 5-minute timer starts when user is on an authenticated page
-2. **Activity detection**: Any monitored event resets the timer
-3. **Warning phase**: At 4 minutes, warning modal appears with 1-minute countdown
-4. **Logout**: At 5 minutes total, user is automatically logged out
-
-## Configuration
-
-The timeout durations are configurable in `AuthenticatedIdleTimeout.tsx`:
-
+**Configuration Interface**:
 ```typescript
-const TIMEOUT_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
-const WARNING_DURATION = 1 * 60 * 1000; // 1 minute warning in milliseconds
+interface UseIdleTimeoutOptions {
+  timeout: number;        // Total timeout in milliseconds
+  warningTime: number;    // Warning duration in milliseconds
+  onIdle?: () => void;    // Callback when user becomes idle
+  onActive?: () => void;  // Callback when user becomes active
+  onWarning?: () => void; // Callback when warning is shown
+}
 ```
 
-## Testing
+#### Authenticated Idle Timeout Component
+**Location**: `web/src/components/AuthenticatedIdleTimeout.tsx`
 
-### Manual Testing
+This component integrates the idle timeout hook with authentication logic:
 
-1. Navigate to `/test-idle` in your browser
-2. The page will automatically set up a test authentication token
-3. Stop all activity (don't move mouse, don't press keys)
-4. After 4 minutes, the warning modal should appear
-5. You can either:
-   - Click "Continue Session" to extend the session
-   - Click "Logout Now" to logout immediately
-   - Wait 1 minute for automatic logout
+- **Timeout Configuration**: 5 minutes total, 1 minute warning
+- **Authentication Check**: Only runs for authenticated users
+- **Automatic Logout**: Calls `logout()` function when timeout expires
+- **Storage Monitoring**: Listens for token changes across browser tabs
 
-### Automated Testing Considerations
+#### Idle Timeout Provider
+**Location**: `web/src/components/IdleTimeoutProvider.tsx`
 
-For faster testing during development, you can temporarily modify the timeout values:
+Wraps the application to provide idle timeout functionality:
 
+- **Route-Based Activation**: Only active on authenticated pages
+- **Public Page Exclusion**: Excludes `/` and `/login` routes
+- **Global Integration**: Integrated at the root layout level
+
+#### Idle Timeout Modal
+**Location**: `web/src/components/IdleTimeoutModal.tsx`
+
+Provides user interface for the warning system:
+
+- **Modern UI**: Positioned in top-right with backdrop blur
+- **Countdown Display**: Shows remaining time in MM:SS format
+- **User Actions**: "Continue" to extend session or "Logout" to end session
+- **Keyboard Support**: ESC key continues the session
+- **Event Prevention**: Prevents modal interactions from being detected as activity
+
+### 2. Server-Side Components
+
+#### Heartbeat Mechanism
+**Location**: `src/TeamStride.Api/Controllers/AuthenticationController.cs`
+
+The heartbeat endpoint validates ongoing user sessions:
+
+**Endpoint**: `POST /api/authentication/heartbeat`
+
+**Functionality**:
+- Validates JWT token from Authorization header
+- Checks user existence and active status
+- Validates session fingerprint for security
+- Updates user's last activity timestamp
+- Returns 200 OK for valid sessions, 401 Unauthorized for invalid
+
+**Request Structure**:
+```csharp
+public class HeartbeatRequestDto
+{
+    [Required]
+    [MaxLength(10000)]
+    public required string Fingerprint { get; set; }
+}
+```
+
+#### Authentication Service
+**Location**: `src/TeamStride.Infrastructure/Identity/AuthenticationService.cs`
+
+The `ValidateHeartbeatAsync` method implements server-side session validation:
+
+```csharp
+public async Task<bool> ValidateHeartbeatAsync(Guid userId, string fingerprint)
+```
+
+**Validation Steps**:
+1. Verify user exists and is active
+2. Check if user has been force-logged out
+3. Update last activity timestamp
+4. Validate session fingerprint
+5. Return validation result
+
+#### Session Security Provider
+**Location**: `web/src/components/SessionSecurityProvider.tsx`
+
+Manages the heartbeat mechanism on the client side:
+
+- **Heartbeat Interval**: 90 seconds
+- **Failure Tolerance**: Maximum 5 missed heartbeats
+- **Automatic Logout**: Triggers security violation logout after failures
+- **Focus Validation**: Additional validation when window regains focus
+
+## Configuration Settings
+
+### Client-Side Timeouts
 ```typescript
-// For testing - reduce to 30 seconds total, 10 seconds warning
-const TIMEOUT_DURATION = 30 * 1000; // 30 seconds
-const WARNING_DURATION = 10 * 1000; // 10 seconds warning
+const TIMEOUT_DURATION = 5 * 60 * 1000;  // 5 minutes
+const WARNING_DURATION = 1 * 60 * 1000;  // 1 minute warning
 ```
 
-## Security Considerations
-
-1. **Client-side only**: This implementation is client-side and should be complemented by server-side session management
-2. **Token validation**: The system checks for the presence of a token but doesn't validate its expiration
-3. **Cross-tab behavior**: Logout in one tab affects all tabs through localStorage events
-4. **Activity throttling**: Activity detection is throttled to 1 second to prevent excessive timer resets
-
-## Browser Compatibility
-
-- **Modern browsers**: Full support for all features
-- **Mobile devices**: Touch events are properly detected
-- **Background tabs**: Timers continue running in background tabs
-- **Storage events**: Cross-tab communication works in all modern browsers
-
-## Customization Options
-
-### Changing Timeout Duration
-
-Modify the constants in `AuthenticatedIdleTimeout.tsx`:
-
+### Server-Side Settings
 ```typescript
-const TIMEOUT_DURATION = 10 * 60 * 1000; // 10 minutes
-const WARNING_DURATION = 2 * 60 * 1000;  // 2 minutes warning
+const HEARTBEAT_INTERVAL = 90 * 1000;    // 90 seconds
+const MAX_MISSED_HEARTBEATS = 5;         // Maximum failures before logout
 ```
 
-### Adding/Removing Activity Events
+### JWT Token Expiration
+**Location**: `src/TeamStride.Domain/Identity/AuthenticationConfiguration.cs`
 
-Modify the `ACTIVITY_EVENTS` array in `useIdleTimeout.ts`:
+JWT tokens have a configurable expiration time set via `JwtExpirationMinutes` in the authentication configuration.
 
-```typescript
-const ACTIVITY_EVENTS = [
-  'mousedown',
-  'mousemove', 
-  'keypress',
-  'scroll',
-  'touchstart',
-  'click',
-  'focus', // Add focus events
-  'blur'   // Add blur events
-] as const;
+### Refresh Token Expiration
+Refresh tokens expire after 7 days from creation:
+```csharp
+ExpiresOn = DateTime.UtcNow.AddDays(7)
 ```
 
-### Excluding Additional Pages
+## Security Features
 
-Add pages to the `PUBLIC_PAGES` array in `IdleTimeoutProvider.tsx`:
+### Session Fingerprinting
+Each session includes a unique fingerprint for additional security validation during heartbeat checks.
 
-```typescript
-const PUBLIC_PAGES = ['/', '/login', '/register', '/forgot-password'];
+### Force Logout Capability
+Administrators can force logout users through the `/api/authentication/force-logout/{userId}` endpoint, which:
+- Sets a `ForceLogoutAfter` timestamp
+- Revokes all refresh tokens
+- Causes subsequent heartbeat validations to fail
+
+### Multi-Tab Synchronization
+The system monitors localStorage changes to handle logout events across multiple browser tabs.
+
+### Focus-Based Validation
+Additional security validation occurs when the browser window regains focus, checking:
+- Token expiration
+- Session fingerprint validity
+- Immediate heartbeat validation
+
+## User Experience Flow
+
+### Normal Operation
+1. User performs activities (mouse movement, clicks, keystrokes)
+2. Activity resets the idle timer
+3. Heartbeat requests maintain server-side session validity
+4. No user interruption occurs
+
+### Idle Timeout Sequence
+1. User becomes inactive for 4 minutes (timeout - warning time)
+2. Warning modal appears in top-right corner
+3. Countdown timer shows remaining 1 minute
+4. User can click "Continue" to extend session
+5. If no action taken, automatic logout occurs
+6. User is redirected to login page
+
+### Security Violations
+When security violations occur (heartbeat failures, fingerprint mismatches):
+1. Immediate logout without warning modal
+2. Session data cleared from localStorage
+3. Hard page reload to ensure clean state
+
+## Error Handling
+
+### Network Failures
+- Heartbeat failures are tracked and tolerated up to the maximum threshold
+- Temporary network issues don't immediately trigger logout
+- Focus validation errors are logged but don't force logout
+
+### Token Expiration
+- Expired JWT tokens trigger immediate logout
+- Refresh token expiration requires re-authentication
+- Server validates token expiration on every heartbeat
+
+### Modal Interaction Prevention
+- Modal clicks and keyboard interactions don't reset the idle timer
+- Only genuine user activity outside the modal counts as activity
+- Prevents accidental session extension through modal interaction
+
+## Integration Points
+
+### Root Layout Integration
+The idle timeout system is integrated at the application root level:
+
+```tsx
+<SessionSecurityProvider>
+  <IdleTimeoutProvider>
+    {children}
+  </IdleTimeoutProvider>
+</SessionSecurityProvider>
 ```
+
+### Authentication Integration
+- Works seamlessly with JWT-based authentication
+- Integrates with refresh token mechanism
+- Supports external authentication providers
+
+### Database Integration
+- Tracks user activity through `LastActivityOn` field
+- Supports force logout through `ForceLogoutAfter` field
+- Maintains refresh token lifecycle
 
 ## Troubleshooting
 
-### Modal Not Appearing
+### Common Issues
 
-1. Check if you're on an authenticated page (not `/` or `/login`)
-2. Verify that a token exists in localStorage
-3. Ensure you've stopped all activity for the full timeout duration
+1. **Heartbeat Validation Failures**
+   - Check JWT token validity
+   - Verify session fingerprint consistency
+   - Ensure user account is active
 
-### Timer Not Resetting
+2. **Modal Not Appearing**
+   - Verify user is on authenticated route
+   - Check timeout configuration values
+   - Ensure IdleTimeoutProvider is properly integrated
 
-1. Check browser console for any JavaScript errors
-2. Verify that activity events are being detected
-3. Ensure the page hasn't lost focus (some browsers pause timers in background tabs)
+3. **Premature Logouts**
+   - Review activity event detection
+   - Check heartbeat failure tolerance
+   - Verify network connectivity
 
-### Cross-tab Issues
-
-1. Verify that localStorage is working properly
-2. Check that storage event listeners are properly attached
-3. Ensure the same domain is being used across tabs
+### Debug Information
+The system includes extensive logging for troubleshooting:
+- Heartbeat validation steps
+- JWT claim information
+- Activity detection events
+- Modal state changes
 
 ## Future Enhancements
 
-1. **Server-side validation**: Integrate with backend session management
-2. **Configurable per user**: Allow different timeout values for different user roles
-3. **Activity logging**: Track user activity patterns for analytics
-4. **Grace period**: Add a brief grace period after warning before logout
-5. **Custom warning messages**: Allow customization of warning text based on user context 
+### Potential Improvements
+1. **Configurable Timeouts**: Allow per-user or per-role timeout configurations
+2. **Activity Granularity**: Different timeout values for different types of activities
+3. **Mobile Optimization**: Enhanced touch and gesture detection for mobile devices
+4. **Analytics Integration**: Track idle timeout patterns for user experience insights
+5. **Progressive Warnings**: Multiple warning stages before final logout
+
+### Scalability Considerations
+- Heartbeat mechanism scales with user base
+- Database activity updates are lightweight
+- Client-side timers have minimal resource impact
+- Modal rendering is optimized for performance
+
+This idle timeout implementation provides a robust, secure, and user-friendly session management system that balances security requirements with user experience considerations. 

@@ -26,9 +26,14 @@ public class ApplicationUser : IdentityUser<Guid>, IAuditedEntity
     public DateTime? LastLoginOn { get; set; }
     public UserStatus Status { get; set; }
 
+    // New fields
+    public DateTime? LastActivityOn { get; set; }
+    public DateTime? ForceLogoutAfter { get; set; }
+
     // Navigation properties
     public virtual ICollection<UserTeam> UserTeams { get; set; } = new List<UserTeam>();
     public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+    public ICollection<UserSession> Sessions { get; set; } = new List<UserSession>();
 }
 
 public enum UserStatus

@@ -13,7 +13,7 @@ import {
   faMicrosoft, 
   faGoogle 
 } from '@fortawesome/free-brands-svg-icons';
-import { isTokenExpired } from '../../utils/auth';
+import { isTokenExpired, onLoginSuccess } from '../../utils/auth';
 
 interface AuthResponse {
   token: string;
@@ -152,6 +152,9 @@ export default function LoginPage() {
       // Store tokens
       localStorage.setItem('token', authData.token);
       localStorage.setItem('refreshToken', authData.refreshToken);
+
+      // Initialize session security
+      onLoginSuccess();
 
       // Now handle the routing logic with the current subdomain context
       await handlePostLoginRouting(authData, subdomain);
