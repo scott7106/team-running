@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -27,7 +27,7 @@ interface TeamInfo {
   secondaryColor: string;
 }
 
-export default function TeamHomePage() {
+function TeamHomePageContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [teamInfo, setTeamInfo] = useState<TeamInfo | null>(null);
   const [userInfo, setUserInfo] = useState<{
@@ -372,5 +372,13 @@ export default function TeamHomePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function TeamHomePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <TeamHomePageContent />
+    </Suspense>
   );
 } 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -48,6 +48,46 @@ export default function LoginPage() {
   
   const router = useRouter();
 
+  // Get current subdomain info
+  const getCurrentSubdomain = () => {
+    if (typeof window === 'undefined') return null;
+    
+    const host = window.location.host;
+    const hostParts = host.split('.');
+    
+    // Check if we have a subdomain (more than 2 parts or localhost with query param)
+    if (host.includes('localhost') && new URLSearchParams(window.location.search).has('subdomain')) {
+      return new URLSearchParams(window.location.search).get('subdomain');
+    }
+    
+    if (hostParts.length > 2 && !host.startsWith('api.') && !host.startsWith('www.')) {
+      return hostParts[0];
+    }
+    
+    return null;
+  };
+
+  const handleAlreadyAuthenticatedUser = useCallback(async (token: string) => {
+    try {
+      // Create a mock auth response from the existing token
+      const authData: AuthResponse = {
+        token,
+        refreshToken: localStorage.getItem('refreshToken') || '',
+        email: '',
+        firstName: '',
+        lastName: '',
+        requiresEmailConfirmation: false
+      };
+
+      const subdomain = getCurrentSubdomain();
+      await handlePostLoginRouting(authData, subdomain);
+    } catch (error) {
+      console.error('Error routing already authenticated user:', error);
+      // If routing fails, just go to home page as fallback
+      router.push('/');
+    }
+  }, [router]);
+
   useEffect(() => {
     // Check if user is already logged in with a valid token
     const token = localStorage.getItem('token');
@@ -68,47 +108,7 @@ export default function LoginPage() {
         localStorage.removeItem('refreshToken');
       }
     }
-  }, [router]);
-
-  // Get current subdomain info
-  const getCurrentSubdomain = () => {
-    if (typeof window === 'undefined') return null;
-    
-    const host = window.location.host;
-    const hostParts = host.split('.');
-    
-    // Check if we have a subdomain (more than 2 parts or localhost with query param)
-    if (host.includes('localhost') && new URLSearchParams(window.location.search).has('subdomain')) {
-      return new URLSearchParams(window.location.search).get('subdomain');
-    }
-    
-    if (hostParts.length > 2 && !host.startsWith('api.') && !host.startsWith('www.')) {
-      return hostParts[0];
-    }
-    
-    return null;
-  };
-
-  const handleAlreadyAuthenticatedUser = async (token: string) => {
-    try {
-      // Create a mock auth response from the existing token
-      const authData: AuthResponse = {
-        token,
-        refreshToken: localStorage.getItem('refreshToken') || '',
-        email: '',
-        firstName: '',
-        lastName: '',
-        requiresEmailConfirmation: false
-      };
-
-      const subdomain = getCurrentSubdomain();
-      await handlePostLoginRouting(authData, subdomain);
-    } catch (error) {
-      console.error('Error routing already authenticated user:', error);
-      // If routing fails, just go to home page as fallback
-      router.push('/');
-    }
-  };
+  }, [handleAlreadyAuthenticatedUser]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

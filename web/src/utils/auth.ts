@@ -48,5 +48,7 @@ export function isTokenExpired(token: string): boolean {
 export function logout(): void {
   localStorage.removeItem('token');
   localStorage.removeItem('refreshToken');
-  window.location.href = '/';
+  
+  // Force a hard reload to ensure all state is cleared
+  window.location.replace('/');
 } 
