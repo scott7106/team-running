@@ -78,13 +78,35 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         var userRoles = await _userManager.GetRolesAsync(user);
         var isGlobalAdmin = userRoles.Contains("GlobalAdmin");
         
+        // Get user's default team and role if they have one
+        Guid? teamId = null;
+        TeamRole? role = null;
+        MemberType? memberType = null;
+        
+        if (!isGlobalAdmin)
+        {
+            // Look up user's default team or their first active team membership
+            var userTeam = await _context.UserTeams
+                .Where(ut => ut.UserId == user.Id && ut.IsActive)
+                .OrderByDescending(ut => ut.IsDefault)
+                .ThenBy(ut => ut.JoinedOn)
+                .FirstOrDefaultAsync();
+                
+            if (userTeam != null)
+            {
+                teamId = userTeam.TeamId;
+                role = userTeam.Role;
+                memberType = userTeam.MemberType;
+            }
+        }
+        
         // Update last login
         user.LastLoginOn = DateTime.UtcNow;
         await _userManager.UpdateAsync(user);
 
-        // Generate tokens without team context - team context will be determined later
-        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, null, null, null);
-        var refreshToken = await CreateRefreshTokenAsync(user, null);
+        // Generate tokens with team context if available
+        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teamId, role, memberType);
+        var refreshToken = await CreateRefreshTokenAsync(user, teamId);
 
         return new AuthResponseDto
         {
@@ -93,8 +115,8 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             Email = user.Email ?? string.Empty,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            TeamId = null, // No team context in authentication
-            Role = null,   // No role context in authentication
+            TeamId = teamId,
+            Role = role,
             RequiresEmailConfirmation = false
         };
     }
