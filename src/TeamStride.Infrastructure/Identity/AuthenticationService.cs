@@ -105,7 +105,14 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         await _userManager.UpdateAsync(user);
 
         // Generate tokens with team context if available
-        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teamId, role, memberType);
+        string? teamSubdomain = null;
+        if (teamId.HasValue)
+        {
+            var team = await _context.Teams.FindAsync(teamId.Value);
+            teamSubdomain = team?.Subdomain;
+        }
+        
+        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teamId, role, memberType, teamSubdomain);
         var refreshToken = await CreateRefreshTokenAsync(user, teamId);
 
         return new AuthResponseDto
@@ -210,7 +217,14 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             throw new AuthenticationException("Invalid team access", AuthenticationException.ErrorCodes.TenantNotFound);
 
         // Generate new tokens
-        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(token.User!, token.TeamId, userTeam.Role, userTeam.MemberType);
+        string? teamSubdomain = null;
+        if (token.TeamId.HasValue)
+        {
+            var team = await _context.Teams.FindAsync(token.TeamId.Value);
+            teamSubdomain = team?.Subdomain;
+        }
+        
+        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(token.User!, token.TeamId, userTeam.Role, userTeam.MemberType, teamSubdomain);
         var newRefreshToken = await CreateRefreshTokenAsync(token.User!, token.TeamId);
 
         // Revoke old refresh token
@@ -396,7 +410,10 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         await _userManager.UpdateAsync(user);
 
         // Generate tokens
-        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teamId, userTeam.Role, userTeam.MemberType);
+        var team = await _context.Teams.FindAsync(teamId);
+        var teamSubdomain = team?.Subdomain;
+        
+        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teamId, userTeam.Role, userTeam.MemberType, teamSubdomain);
         var refreshToken = await CreateRefreshTokenAsync(user, teamId);
 
         return new AuthResponseDto
@@ -575,5 +592,81 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         await LogoutAsync(userId);
         
         return true;
+    }
+
+    public async Task<AuthResponseDto> LoginWithTeamAsync(Guid teamId)
+    {
+        // Get current user from HTTP context
+        var userIdClaim = _httpContextAccessor.HttpContext?.User?.Claims
+            .FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            throw new AuthenticationException("User not authenticated", AuthenticationException.ErrorCodes.InvalidCredentials);
+        }
+
+        var user = await _userManager.FindByIdAsync(userId.ToString()) ??
+            throw new AuthenticationException("User not found", AuthenticationException.ErrorCodes.UserNotFound);
+
+        if (!user.IsActive)
+        {
+            throw new AuthenticationException("Account is locked", AuthenticationException.ErrorCodes.AccountLocked);
+        }
+
+        // Check if user is a global admin
+        var userRoles = await _userManager.GetRolesAsync(user);
+        var isGlobalAdmin = userRoles.Contains("GlobalAdmin");
+        
+        UserTeam? userTeam = null;
+        
+        if (isGlobalAdmin)
+        {
+            // Global admins can access any team, but we need to check if the team exists
+            var teamEntity = await _context.Teams.FindAsync(teamId) ??
+                throw new AuthenticationException("Team not found", AuthenticationException.ErrorCodes.TenantNotFound);
+            
+            // For global admins, create a virtual team membership with full permissions
+            userTeam = new UserTeam
+            {
+                UserId = userId,
+                TeamId = teamId,
+                Role = TeamRole.TeamOwner, // Global admins get full permissions
+                MemberType = MemberType.Coach, // Default member type
+                IsActive = true,
+                IsDefault = false,
+                JoinedOn = DateTime.UtcNow,
+                CreatedOn = DateTime.UtcNow
+            };
+        }
+        else
+        {
+            // Regular users must have explicit team membership
+            userTeam = await _context.UserTeams
+                .FirstOrDefaultAsync(ut => ut.UserId == userId && ut.TeamId == teamId && ut.IsActive) ??
+                throw new AuthenticationException("Access denied to team", AuthenticationException.ErrorCodes.TenantNotFound);
+        }
+
+        // Update last login
+        user.LastLoginOn = DateTime.UtcNow;
+        await _userManager.UpdateAsync(user);
+
+        // Generate tokens with team context
+        var team = await _context.Teams.FindAsync(teamId);
+        var teamSubdomain = team?.Subdomain;
+        
+        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teamId, userTeam.Role, userTeam.MemberType, teamSubdomain);
+        var refreshToken = await CreateRefreshTokenAsync(user, teamId);
+
+        return new AuthResponseDto
+        {
+            Token = jwtToken,
+            RefreshToken = refreshToken.Token,
+            Email = user.Email ?? string.Empty,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            TeamId = teamId,
+            Role = userTeam.Role,
+            RequiresEmailConfirmation = false
+        };
     }
 } 

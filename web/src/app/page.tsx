@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -9,13 +9,10 @@ import {
   faRunning, 
   faComments, 
   faTrophy, 
-  faClock,
-  faUser,
-  faChevronDown,
-  faSignOutAlt,
-  faBuilding
+  faClock
 } from '@fortawesome/free-solid-svg-icons';
-import { getUserFromToken, logout, isTokenExpired } from '@/utils/auth';
+import { getUserFromToken, isTokenExpired, getTeamContextFromToken } from '@/utils/auth';
+import UserContextMenu from '@/components/user-context-menu';
 
 export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -24,9 +21,14 @@ export default function Home() {
     lastName: string;
     email: string;
   } | null>(null);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [teamContext, setTeamContext] = useState<{
+    contextLabel: string;
+    isGlobalAdmin: boolean;
+    hasTeam: boolean;
+    teamId?: string;
+    teamRole?: string;
+  } | null>(null);
   const router = useRouter();
-  const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Check authentication status on component mount
@@ -37,6 +39,7 @@ export default function Home() {
           if (!isTokenExpired(token)) {
             setIsAuthenticated(true);
             const user = getUserFromToken();
+            const context = getTeamContextFromToken();
             if (user) {
               setUserInfo(user);
             } else {
@@ -47,11 +50,15 @@ export default function Home() {
                 email: 'user@example.com'
               });
             }
+            if (context) {
+              setTeamContext(context);
+            }
           } else {
             // Token is expired, clean up
             localStorage.removeItem('token');
             localStorage.removeItem('refreshToken');
             setIsAuthenticated(false);
+            setTeamContext(null);
           }
         } catch (error) {
           console.error('Error validating token:', error);
@@ -59,9 +66,11 @@ export default function Home() {
           localStorage.removeItem('token');
           localStorage.removeItem('refreshToken');
           setIsAuthenticated(false);
+          setTeamContext(null);
         }
       } else {
         setIsAuthenticated(false);
+        setTeamContext(null);
       }
     };
 
@@ -81,41 +90,8 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => {
-    // Close user menu when clicking outside
-    function handleClickOutside(event: MouseEvent) {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
-        setIsUserMenuOpen(false);
-      }
-    }
-
-    if (isUserMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }
-  }, [isUserMenuOpen]);
-
   const handleLoginClick = () => {
     router.push('/login');
-  };
-
-  const handleLogout = () => {
-    logout();
-  };
-
-  const handleDashboard = () => {
-    // Navigate to team or admin dashboard based on user's role
-    // For now, we'll go to the team page
-    router.push('/team');
-    setIsUserMenuOpen(false);
-  };
-
-  const handleProfile = () => {
-    // TODO: Implement profile navigation
-    console.log('Navigate to profile');
-    setIsUserMenuOpen(false);
   };
 
   const handlePlanSelect = () => {
@@ -142,50 +118,8 @@ export default function Home() {
             </div>
             
             {/* Authenticated User Menu or Login Button */}
-            {isAuthenticated && userInfo ? (
-              <div className="relative" ref={userMenuRef}>
-                <button
-                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors"
-                >
-                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                    <FontAwesomeIcon icon={faUser} className="text-white text-sm" />
-                  </div>
-                  <span className="font-medium">{userInfo.firstName}</span>
-                  <FontAwesomeIcon icon={faChevronDown} className="w-4 h-4" />
-                </button>
-                
-                {/* User Dropdown Menu */}
-                {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                    <div className="px-4 py-2 border-b border-gray-200">
-                      <p className="text-sm font-medium text-gray-900">{userInfo.firstName} {userInfo.lastName}</p>
-                      <p className="text-xs text-gray-500">{userInfo.email}</p>
-                    </div>
-                    <button
-                      onClick={handleDashboard}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                    >
-                      <FontAwesomeIcon icon={faBuilding} className="w-4 h-4 mr-3" />
-                      Dashboard
-                    </button>
-                    <button
-                      onClick={handleProfile}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                    >
-                      <FontAwesomeIcon icon={faUser} className="w-4 h-4 mr-3" />
-                      Profile
-                    </button>
-                    <button
-                      onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                    >
-                      <FontAwesomeIcon icon={faSignOutAlt} className="w-4 h-4 mr-3" />
-                      Logout
-                    </button>
-                  </div>
-                )}
-              </div>
+            {isAuthenticated && userInfo && teamContext ? (
+              <UserContextMenu />
             ) : (
               <button
                 onClick={handleLoginClick}
@@ -234,7 +168,16 @@ export default function Home() {
                 // Authenticated user buttons
                 <>
                   <button 
-                    onClick={handleDashboard}
+                    onClick={() => {
+                      // Navigate to appropriate dashboard based on user context
+                      if (teamContext?.hasTeam) {
+                        router.push('/team');
+                      } else if (teamContext?.isGlobalAdmin) {
+                        router.push('/admin');
+                      } else {
+                        router.push('/team'); // fallback
+                      }
+                    }}
                     className="group bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-10 py-5 rounded-xl text-lg font-bold hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 hover:shadow-xl"
                   >
                     <span className="flex items-center justify-center">

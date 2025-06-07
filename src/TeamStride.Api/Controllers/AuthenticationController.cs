@@ -180,8 +180,8 @@ public class AuthenticationController : ControllerBase
         }
         
         var result = await _authenticationService.ForceUserLogoutAsync(userId);
-        return result ? Ok() : BadRequest("Failed to force logout");
-    }
+              return result ? Ok() : BadRequest("Failed to force logout");
+  }
 }
 
 public class ChangePasswordRequestDto

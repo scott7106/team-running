@@ -10,14 +10,13 @@ import {
   faComments, 
   faTrophy, 
   faShirt,
-  faSignOutAlt,
   faBars,
   faTimes,
-  faUserShield,
   faCog,
   faChartLine,
   faMapMarkerAlt
 } from '@fortawesome/free-solid-svg-icons';
+import UserContextMenu from '../../components/user-context-menu';
 
 interface TeamInfo {
   teamId: string;
@@ -108,12 +107,6 @@ function TeamHomePageContent() {
 
     loadTeamData();
   }, [router, searchParams]);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    router.push('/');
-  };
 
   const handleMenuClick = (section: string) => {
     // TODO: Implement navigation to different sections
@@ -241,25 +234,7 @@ function TeamHomePageContent() {
           )}
         </nav>
 
-        {/* User info and logout */}
-        <div className="absolute bottom-0 w-full p-4 border-t border-gray-700">
-          <div className="flex items-center mb-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-              <FontAwesomeIcon icon={faUserShield} className="text-white text-sm" />
-            </div>
-            <div className="ml-3 text-sm">
-              <p className="text-white font-medium">{userInfo.firstName} {userInfo.lastName}</p>
-              <p className="text-gray-400 text-xs">{userInfo.role}</p>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors text-left"
-          >
-            <FontAwesomeIcon icon={faSignOutAlt} className="w-4 h-4 mr-2" />
-            <span className="text-sm">Logout</span>
-          </button>
-        </div>
+
       </div>
 
       {/* Main content */}
@@ -274,8 +249,11 @@ function TeamHomePageContent() {
               <FontAwesomeIcon icon={faBars} className="w-6 h-6" />
             </button>
             <h1 className="text-xl font-semibold text-gray-900">{teamInfo.teamName}</h1>
-            <div className="hidden lg:flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Welcome, {userInfo.firstName}</span>
+            <div className="flex items-center space-x-4">
+              <UserContextMenu className="lg:hidden" />
+              <div className="hidden lg:block">
+                <UserContextMenu />
+              </div>
             </div>
           </div>
         </div>

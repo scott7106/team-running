@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TeamStride.Application.Teams.Dtos;
 using TeamStride.Application.Teams.Services;
+using TeamStride.Application.Authentication.Services;
+using TeamStride.Application.Authentication.Dtos;
+using TeamStride.Domain.Identity;
 
 namespace TeamStride.Api.Controllers;
 
@@ -14,12 +17,15 @@ namespace TeamStride.Api.Controllers;
 public class TenantSwitcherController : BaseApiController
 {
     private readonly ITenantSwitcherService _tenantSwitcherService;
+    private readonly ITeamStrideAuthenticationService _authenticationService;
 
     public TenantSwitcherController(
         ITenantSwitcherService tenantSwitcherService,
+        ITeamStrideAuthenticationService authenticationService,
         ILogger<TenantSwitcherController> logger) : base(logger)
     {
         _tenantSwitcherService = tenantSwitcherService;
+        _authenticationService = authenticationService;
     }
 
     /// <summary>
@@ -44,6 +50,43 @@ public class TenantSwitcherController : BaseApiController
         catch (Exception ex)
         {
             return HandleError(ex, "Failed to retrieve user tenants");
+        }
+    }
+
+    /// <summary>
+    /// Switches to a specific tenant and generates a new JWT token with team context.
+    /// Available for global admins and users with access to the specified team.
+    /// </summary>
+    /// <param name="teamId">The ID of the team to switch to</param>
+    /// <returns>New authentication response with team-specific JWT token</returns>
+    [HttpPost("switch/{teamId:guid}")]
+    [ProducesResponseType(typeof(AuthResponseDto), 200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(403)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> SwitchTenant(Guid teamId)
+    {
+        try
+        {
+            var response = await _authenticationService.LoginWithTeamAsync(teamId);
+            return Ok(response);
+        }
+        catch (AuthenticationException ex) when (ex.ErrorCode == AuthenticationException.ErrorCodes.TenantNotFound)
+        {
+            return NotFound(new { message = ex.Message, traceId = HttpContext.TraceIdentifier });
+        }
+        catch (AuthenticationException ex) when (ex.ErrorCode == AuthenticationException.ErrorCodes.InvalidCredentials)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (AuthenticationException ex)
+        {
+            return Unauthorized(new { message = ex.Message, traceId = HttpContext.TraceIdentifier });
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex, $"Failed to switch to tenant {teamId}");
         }
     }
 } 

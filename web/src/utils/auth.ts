@@ -9,6 +9,7 @@ export interface JwtClaims {
   team_id?: string;
   team_role?: string;
   member_type?: string;
+  team_subdomain?: string;
   exp: number;
   iat: number;
   jti: string;
@@ -34,6 +35,45 @@ export function getUserFromToken(): { firstName: string; lastName: string; email
     firstName: claims.first_name || '',
     lastName: claims.last_name || '',
     email: claims.email || ''
+  };
+}
+
+export function getTeamContextFromToken(): { 
+  contextLabel: string; 
+  isGlobalAdmin: boolean; 
+  hasTeam: boolean; 
+  teamId?: string;
+  teamRole?: string;
+} | null {
+  const token = localStorage.getItem('token');
+  if (!token) return null;
+  
+  const claims = decodeToken(token);
+  if (!claims) return null;
+  
+  const isGlobalAdmin = claims.is_global_admin === 'true';
+  const hasTeam = !!claims.team_id;
+  const teamId = claims.team_id;
+  const teamRole = claims.team_role;
+  const teamSubdomain = claims.team_subdomain;
+  
+  let contextLabel: string;
+  
+  if (hasTeam && teamId) {
+    // Show the team subdomain (code) if available, otherwise fall back to generic label
+    contextLabel = teamSubdomain || 'Team Context';
+  } else if (isGlobalAdmin) {
+    contextLabel = 'Global';
+  } else {
+    contextLabel = 'None';
+  }
+  
+  return {
+    contextLabel,
+    isGlobalAdmin,
+    hasTeam,
+    teamId,
+    teamRole
   };
 }
 

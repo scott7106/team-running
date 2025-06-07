@@ -17,4 +17,5 @@ public interface ITeamStrideAuthenticationService
     Task<string> GetExternalLoginUrlAsync(string provider, string? teamId = null);
     Task<string> GetExternalLoginCallbackUrlAsync(string provider);
     Task<AuthResponseDto> ExternalLoginAsync(ExternalAuthRequestDto request);
+    Task<AuthResponseDto> LoginWithTeamAsync(Guid teamId);
 } 

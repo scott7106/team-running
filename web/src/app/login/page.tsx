@@ -312,15 +312,50 @@ export default function LoginPage() {
     }
   };
 
-  const handleTeamSelection = (team: TenantDto) => {
-    routeToTeamPage(team.teamId, team.subdomain);
+  const handleTeamSelection = async (team: TenantDto) => {
+    // Switch to team context and get new JWT token
+    await switchToTeamContext(team.teamId, team.subdomain);
   };
 
-  const handleGlobalAdminSelection = (choice: 'host' | TenantDto) => {
+  const switchToTeamContext = async (teamId: string, subdomain?: string) => {
+    try {
+      // Call the tenant switcher API to get a new JWT with team context
+      const response = await fetch(`/api/tenant-switcher/switch/${teamId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to switch team context');
+      }
+
+      const authData = await response.json();
+      
+      // Update stored tokens with new team-specific tokens
+      localStorage.setItem('token', authData.token);
+      localStorage.setItem('refreshToken', authData.refreshToken);
+      
+      // Initialize session security with the new tokens
+      onLoginSuccess();
+      
+      // Now route to the team page
+      routeToTeamPage(teamId, subdomain);
+      
+    } catch (error) {
+      console.error('Error switching team context:', error);
+      setLoginError('Failed to switch to team context. Please try again.');
+    }
+  };
+
+  const handleGlobalAdminSelection = async (choice: 'host' | TenantDto) => {
     if (choice === 'host') {
       routeToAdminPage();
     } else {
-      routeToTeamPage(choice.teamId, choice.subdomain);
+      // Switch to team context and get new JWT token
+      await switchToTeamContext(choice.teamId, choice.subdomain);
     }
   };
 
