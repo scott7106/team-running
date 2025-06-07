@@ -52,8 +52,7 @@ export function generateFingerprint(): string {
       userAgent: navigator.userAgent.substring(0, 100),
       language: navigator.language,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      screen: `${screen.width}x${screen.height}`,
-      timestamp: Date.now()
+      screen: `${screen.width}x${screen.height}`
     };
     
     return btoa(JSON.stringify(fingerprint));
@@ -61,24 +60,40 @@ export function generateFingerprint(): string {
     console.warn('Error generating fingerprint:', error);
     // Fallback fingerprint
     return btoa(JSON.stringify({
-      userAgent: "fallback",
-      timestamp: Date.now()
+      userAgent: "fallback"
     }));
   }
 }
 
 export function validateSessionFingerprint(): boolean {
   const storedFingerprint = localStorage.getItem('sessionFingerprint');
-  if (!storedFingerprint) return false;
-  
-  const currentFingerprint = generateFingerprint();
-  const isValid = storedFingerprint === currentFingerprint;
-  
-  if (!isValid) {
-    console.warn('Session fingerprint mismatch detected');
+  if (!storedFingerprint) {
+    console.warn('No stored session fingerprint found');
+    return false;
   }
   
-  return isValid;
+  try {
+    const currentFingerprint = generateFingerprint();
+    const isValid = storedFingerprint === currentFingerprint;
+    
+    if (!isValid) {
+      console.warn('Session fingerprint mismatch detected');
+      // Add debugging information to help troubleshoot
+      try {
+        const storedData = JSON.parse(atob(storedFingerprint));
+        const currentData = JSON.parse(atob(currentFingerprint));
+        console.warn('Stored fingerprint:', storedData);
+        console.warn('Current fingerprint:', currentData);
+      } catch {
+        console.warn('Could not decode fingerprints for comparison');
+      }
+    }
+    
+    return isValid;
+  } catch (error) {
+    console.error('Error validating session fingerprint:', error);
+    return false;
+  }
 }
 
 export function setSessionFingerprint(): void {

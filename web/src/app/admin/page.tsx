@@ -65,14 +65,16 @@ export default function GlobalAdminPage() {
             onClick={handleManageTeams}
             className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-300 cursor-pointer group"
           >
-            <div className="p-8 text-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4 group-hover:bg-blue-200 transition-colors">
-                <FontAwesomeIcon icon={faBuilding} className="text-blue-600 text-2xl" />
+            <div className="p-8 text-center h-full flex flex-col justify-between">
+              <div>
+                <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4 group-hover:bg-blue-200 transition-colors">
+                  <FontAwesomeIcon icon={faBuilding} className="text-blue-600 text-2xl" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">Manage Teams</h3>
+                <p className="text-gray-600 mb-4">
+                  Create, edit, and manage teams across the platform. Control team settings, subscriptions, and ownership.
+                </p>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">Manage Teams</h3>
-              <p className="text-gray-600 mb-4">
-                Create, edit, and manage teams across the platform. Control team settings, subscriptions, and ownership.
-              </p>
               <div className="text-blue-600 font-medium group-hover:text-blue-700">
                 Access Team Management →
               </div>
@@ -84,14 +86,16 @@ export default function GlobalAdminPage() {
             onClick={handleManageUsers}
             className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-300 cursor-pointer group"
           >
-            <div className="p-8 text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-4 group-hover:bg-green-200 transition-colors">
-                <FontAwesomeIcon icon={faUsers} className="text-green-600 text-2xl" />
+            <div className="p-8 text-center h-full flex flex-col justify-between">
+              <div>
+                <div className="w-16 h-16 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-4 group-hover:bg-green-200 transition-colors">
+                  <FontAwesomeIcon icon={faUsers} className="text-green-600 text-2xl" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">Manage Users</h3>
+                <p className="text-gray-600 mb-4">
+                  View and manage user accounts, permissions, and global roles across all teams.
+                </p>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">Manage Users</h3>
-              <p className="text-gray-600 mb-4">
-                View and manage user accounts, permissions, and global roles across all teams.
-              </p>
               <div className="text-green-600 font-medium group-hover:text-green-700">
                 Access User Management →
               </div>

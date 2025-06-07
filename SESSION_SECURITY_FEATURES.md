@@ -136,7 +136,6 @@ const WARNING_DURATION = 1 * 60 * 1000;  // 1 minute warning
   - Browser language
   - Timezone
   - Screen resolution
-  - Timestamp
 
 ### Fingerprint Validation
 - **Client-Side**: Validates fingerprint consistency
@@ -149,8 +148,8 @@ const fingerprint = {
   userAgent: navigator.userAgent.substring(0, 100),
   language: navigator.language,
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  screen: `${screen.width}x${screen.height}`,
-  timestamp: Date.now()
+  screen: `${screen.width}x${screen.height}`
+  // Note: timestamp removed to ensure consistent fingerprints
 };
 ```
 
