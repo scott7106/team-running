@@ -18,6 +18,11 @@ export default function GlobalAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Set document title
+  useEffect(() => {
+    document.title = "TeamStride - Global Administration - Dashboard";
+  }, []);
+
   useEffect(() => {
     const loadDashboardStats = async () => {
       try {

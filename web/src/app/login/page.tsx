@@ -88,6 +88,11 @@ export default function LoginPage() {
     }
   }, [router]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Set document title
+  useEffect(() => {
+    document.title = "TeamStride - Login";
+  }, []);
+
   useEffect(() => {
     // Check if user is already logged in with a valid token
     const token = localStorage.getItem('token');

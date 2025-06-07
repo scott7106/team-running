@@ -352,7 +352,7 @@ export default function AdminTeamsPage() {
   const hasActiveFilters = searchQuery || statusFilter !== '' || tierFilter !== '';
 
   return (
-    <AdminLayout pageTitle="Global Administration - Teams" currentSection="teams">
+    <AdminLayout pageTitle="Global Administration" currentSection="teams">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">

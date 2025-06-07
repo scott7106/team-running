@@ -399,7 +399,7 @@ export default function AdminUsersPage() {
   const hasActiveFilters = searchQuery || statusFilter !== '' || activeFilter !== '';
 
   return (
-    <AdminLayout pageTitle="Global Administration - Users" currentSection="users">
+    <AdminLayout pageTitle="Global Administration" currentSection="users">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
