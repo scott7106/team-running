@@ -34,6 +34,29 @@ export interface GlobalAdminTeamDto {
   hasPendingOwnershipTransfer: boolean;
 }
 
+export interface CreateTeamWithNewOwnerDto {
+  name: string;
+  subdomain: string;
+  ownerEmail: string;
+  ownerFirstName: string;
+  ownerLastName: string;
+  ownerPassword: string;
+  tier?: TeamTier;
+  primaryColor?: string;
+  secondaryColor?: string;
+  expiresOn?: string;
+}
+
+export interface CreateTeamWithExistingOwnerDto {
+  name: string;
+  subdomain: string;
+  ownerId: string;
+  tier?: TeamTier;
+  primaryColor?: string;
+  secondaryColor?: string;
+  expiresOn?: string;
+}
+
 export interface PaginatedList<T> {
   items: T[];
   totalCount: number;

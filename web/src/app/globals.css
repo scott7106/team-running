@@ -25,6 +25,38 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Global form field text styling */
+input,
+textarea,
+select {
+  color: rgb(17 24 39); /* text-gray-900 */
+  font-weight: 400;
+}
+
+/* Global placeholder text styling */
+input::placeholder,
+textarea::placeholder,
+select::placeholder {
+  color: rgb(156 163 175); /* text-gray-400 */
+  font-weight: 400;
+}
+
+/* Select dropdown styling for empty/placeholder state */
+select:invalid {
+  color: rgb(156 163 175); /* text-gray-400 */
+}
+
+select:valid {
+  color: rgb(17 24 39); /* text-gray-900 */
+}
+
+/* Date picker placeholder styling - override global for empty state */
+input[type="date"]:invalid,
+input[type="datetime-local"]:invalid,
+input[type="time"]:invalid {
+  color: rgb(156 163 175); /* text-gray-400 */
+}
+
 /* Custom animations for hero section */
 @keyframes fade-in {
   from {

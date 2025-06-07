@@ -249,77 +249,81 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
             throw new InvalidOperationException($"User with email '{dto.OwnerEmail}' already exists");
         }
 
-        using var transaction = await _context.Database.BeginTransactionAsync();
-        try
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
-            // Create the new user
-            var newUser = new ApplicationUser
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                UserName = dto.OwnerEmail,
-                Email = dto.OwnerEmail,
-                FirstName = dto.OwnerFirstName,
-                LastName = dto.OwnerLastName,
-                EmailConfirmed = true,
-                IsActive = true,
-                Status = UserStatus.Active,
-                CreatedOn = DateTime.UtcNow
-            };
+                // Create the new user
+                var newUser = new ApplicationUser
+                {
+                    UserName = dto.OwnerEmail,
+                    Email = dto.OwnerEmail,
+                    FirstName = dto.OwnerFirstName,
+                    LastName = dto.OwnerLastName,
+                    EmailConfirmed = true,
+                    IsActive = true,
+                    Status = UserStatus.Active,
+                    CreatedOn = DateTime.UtcNow
+                };
 
-            var userResult = await _userManager.CreateAsync(newUser, dto.OwnerPassword);
-            if (!userResult.Succeeded)
-            {
-                var errors = string.Join(", ", userResult.Errors.Select(e => e.Description));
-                throw new InvalidOperationException($"Failed to create user: {errors}");
+                var userResult = await _userManager.CreateAsync(newUser, dto.OwnerPassword);
+                if (!userResult.Succeeded)
+                {
+                    var errors = string.Join(", ", userResult.Errors.Select(e => e.Description));
+                    throw new InvalidOperationException($"Failed to create user: {errors}");
+                }
+
+                // Create the team
+                var team = new Team
+                {
+                    Name = dto.Name,
+                    Subdomain = dto.Subdomain,
+                    PrimaryColor = dto.PrimaryColor,
+                    SecondaryColor = dto.SecondaryColor,
+                    Status = TeamStatus.Active,
+                    Tier = dto.Tier,
+                    ExpiresOn = dto.ExpiresOn,
+                    OwnerId = newUser.Id,
+                    CreatedOn = DateTime.UtcNow
+                };
+
+                _context.Teams.Add(team);
+                await _context.SaveChangesAsync();
+
+                // Create the owner relationship in UserTeam
+                var userTeam = new UserTeam
+                {
+                    UserId = newUser.Id,
+                    TeamId = team.Id,
+                    Role = TeamRole.TeamOwner,
+                    MemberType = MemberType.Coach, // Default for team owners
+                    IsActive = true,
+                    IsDefault = true,
+                    JoinedOn = DateTime.UtcNow,
+                    CreatedOn = DateTime.UtcNow
+                };
+
+                _context.UserTeams.Add(userTeam);
+
+                // Update user's default team
+                newUser.DefaultTeamId = team.Id;
+                await _userManager.UpdateAsync(newUser);
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Created team {TeamId} with new owner {UserId}", team.Id, newUser.Id);
+
+                return await GetTeamByIdAsync(team.Id);
             }
-
-            // Create the team
-            var team = new Team
+            catch
             {
-                Name = dto.Name,
-                Subdomain = dto.Subdomain,
-                PrimaryColor = dto.PrimaryColor,
-                SecondaryColor = dto.SecondaryColor,
-                Status = TeamStatus.Active,
-                Tier = dto.Tier,
-                ExpiresOn = dto.ExpiresOn,
-                OwnerId = newUser.Id,
-                CreatedOn = DateTime.UtcNow
-            };
-
-            _context.Teams.Add(team);
-            await _context.SaveChangesAsync();
-
-            // Create the owner relationship in UserTeam
-            var userTeam = new UserTeam
-            {
-                UserId = newUser.Id,
-                TeamId = team.Id,
-                Role = TeamRole.TeamOwner,
-                MemberType = MemberType.Coach, // Default for team owners
-                IsActive = true,
-                IsDefault = true,
-                JoinedOn = DateTime.UtcNow,
-                CreatedOn = DateTime.UtcNow
-            };
-
-            _context.UserTeams.Add(userTeam);
-
-            // Update user's default team
-            newUser.DefaultTeamId = team.Id;
-            await _userManager.UpdateAsync(newUser);
-
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            _logger.LogInformation("Created team {TeamId} with new owner {UserId}", team.Id, newUser.Id);
-
-            return await GetTeamByIdAsync(team.Id);
-        }
-        catch
-        {
-            await transaction.RollbackAsync();
-            throw;
-        }
+                await transaction.RollbackAsync();
+                throw;
+            }
+        });
     }
 
     public async Task<GlobalAdminTeamDto> CreateTeamWithExistingOwnerAsync(CreateTeamWithExistingOwnerDto dto)
@@ -339,75 +343,79 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
             throw new InvalidOperationException($"User with ID {dto.OwnerId} not found");
         }
 
-        using var transaction = await _context.Database.BeginTransactionAsync();
-        try
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
-            // Create the team
-            var team = new Team
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                Name = dto.Name,
-                Subdomain = dto.Subdomain,
-                PrimaryColor = dto.PrimaryColor,
-                SecondaryColor = dto.SecondaryColor,
-                Status = TeamStatus.Active,
-                Tier = dto.Tier,
-                ExpiresOn = dto.ExpiresOn,
-                OwnerId = dto.OwnerId,
-                CreatedOn = DateTime.UtcNow
-            };
-
-            _context.Teams.Add(team);
-            await _context.SaveChangesAsync();
-
-            // Create or update the owner relationship in UserTeam
-            var existingUserTeam = await _context.UserTeams
-                .FirstOrDefaultAsync(ut => ut.UserId == dto.OwnerId && ut.TeamId == team.Id);
-
-            if (existingUserTeam != null)
-            {
-                // Update existing relationship
-                existingUserTeam.Role = TeamRole.TeamOwner;
-                existingUserTeam.MemberType = MemberType.Coach;
-                existingUserTeam.IsActive = true;
-                existingUserTeam.ModifiedOn = DateTime.UtcNow;
-            }
-            else
-            {
-                // Create new relationship
-                var userTeam = new UserTeam
+                // Create the team
+                var team = new Team
                 {
-                    UserId = dto.OwnerId,
-                    TeamId = team.Id,
-                    Role = TeamRole.TeamOwner,
-                    MemberType = MemberType.Coach,
-                    IsActive = true,
-                    IsDefault = owner.DefaultTeamId == null, // Set as default if user has no default team
-                    JoinedOn = DateTime.UtcNow,
+                    Name = dto.Name,
+                    Subdomain = dto.Subdomain,
+                    PrimaryColor = dto.PrimaryColor,
+                    SecondaryColor = dto.SecondaryColor,
+                    Status = TeamStatus.Active,
+                    Tier = dto.Tier,
+                    ExpiresOn = dto.ExpiresOn,
+                    OwnerId = dto.OwnerId,
                     CreatedOn = DateTime.UtcNow
                 };
 
-                _context.UserTeams.Add(userTeam);
-            }
+                _context.Teams.Add(team);
+                await _context.SaveChangesAsync();
 
-            // Update user's default team if they don't have one
-            if (owner.DefaultTeamId == null)
+                // Create or update the owner relationship in UserTeam
+                var existingUserTeam = await _context.UserTeams
+                    .FirstOrDefaultAsync(ut => ut.UserId == dto.OwnerId && ut.TeamId == team.Id);
+
+                if (existingUserTeam != null)
+                {
+                    // Update existing relationship
+                    existingUserTeam.Role = TeamRole.TeamOwner;
+                    existingUserTeam.MemberType = MemberType.Coach;
+                    existingUserTeam.IsActive = true;
+                    existingUserTeam.ModifiedOn = DateTime.UtcNow;
+                }
+                else
+                {
+                    // Create new relationship
+                    var userTeam = new UserTeam
+                    {
+                        UserId = dto.OwnerId,
+                        TeamId = team.Id,
+                        Role = TeamRole.TeamOwner,
+                        MemberType = MemberType.Coach,
+                        IsActive = true,
+                        IsDefault = owner.DefaultTeamId == null, // Set as default if user has no default team
+                        JoinedOn = DateTime.UtcNow,
+                        CreatedOn = DateTime.UtcNow
+                    };
+
+                    _context.UserTeams.Add(userTeam);
+                }
+
+                // Update user's default team if they don't have one
+                if (owner.DefaultTeamId == null)
+                {
+                    owner.DefaultTeamId = team.Id;
+                    await _userManager.UpdateAsync(owner);
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Created team {TeamId} with existing owner {UserId}", team.Id, dto.OwnerId);
+
+                return await GetTeamByIdAsync(team.Id);
+            }
+            catch
             {
-                owner.DefaultTeamId = team.Id;
-                await _userManager.UpdateAsync(owner);
+                await transaction.RollbackAsync();
+                throw;
             }
-
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            _logger.LogInformation("Created team {TeamId} with existing owner {UserId}", team.Id, dto.OwnerId);
-
-            return await GetTeamByIdAsync(team.Id);
-        }
-        catch
-        {
-            await transaction.RollbackAsync();
-            throw;
-        }
+        });
     }
 
     public async Task<GlobalAdminTeamDto> UpdateTeamAsync(Guid teamId, GlobalAdminUpdateTeamDto dto)
@@ -520,33 +528,37 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
             throw new InvalidOperationException($"Team with ID {teamId} not found");
         }
 
-        using var transaction = await _context.Database.BeginTransactionAsync();
-        try
+        var strategy = _context.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
-            // Remove all user-team relationships
-            _context.UserTeams.RemoveRange(team.Users);
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                // Remove all user-team relationships
+                _context.UserTeams.RemoveRange(team.Users);
 
-            // Remove ownership transfers
-            var ownershipTransfers = await _context.OwnershipTransfers
-                .IgnoreQueryFilters()
-                .Where(ot => ot.TeamId == teamId)
-                .ToListAsync();
-            _context.OwnershipTransfers.RemoveRange(ownershipTransfers);
+                // Remove ownership transfers
+                var ownershipTransfers = await _context.OwnershipTransfers
+                    .IgnoreQueryFilters()
+                    .Where(ot => ot.TeamId == teamId)
+                    .ToListAsync();
+                _context.OwnershipTransfers.RemoveRange(ownershipTransfers);
 
-            // Remove the team
-            _context.Teams.Remove(team);
+                // Remove the team
+                _context.Teams.Remove(team);
 
-            // Use the bypass method to avoid soft delete conversion
-            await _context.SaveChangesWithoutAuditAsync();
-            await transaction.CommitAsync();
+                // Use the bypass method to avoid soft delete conversion
+                await _context.SaveChangesWithoutAuditAsync();
+                await transaction.CommitAsync();
 
-            _logger.LogInformation("Permanently deleted team {TeamId}", teamId);
-        }
-        catch
-        {
-            await transaction.RollbackAsync();
-            throw;
-        }
+                _logger.LogInformation("Permanently deleted team {TeamId}", teamId);
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        });
     }
 
     public async Task<GlobalAdminTeamDto> RecoverTeamAsync(Guid teamId)
@@ -627,96 +639,100 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
         // Note: Removed validation that prevented users from owning multiple teams
         // as per requirements: "a user can be a Team Owner of one team, Team Admin of another"
 
-        using var transaction = await _context.Database.BeginTransactionAsync();
-        try
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
-            // Update team owner
-            var oldOwnerId = team.OwnerId;
-            team.OwnerId = dto.NewOwnerId;
-            team.ModifiedOn = DateTime.UtcNow;
-            _context.Teams.Update(team);
-            
-            // Remove old owner from TeamOwner role
-            var oldOwnerTeam = await _context.UserTeams
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(ut => ut.UserId == oldOwnerId && ut.TeamId == teamId);
-
-            if (oldOwnerTeam != null)
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                oldOwnerTeam.Role = TeamRole.TeamMember; // Change to member role
-                oldOwnerTeam.MemberType = MemberType.Coach; // Change to athlete type
-                _context.UserTeams.Update(oldOwnerTeam);
-            }
-
-            // Update new owner's role to TeamOwner
-            var newOwnerTeam = await _context.UserTeams
-                .FirstOrDefaultAsync(ut => ut.UserId == dto.NewOwnerId && ut.TeamId == teamId);
-
-            if (newOwnerTeam != null)
-            {
-                // Update existing relationship
-                newOwnerTeam.Role = TeamRole.TeamOwner;
-                newOwnerTeam.MemberType = MemberType.Coach;
-                newOwnerTeam.IsActive = true;
-                _context.UserTeams.Update(newOwnerTeam);
-            }
-            else
-            {
-                // Create new relationship
-                newOwnerTeam = new UserTeam
-                {
-                    UserId = dto.NewOwnerId,
-                    TeamId = teamId,
-                    Role = TeamRole.TeamOwner,
-                    MemberType = MemberType.Coach,
-                    IsActive = true,
-                    IsDefault = newOwner.DefaultTeamId == null,
-                    JoinedOn = DateTime.UtcNow
-                };
-                _context.UserTeams.Add(newOwnerTeam);
-            }
-
-            // Update new owner's default team if they don't have one
-            if (newOwner.DefaultTeamId == null)
-            {
-                newOwner.DefaultTeamId = teamId;
-                await _userManager.UpdateAsync(newOwner);
-            }
-
-            // Cancel any pending ownership transfers
-            var pendingTransfers = await _context.OwnershipTransfers
-                .Where(ot => ot.TeamId == teamId && ot.Status == OwnershipTransferStatus.Pending)
-                .ToListAsync();
-
-            foreach (var transfer in pendingTransfers)
-            {
-                if (transfer.NewOwnerEmail.Equals(newOwner.Email, StringComparison.InvariantCultureIgnoreCase))
-                {
-                    transfer.Status = OwnershipTransferStatus.Completed;
-                    transfer.CompletedByUserId = _currentUserService.UserId;
-                    transfer.CompletedOn = DateTime.UtcNow;
-                    transfer.Message = dto.Message;
-                    continue;
-                }
+                // Update team owner
+                var oldOwnerId = team.OwnerId;
+                team.OwnerId = dto.NewOwnerId;
+                team.ModifiedOn = DateTime.UtcNow;
+                _context.Teams.Update(team);
                 
-                // Cancel other pending transfers
-                transfer.Status = OwnershipTransferStatus.Cancelled;
-                transfer.Message = "Team ownership transfer cancelled due to new transfer";
+                // Remove old owner from TeamOwner role
+                var oldOwnerTeam = await _context.UserTeams
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(ut => ut.UserId == oldOwnerId && ut.TeamId == teamId);
+
+                if (oldOwnerTeam != null)
+                {
+                    oldOwnerTeam.Role = TeamRole.TeamMember; // Change to member role
+                    oldOwnerTeam.MemberType = MemberType.Coach; // Change to athlete type
+                    _context.UserTeams.Update(oldOwnerTeam);
+                }
+
+                // Update new owner's role to TeamOwner
+                var newOwnerTeam = await _context.UserTeams
+                    .FirstOrDefaultAsync(ut => ut.UserId == dto.NewOwnerId && ut.TeamId == teamId);
+
+                if (newOwnerTeam != null)
+                {
+                    // Update existing relationship
+                    newOwnerTeam.Role = TeamRole.TeamOwner;
+                    newOwnerTeam.MemberType = MemberType.Coach;
+                    newOwnerTeam.IsActive = true;
+                    _context.UserTeams.Update(newOwnerTeam);
+                }
+                else
+                {
+                    // Create new relationship
+                    newOwnerTeam = new UserTeam
+                    {
+                        UserId = dto.NewOwnerId,
+                        TeamId = teamId,
+                        Role = TeamRole.TeamOwner,
+                        MemberType = MemberType.Coach,
+                        IsActive = true,
+                        IsDefault = newOwner.DefaultTeamId == null,
+                        JoinedOn = DateTime.UtcNow
+                    };
+                    _context.UserTeams.Add(newOwnerTeam);
+                }
+
+                // Update new owner's default team if they don't have one
+                if (newOwner.DefaultTeamId == null)
+                {
+                    newOwner.DefaultTeamId = teamId;
+                    await _userManager.UpdateAsync(newOwner);
+                }
+
+                // Cancel any pending ownership transfers
+                var pendingTransfers = await _context.OwnershipTransfers
+                    .Where(ot => ot.TeamId == teamId && ot.Status == OwnershipTransferStatus.Pending)
+                    .ToListAsync();
+
+                foreach (var transfer in pendingTransfers)
+                {
+                    if (transfer.NewOwnerEmail.Equals(newOwner.Email, StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        transfer.Status = OwnershipTransferStatus.Completed;
+                        transfer.CompletedByUserId = _currentUserService.UserId;
+                        transfer.CompletedOn = DateTime.UtcNow;
+                        transfer.Message = dto.Message;
+                        continue;
+                    }
+                    
+                    // Cancel other pending transfers
+                    transfer.Status = OwnershipTransferStatus.Cancelled;
+                    transfer.Message = "Team ownership transfer cancelled due to new transfer";
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Transferred ownership of team {TeamId} from {OldOwnerId} to {NewOwnerId}", 
+                    teamId, oldOwnerId, dto.NewOwnerId);
+
+                return await GetTeamByIdAsync(teamId);
             }
-
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            _logger.LogInformation("Transferred ownership of team {TeamId} from {OldOwnerId} to {NewOwnerId}", 
-                teamId, oldOwnerId, dto.NewOwnerId);
-
-            return await GetTeamByIdAsync(teamId);
-        }
-        catch
-        {
-            await transaction.RollbackAsync();
-            throw;
-        }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        });
     }
 
     public async Task<bool> IsSubdomainAvailableAsync(string subdomain, Guid? excludeTeamId = null)

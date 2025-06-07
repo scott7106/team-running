@@ -1,4 +1,4 @@
-import { TeamsApiParams, TeamsApiResponse } from '@/types/team';
+import { TeamsApiParams, TeamsApiResponse, CreateTeamWithNewOwnerDto, CreateTeamWithExistingOwnerDto, GlobalAdminTeamDto } from '@/types/team';
 import { UsersApiParams, UsersApiResponse } from '@/types/user';
 
 class ApiError extends Error {
@@ -73,6 +73,29 @@ export const teamsApi = {
   getTeams: async (params: TeamsApiParams = {}): Promise<TeamsApiResponse> => {
     const queryString = buildQueryString(params as Record<string, unknown>);
     return apiRequest<TeamsApiResponse>(`/api/admin/teams${queryString}`);
+  },
+  
+  createTeamWithNewOwner: async (dto: CreateTeamWithNewOwnerDto): Promise<GlobalAdminTeamDto> => {
+    return apiRequest<GlobalAdminTeamDto>('/api/admin/teams/with-new-owner', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+  
+  createTeamWithExistingOwner: async (dto: CreateTeamWithExistingOwnerDto): Promise<GlobalAdminTeamDto> => {
+    return apiRequest<GlobalAdminTeamDto>('/api/admin/teams/with-existing-owner', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  checkSubdomainAvailability: async (subdomain: string, excludeTeamId?: string): Promise<boolean> => {
+    const params: Record<string, string> = { subdomain };
+    if (excludeTeamId) {
+      params.excludeTeamId = excludeTeamId;
+    }
+    const queryString = buildQueryString(params);
+    return apiRequest<boolean>(`/api/admin/teams/subdomain-availability${queryString}`);
   },
 };
 

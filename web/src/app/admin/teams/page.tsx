@@ -22,6 +22,7 @@ import {
   faChevronUp
 } from '@fortawesome/free-solid-svg-icons';
 import AdminLayout from '@/components/AdminLayout';
+import CreateTeamModal from '@/components/create-team-modal';
 import { GlobalAdminTeamDto, TeamStatus, TeamTier, TeamsApiParams } from '@/types/team';
 import { teamsApi, ApiError } from '@/utils/api';
 
@@ -183,6 +184,7 @@ export default function AdminTeamsPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize] = useState(10);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const loadTeams = useCallback(async (params: TeamsApiParams = {}) => {
     try {
@@ -256,6 +258,14 @@ export default function AdminTeamsPage() {
     console.log('Purge team:', team);
   };
 
+  const handleTeamCreated = (newTeam: GlobalAdminTeamDto) => {
+    // Add the new team to the current list if it matches the current filters
+    setTeams(prev => [newTeam, ...prev]);
+    setTotalCount(prev => prev + 1);
+    // Refresh the teams list to get accurate pagination
+    loadTeams();
+  };
+
   const startIndex = (currentPage - 1) * pageSize + 1;
   const endIndex = Math.min(currentPage * pageSize, totalCount);
 
@@ -272,7 +282,10 @@ export default function AdminTeamsPage() {
               <h1 className="text-3xl font-bold text-gray-900">Team Management</h1>
               <p className="text-gray-600 mt-1">Manage teams across the TeamStride platform</p>
             </div>
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center">
+            <button 
+              onClick={() => setShowCreateModal(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center"
+            >
               <FontAwesomeIcon icon={faPlus} className="w-4 h-4 mr-2" />
               Create Team
             </button>
@@ -554,6 +567,13 @@ export default function AdminTeamsPage() {
           </div>
         </div>
       </div>
+
+      {/* Create Team Modal */}
+      <CreateTeamModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onTeamCreated={handleTeamCreated}
+      />
     </AdminLayout>
   );
 } 
