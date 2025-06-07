@@ -69,42 +69,44 @@ export default function Modal({
     <>
       {/* Modern backdrop with subtle blur */}
       <div 
-        className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm z-50 overflow-y-auto"
         onClick={handleBackdropClick}
       >
-        {/* Modal container with proper scrolling */}
-        <div 
-          className={`bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl w-full ${sizeClasses[size]} max-h-[90vh] border border-white/20 transform animate-modal-appear flex flex-col`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header - Fixed at top */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200/50 flex-shrink-0">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-              {icon && <span className="mr-3">{icon}</span>}
-              {title}
-            </h2>
-            {showCloseButton && (
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-gray-100/80 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
-                disabled={loading}
-              >
-                <FontAwesomeIcon icon={faTimes} className="w-5 h-5 text-gray-500" />
-              </button>
+        {/* Modal container with proper centering and mobile optimization */}
+        <div className="min-h-full flex items-center justify-center p-4 sm:p-6 lg:p-8">
+          <div 
+            className={`bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl w-full ${sizeClasses[size]} max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] lg:max-h-[90vh] border border-white/20 transform animate-modal-appear flex flex-col my-4 sm:my-6 lg:my-8`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header - Fixed at top */}
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200/50 flex-shrink-0">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center">
+                {icon && <span className="mr-3">{icon}</span>}
+                {title}
+              </h2>
+              {showCloseButton && (
+                <button
+                  onClick={onClose}
+                  className="p-2 hover:bg-gray-100/80 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+                  disabled={loading}
+                >
+                  <FontAwesomeIcon icon={faTimes} className="w-5 h-5 text-gray-500" />
+                </button>
+              )}
+            </div>
+
+            {/* Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {children}
+            </div>
+
+            {/* Footer - Fixed at bottom */}
+            {footer && (
+              <div className="p-4 sm:p-6 border-t border-gray-200/50 bg-gray-50/30 flex-shrink-0">
+                {footer}
+              </div>
             )}
           </div>
-
-          {/* Content - Scrollable */}
-          <div className="flex-1 overflow-y-auto min-h-0">
-            {children}
-          </div>
-
-          {/* Footer - Fixed at bottom */}
-          {footer && (
-            <div className="p-6 border-t border-gray-200/50 bg-gray-50/30 flex-shrink-0">
-              {footer}
-            </div>
-          )}
         </div>
       </div>
 

@@ -27,6 +27,7 @@ import AdminLayout from '@/components/AdminLayout';
 import ConfirmationModal from '@/components/confirmation-modal';
 import CreateUserModal from '@/components/CreateUserModal';
 import EditUserModal from '@/components/EditUserModal';
+import ResetPasswordModal from '@/components/ResetPasswordModal';
 import { GlobalAdminUserDto, UserStatus, UsersApiParams } from '@/types/user';
 import { usersApi, ApiError } from '@/utils/api';
 
@@ -206,6 +207,10 @@ export default function AdminUsersPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [userToEdit, setUserToEdit] = useState<GlobalAdminUserDto | null>(null);
   
+  // Reset password modal state
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [userToResetPassword, setUserToResetPassword] = useState<GlobalAdminUserDto | null>(null);
+  
   // Delete and purge modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showPurgeModal, setShowPurgeModal] = useState(false);
@@ -347,13 +352,30 @@ export default function AdminUsersPage() {
   };
 
   const handleResetPassword = (user: GlobalAdminUserDto) => {
-    // TODO: Implement reset password functionality
-    console.log('Reset password for user:', user);
+    setUserToResetPassword(user);
+    setShowResetPasswordModal(true);
   };
 
-  const handleResetLockout = (user: GlobalAdminUserDto) => {
-    // TODO: Implement reset lockout functionality
-    console.log('Reset lockout for user:', user);
+  const handleResetLockout = async (user: GlobalAdminUserDto) => {
+    try {
+      setError(null);
+      await usersApi.resetLockout(user.id);
+      
+      // Refresh the users list to reflect the updated lockout status
+      loadUsers();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('Failed to reset lockout. Please try again.');
+      }
+      console.error('Error resetting lockout:', err);
+    }
+  };
+
+  const handlePasswordReset = () => {
+    // Refresh the users list
+    loadUsers();
   };
 
   const handleCreateUser = () => {
@@ -762,6 +784,14 @@ export default function AdminUsersPage() {
         onClose={() => setShowEditModal(false)}
         onUserUpdated={handleUserUpdated}
         user={userToEdit}
+      />
+
+      {/* Reset Password Modal */}
+      <ResetPasswordModal
+        isOpen={showResetPasswordModal}
+        onClose={() => setShowResetPasswordModal(false)}
+        onPasswordReset={handlePasswordReset}
+        user={userToResetPassword}
       />
       </div>
     </AdminLayout>

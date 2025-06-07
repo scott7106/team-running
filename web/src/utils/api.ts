@@ -1,5 +1,5 @@
 import { TeamsApiParams, TeamsApiResponse, CreateTeamWithNewOwnerDto, CreateTeamWithExistingOwnerDto, GlobalAdminTeamDto, GlobalAdminUpdateTeamDto } from '@/types/team';
-import { UsersApiParams, UsersApiResponse, GlobalAdminUserDto, UserStatus } from '@/types/user';
+import { UsersApiParams, UsersApiResponse, GlobalAdminUserDto, UserStatus, GlobalAdminResetPasswordDto, PasswordResetResultDto } from '@/types/user';
 
 class ApiError extends Error {
   status: number;
@@ -209,6 +209,19 @@ export const usersApi = {
   purgeUser: async (userId: string): Promise<void> => {
     return apiRequest<void>(`/api/admin/users/${userId}/purge`, {
       method: 'DELETE',
+    });
+  },
+
+  resetPassword: async (userId: string, dto: GlobalAdminResetPasswordDto): Promise<PasswordResetResultDto> => {
+    return apiRequest<PasswordResetResultDto>(`/api/admin/users/${userId}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  resetLockout: async (userId: string): Promise<GlobalAdminUserDto> => {
+    return apiRequest<GlobalAdminUserDto>(`/api/admin/users/${userId}/reset-lockout`, {
+      method: 'POST',
     });
   },
 };

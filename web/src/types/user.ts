@@ -75,4 +75,23 @@ export interface UsersApiResponse {
   totalCount: number;
   hasPreviousPage: boolean;
   hasNextPage: boolean;
+}
+
+export interface GlobalAdminResetPasswordDto {
+  newPassword?: string;
+  requirePasswordChange: boolean;
+  sendPasswordByEmail: boolean;
+  sendPasswordBySms: boolean;
+}
+
+export interface PasswordResetResultDto {
+  userId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  temporaryPassword?: string;
+  requirePasswordChange: boolean;
+  passwordSentByEmail: boolean;
+  passwordSentBySms: boolean;
+  resetTimestamp: string;
 } 
