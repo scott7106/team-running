@@ -514,7 +514,7 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
         _logger.LogInformation("Soft deleted team {TeamId}", teamId);
     }
 
-    public async Task PermanentlyDeleteTeamAsync(Guid teamId)
+    public async Task PurgeTeamAsync(Guid teamId)
     {
         await _authorizationService.RequireGlobalAdminAsync();
 

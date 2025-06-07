@@ -304,7 +304,7 @@ public class GlobalAdminUserService : IGlobalAdminUserService
             _currentUserService.UserId, userId);
     }
 
-    public async Task PermanentlyDeleteUserAsync(Guid userId)
+    public async Task PurgeUserAsync(Guid userId)
     {
         await _authorizationService.RequireGlobalAdminAsync();
 

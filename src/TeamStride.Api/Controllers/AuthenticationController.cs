@@ -138,60 +138,27 @@ public class AuthenticationController : ControllerBase
     [ProducesResponseType(401)]
     public async Task<IActionResult> Heartbeat([FromBody] HeartbeatRequestDto request)
     {
-        // Add debugging for validation issues
         if (!ModelState.IsValid)
         {
-            Console.WriteLine("❌ HEARTBEAT VALIDATION FAILED:");
-            foreach (var error in ModelState)
-            {
-                Console.WriteLine($"  Field: {error.Key}");
-                foreach (var errorMsg in error.Value.Errors)
-                {
-                    Console.WriteLine($"    Error: {errorMsg.ErrorMessage}");
-                }
-            }
-            if (request?.Fingerprint != null)
-            {
-                Console.WriteLine($"  Fingerprint length: {request.Fingerprint.Length}");
-            }
             return BadRequest(ModelState);
         }
 
-        Console.WriteLine($"✅ HEARTBEAT VALIDATION PASSED - Fingerprint length: {request.Fingerprint?.Length ?? 0}");
-
-        // Debug JWT claims
-        Console.WriteLine("🔍 JWT Claims:");
-        foreach (var claim in User.Claims)
+        if (request?.Fingerprint == null)
         {
-            Console.WriteLine($"  {claim.Type}: {claim.Value}");
+            return BadRequest("Fingerprint is required");
         }
 
         var userIdString = User.FindFirst("sub")?.Value ?? 
                            User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        Console.WriteLine($"🔍 Found user ID claim: {userIdString ?? "NULL"}");
         
         if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
         {
-            Console.WriteLine("❌ HEARTBEAT: Invalid or missing user ID in token");
             return Unauthorized();
         }
-        
-        Console.WriteLine($"🔍 Parsed user ID: {userId}");
-        Console.WriteLine($"🔍 Calling ValidateHeartbeatAsync...");
         
         var isValid = await _authenticationService.ValidateHeartbeatAsync(userId, request.Fingerprint);
-        Console.WriteLine($"🔍 ValidateHeartbeatAsync result: {isValid}");
         
-        if (isValid)
-        {
-            Console.WriteLine("✅ HEARTBEAT: SUCCESS - Returning 200 OK");
-            return Ok();
-        }
-        else
-        {
-            Console.WriteLine("❌ HEARTBEAT: FAILED - ValidateHeartbeatAsync returned false");
-            return Unauthorized();
-        }
+        return isValid ? Ok() : Unauthorized();
     }
 
     [Authorize]

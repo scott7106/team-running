@@ -218,16 +218,16 @@ public class GlobalAdminUsersController : BaseApiController
     /// </summary>
     /// <param name="userId">User ID</param>
     /// <returns>No content</returns>
-    [HttpDelete("{userId:guid}/permanent")]
+    [HttpDelete("{userId:guid}/purge")]
     [ProducesResponseType(204)]
     [ProducesResponseType(401)]
     [ProducesResponseType(403)]
     [ProducesResponseType(404)]
-    public async Task<IActionResult> PermanentlyDeleteUser(Guid userId)
+    public async Task<IActionResult> PurgeUser(Guid userId)
     {
         try
         {
-            await _globalAdminUserService.PermanentlyDeleteUserAsync(userId);
+            await _globalAdminUserService.PurgeUserAsync(userId);
             return NoContent();
         }
         catch (InvalidOperationException ex)
@@ -236,7 +236,7 @@ public class GlobalAdminUsersController : BaseApiController
         }
         catch (Exception ex)
         {
-            return HandleError(ex, $"Failed to permanently delete user {userId}");
+            return HandleError(ex, $"Failed to purge user {userId}");
         }
     }
 

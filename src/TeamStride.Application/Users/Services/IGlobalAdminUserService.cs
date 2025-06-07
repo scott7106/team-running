@@ -78,7 +78,7 @@ public interface IGlobalAdminUserService
     /// </summary>
     /// <param name="userId">User ID</param>
     /// <returns>Task</returns>
-    Task PermanentlyDeleteUserAsync(Guid userId);
+    Task PurgeUserAsync(Guid userId);
 
     /// <summary>
     /// Recovers a soft-deleted user account and restores its active status.

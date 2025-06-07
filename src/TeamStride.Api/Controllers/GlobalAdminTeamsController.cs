@@ -254,16 +254,16 @@ public class GlobalAdminTeamsController : BaseApiController
     /// </summary>
     /// <param name="teamId">Team ID</param>
     /// <returns>No content</returns>
-    [HttpDelete("{teamId:guid}/permanent")]
+    [HttpDelete("{teamId:guid}/purge")]
     [ProducesResponseType(204)]
     [ProducesResponseType(401)]
     [ProducesResponseType(403)]
     [ProducesResponseType(404)]
-    public async Task<IActionResult> PermanentlyDeleteTeam(Guid teamId)
+    public async Task<IActionResult> PurgeDeleteTeam(Guid teamId)
     {
         try
         {
-            await _globalAdminTeamService.PermanentlyDeleteTeamAsync(teamId);
+            await _globalAdminTeamService.PurgeTeamAsync(teamId);
             return NoContent();
         }
         catch (InvalidOperationException ex)
@@ -272,7 +272,7 @@ public class GlobalAdminTeamsController : BaseApiController
         }
         catch (Exception ex)
         {
-            return HandleError(ex, $"Failed to permanently delete team {teamId}");
+            return HandleError(ex, $"Failed to purge team {teamId}");
         }
     }
 

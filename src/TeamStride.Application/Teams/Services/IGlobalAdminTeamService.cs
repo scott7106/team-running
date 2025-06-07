@@ -89,7 +89,7 @@ public interface IGlobalAdminTeamService
     /// </summary>
     /// <param name="teamId">Team ID</param>
     /// <returns>Task</returns>
-    Task PermanentlyDeleteTeamAsync(Guid teamId);
+    Task PurgeTeamAsync(Guid teamId);
 
     /// <summary>
     /// Recovers a soft-deleted team and restores its active status.

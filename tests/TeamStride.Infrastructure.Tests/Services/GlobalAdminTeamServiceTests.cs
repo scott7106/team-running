@@ -684,10 +684,10 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
 
     #endregion
 
-    #region PermanentlyDeleteTeamAsync Tests
+    #region PurgeTeamAsync Tests
 
     [Fact]
-    public async Task PermanentlyDeleteTeamAsync_AsGlobalAdmin_ShouldPermanentlyDeleteTeam()
+    public async Task PurgeTeamAsync_AsGlobalAdmin_ShouldPurgeTeam()
     {
         // Arrange
         SetupGlobalAdminContext();
@@ -707,7 +707,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         var team = await CreateTestTeamAsync("Team to Delete", "team-to-delete", owner.Id);
 
         // Act
-        await service.PermanentlyDeleteTeamAsync(team.Id);
+        await service.PurgeTeamAsync(team.Id);
 
         // Assert
         var deletedTeam = await DbContext.Teams.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == team.Id);
@@ -719,7 +719,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
     }
 
     [Fact]
-    public async Task PermanentlyDeleteTeamAsync_WhenTeamNotFound_ShouldThrowException()
+    public async Task PurgeTeamAsync_WhenTeamNotFound_ShouldThrowException()
     {
         // Arrange
         SetupGlobalAdminContext();
@@ -739,13 +739,13 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
 
         // Act & Assert
         var exception = await Should.ThrowAsync<InvalidOperationException>(
-            () => service.PermanentlyDeleteTeamAsync(nonExistentTeamId));
+            () => service.PurgeTeamAsync(nonExistentTeamId));
         
         exception.Message.ShouldContain($"Team with ID {nonExistentTeamId} not found");
     }
 
     [Fact]
-    public async Task PermanentlyDeleteTeamAsync_AsNonGlobalAdmin_ShouldThrowUnauthorizedAccessException()
+    public async Task PurgeTeamAsync_AsNonGlobalAdmin_ShouldThrowUnauthorizedAccessException()
     {
         // Arrange
         var teamId = Guid.NewGuid();
@@ -764,7 +764,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
 
         // Act & Assert
         await Should.ThrowAsync<UnauthorizedAccessException>(
-            () => service.PermanentlyDeleteTeamAsync(teamId));
+            () => service.PurgeTeamAsync(teamId));
     }
 
     #endregion

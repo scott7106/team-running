@@ -507,10 +507,10 @@ public class GlobalAdminUserServiceTests : BaseSecuredTest
 
     #endregion
 
-    #region PermanentlyDeleteUserAsync Tests
+    #region PurgeUserAsync Tests
 
     [Fact]
-    public async Task PermanentlyDeleteUserAsync_AsGlobalAdmin_ShouldPermanentlyDeleteUser()
+    public async Task PurgeDeleteUserAsync_AsGlobalAdmin_ShouldPurgeUser()
     {
         // Arrange
         SetupGlobalAdminContext();
@@ -524,7 +524,7 @@ public class GlobalAdminUserServiceTests : BaseSecuredTest
         var userId = user.Id;
 
         // Act
-        await service.PermanentlyDeleteUserAsync(userId);
+        await service.PurgeUserAsync(userId);
 
         // Assert
         var deletedUser = await DbContext.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Id == userId);
