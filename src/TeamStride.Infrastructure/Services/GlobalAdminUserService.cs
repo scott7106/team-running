@@ -308,56 +308,60 @@ public class GlobalAdminUserService : IGlobalAdminUserService
     {
         await _authorizationService.RequireGlobalAdminAsync();
 
-        using var transaction = await _context.Database.BeginTransactionAsync();
-        try
-        {
-            var user = await _context.Users
-                .IgnoreQueryFilters()
-                .Include(u => u.UserTeams)
-                .Include(u => u.RefreshTokens)
-                .FirstOrDefaultAsync(u => u.Id == userId);
+        var user = await _context.Users
+            .IgnoreQueryFilters()
+            .Include(u => u.UserTeams)
+            .Include(u => u.RefreshTokens)
+            .FirstOrDefaultAsync(u => u.Id == userId);
 
-            if (user == null)
+        if (user == null)
+        {
+            throw new InvalidOperationException($"User with ID {userId} not found");
+        }
+
+        var strategy = _context.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                throw new InvalidOperationException($"User with ID {userId} not found");
+                // Remove refresh tokens
+                _context.RefreshTokens.RemoveRange(user.RefreshTokens);
+
+                // Remove user-team relationships
+                _context.UserTeams.RemoveRange(user.UserTeams);
+
+                // Remove user roles
+                var userRoles = await _context.UserRoles.Where(ur => ur.UserId == userId).ToListAsync();
+                _context.UserRoles.RemoveRange(userRoles);
+
+                // Remove user claims
+                var userClaims = await _context.UserClaims.Where(uc => uc.UserId == userId).ToListAsync();
+                _context.UserClaims.RemoveRange(userClaims);
+
+                // Remove user logins
+                var userLogins = await _context.UserLogins.Where(ul => ul.UserId == userId).ToListAsync();
+                _context.UserLogins.RemoveRange(userLogins);
+
+                // Remove user tokens
+                var userTokens = await _context.UserTokens.Where(ut => ut.UserId == userId).ToListAsync();
+                _context.UserTokens.RemoveRange(userTokens);
+
+                // Finally, remove the user
+                _context.Users.Remove(user);
+
+                await _context.SaveChangesWithoutAuditAsync();
+                await transaction.CommitAsync();
+
+                _logger.LogWarning("Global admin {AdminId} permanently deleted user {UserId} with email {Email}", 
+                    _currentUserService.UserId, userId, user.Email);
             }
-
-            // Remove refresh tokens
-            _context.RefreshTokens.RemoveRange(user.RefreshTokens);
-
-            // Remove user-team relationships
-            _context.UserTeams.RemoveRange(user.UserTeams);
-
-            // Remove user roles
-            var userRoles = await _context.UserRoles.Where(ur => ur.UserId == userId).ToListAsync();
-            _context.UserRoles.RemoveRange(userRoles);
-
-            // Remove user claims
-            var userClaims = await _context.UserClaims.Where(uc => uc.UserId == userId).ToListAsync();
-            _context.UserClaims.RemoveRange(userClaims);
-
-            // Remove user logins
-            var userLogins = await _context.UserLogins.Where(ul => ul.UserId == userId).ToListAsync();
-            _context.UserLogins.RemoveRange(userLogins);
-
-            // Remove user tokens
-            var userTokens = await _context.UserTokens.Where(ut => ut.UserId == userId).ToListAsync();
-            _context.UserTokens.RemoveRange(userTokens);
-
-            // Finally, remove the user
-            _context.Users.Remove(user);
-
-            await _context.SaveChangesWithoutAuditAsync();
-            await transaction.CommitAsync();
-
-            _logger.LogWarning("Global admin {AdminId} permanently deleted user {UserId} with email {Email}", 
-                _currentUserService.UserId, userId, user.Email);
-        }
-        catch
-        {
-            await transaction.RollbackAsync();
-            throw;
-        }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        });
     }
 
     public async Task<GlobalAdminUserDto> RecoverUserAsync(Guid userId)

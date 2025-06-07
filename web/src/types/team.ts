@@ -57,6 +57,17 @@ export interface CreateTeamWithExistingOwnerDto {
   expiresOn?: string;
 }
 
+export interface GlobalAdminUpdateTeamDto {
+  name?: string;
+  subdomain?: string;
+  status?: TeamStatus;
+  tier?: TeamTier;
+  expiresOn?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  logoUrl?: string;
+}
+
 export interface PaginatedList<T> {
   items: T[];
   totalCount: number;

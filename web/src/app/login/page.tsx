@@ -86,7 +86,7 @@ export default function LoginPage() {
       // If routing fails, just go to home page as fallback
       router.push('/');
     }
-  }, [router]);
+  }, [router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Check if user is already logged in with a valid token

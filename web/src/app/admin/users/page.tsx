@@ -24,6 +24,9 @@ import {
   faKey
 } from '@fortawesome/free-solid-svg-icons';
 import AdminLayout from '@/components/AdminLayout';
+import ConfirmationModal from '@/components/confirmation-modal';
+import CreateUserModal from '@/components/CreateUserModal';
+import EditUserModal from '@/components/EditUserModal';
 import { GlobalAdminUserDto, UserStatus, UsersApiParams } from '@/types/user';
 import { usersApi, ApiError } from '@/utils/api';
 
@@ -195,6 +198,21 @@ export default function AdminUsersPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize] = useState(10);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
+  
+  // Create user modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  
+  // Edit user modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [userToEdit, setUserToEdit] = useState<GlobalAdminUserDto | null>(null);
+  
+  // Delete and purge modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showPurgeModal, setShowPurgeModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<GlobalAdminUserDto | null>(null);
+  const [userToPurge, setUserToPurge] = useState<GlobalAdminUserDto | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [purgeLoading, setPurgeLoading] = useState(false);
 
   const loadUsers = useCallback(async (params: UsersApiParams = {}) => {
     try {
@@ -254,18 +272,78 @@ export default function AdminUsersPage() {
   };
 
   const handleEdit = (user: GlobalAdminUserDto) => {
-    // TODO: Implement edit functionality
-    console.log('Edit user:', user);
+    setUserToEdit(user);
+    setShowEditModal(true);
   };
 
   const handleDelete = (user: GlobalAdminUserDto) => {
-    // TODO: Implement delete functionality
-    console.log('Delete user:', user);
+    setUserToDelete(user);
+    setShowDeleteModal(true);
   };
 
   const handlePurge = (user: GlobalAdminUserDto) => {
-    // TODO: Implement purge functionality
-    console.log('Purge user:', user);
+    setUserToPurge(user);
+    setShowPurgeModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!userToDelete) return;
+    
+    try {
+      setDeleteLoading(true);
+      setError(null);
+      
+      await usersApi.deleteUser(userToDelete.id);
+      
+      // Remove the user from the current list or refresh
+      setUsers(prev => prev.filter(user => user.id !== userToDelete.id));
+      setTotalCount(prev => prev - 1);
+      
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+      
+      // Refresh the users list to get accurate pagination
+      loadUsers();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('Failed to delete user. Please try again.');
+      }
+      console.error('Error deleting user:', err);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const confirmPurge = async () => {
+    if (!userToPurge) return;
+    
+    try {
+      setPurgeLoading(true);
+      setError(null);
+      
+      await usersApi.purgeUser(userToPurge.id);
+      
+      // Remove the user from the current list
+      setUsers(prev => prev.filter(user => user.id !== userToPurge.id));
+      setTotalCount(prev => prev - 1);
+      
+      setShowPurgeModal(false);
+      setUserToPurge(null);
+      
+      // Refresh the users list to get accurate pagination
+      loadUsers();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('Failed to purge user. Please try again.');
+      }
+      console.error('Error purging user:', err);
+    } finally {
+      setPurgeLoading(false);
+    }
   };
 
   const handleResetPassword = (user: GlobalAdminUserDto) => {
@@ -276,6 +354,20 @@ export default function AdminUsersPage() {
   const handleResetLockout = (user: GlobalAdminUserDto) => {
     // TODO: Implement reset lockout functionality
     console.log('Reset lockout for user:', user);
+  };
+
+  const handleCreateUser = () => {
+    setShowCreateModal(true);
+  };
+
+  const handleUserCreated = () => {
+    // Refresh the users list
+    loadUsers();
+  };
+
+  const handleUserUpdated = () => {
+    // Refresh the users list
+    loadUsers();
   };
 
   const startIndex = (currentPage - 1) * pageSize + 1;
@@ -294,7 +386,10 @@ export default function AdminUsersPage() {
               <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
               <p className="text-gray-600 mt-1">Manage users across the TeamStride platform</p>
             </div>
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center">
+            <button 
+              onClick={handleCreateUser}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center"
+            >
               <FontAwesomeIcon icon={faPlus} className="w-4 h-4 mr-2" />
               Create User
             </button>
@@ -622,6 +717,52 @@ export default function AdminUsersPage() {
             )}
           </div>
         </div>
+
+      {/* Delete User Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setUserToDelete(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Delete User"
+        message={`Are you sure you want to delete "${userToDelete?.displayName}"? This will soft delete the user account. The user can be recovered later if needed.`}
+        icon={<FontAwesomeIcon icon={faTrash} className="w-5 h-5 text-red-600" />}
+        confirmText="Delete User"
+        loading={deleteLoading}
+      />
+
+      {/* Purge User Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showPurgeModal}
+        onClose={() => {
+          setShowPurgeModal(false);
+          setUserToPurge(null);
+        }}
+        onConfirm={confirmPurge}
+        title="Purge User"
+        message={`Are you sure you want to permanently purge "${userToPurge?.displayName}"? This action cannot be undone and will permanently remove the user account and all associated data.`}
+        icon={<FontAwesomeIcon icon={faTrashAlt} className="w-5 h-5 text-red-600" />}
+        confirmText="Purge User"
+        confirmButtonClass="bg-red-700 text-white hover:bg-red-800 focus:ring-red-600"
+        loading={purgeLoading}
+      />
+
+      {/* Create User Modal */}
+      <CreateUserModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onUserCreated={handleUserCreated}
+      />
+
+      {/* Edit User Modal */}
+      <EditUserModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onUserUpdated={handleUserUpdated}
+        user={userToEdit}
+      />
       </div>
     </AdminLayout>
   );

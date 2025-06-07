@@ -23,6 +23,8 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import AdminLayout from '@/components/AdminLayout';
 import CreateTeamModal from '@/components/create-team-modal';
+import EditTeamModal from '@/components/edit-team-modal';
+import ConfirmationModal from '@/components/confirmation-modal';
 import { GlobalAdminTeamDto, TeamStatus, TeamTier, TeamsApiParams } from '@/types/team';
 import { teamsApi, ApiError } from '@/utils/api';
 
@@ -185,6 +187,14 @@ export default function AdminTeamsPage() {
   const [pageSize] = useState(10);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState<GlobalAdminTeamDto | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showPurgeModal, setShowPurgeModal] = useState(false);
+  const [teamToDelete, setTeamToDelete] = useState<GlobalAdminTeamDto | null>(null);
+  const [teamToPurge, setTeamToPurge] = useState<GlobalAdminTeamDto | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [purgeLoading, setPurgeLoading] = useState(false);
 
   const loadTeams = useCallback(async (params: TeamsApiParams = {}) => {
     try {
@@ -244,18 +254,78 @@ export default function AdminTeamsPage() {
   };
 
   const handleEdit = (team: GlobalAdminTeamDto) => {
-    // TODO: Implement edit functionality
-    console.log('Edit team:', team);
+    setSelectedTeam(team);
+    setShowEditModal(true);
   };
 
   const handleDelete = (team: GlobalAdminTeamDto) => {
-    // TODO: Implement delete functionality
-    console.log('Delete team:', team);
+    setTeamToDelete(team);
+    setShowDeleteModal(true);
   };
 
   const handlePurge = (team: GlobalAdminTeamDto) => {
-    // TODO: Implement purge functionality
-    console.log('Purge team:', team);
+    setTeamToPurge(team);
+    setShowPurgeModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!teamToDelete) return;
+    
+    try {
+      setDeleteLoading(true);
+      setError(null);
+      
+      await teamsApi.deleteTeam(teamToDelete.id);
+      
+      // Remove the team from the current list or refresh
+      setTeams(prev => prev.filter(team => team.id !== teamToDelete.id));
+      setTotalCount(prev => prev - 1);
+      
+      setShowDeleteModal(false);
+      setTeamToDelete(null);
+      
+      // Refresh the teams list to get accurate pagination
+      loadTeams();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('Failed to delete team. Please try again.');
+      }
+      console.error('Error deleting team:', err);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const confirmPurge = async () => {
+    if (!teamToPurge) return;
+    
+    try {
+      setPurgeLoading(true);
+      setError(null);
+      
+      await teamsApi.purgeTeam(teamToPurge.id);
+      
+      // Remove the team from the current list
+      setTeams(prev => prev.filter(team => team.id !== teamToPurge.id));
+      setTotalCount(prev => prev - 1);
+      
+      setShowPurgeModal(false);
+      setTeamToPurge(null);
+      
+      // Refresh the teams list to get accurate pagination
+      loadTeams();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('Failed to purge team. Please try again.');
+      }
+      console.error('Error purging team:', err);
+    } finally {
+      setPurgeLoading(false);
+    }
   };
 
   const handleTeamCreated = (newTeam: GlobalAdminTeamDto) => {
@@ -263,6 +333,15 @@ export default function AdminTeamsPage() {
     setTeams(prev => [newTeam, ...prev]);
     setTotalCount(prev => prev + 1);
     // Refresh the teams list to get accurate pagination
+    loadTeams();
+  };
+
+  const handleTeamUpdated = (updatedTeam: GlobalAdminTeamDto) => {
+    // Update the team in the current list
+    setTeams(prev => prev.map(team => 
+      team.id === updatedTeam.id ? updatedTeam : team
+    ));
+    // Refresh the teams list to ensure accurate data
     loadTeams();
   };
 
@@ -573,6 +652,45 @@ export default function AdminTeamsPage() {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onTeamCreated={handleTeamCreated}
+      />
+
+      {/* Edit Team Modal */}
+      <EditTeamModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onTeamUpdated={handleTeamUpdated}
+        team={selectedTeam}
+      />
+
+      {/* Delete Team Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setTeamToDelete(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Delete Team"
+        message={`Are you sure you want to delete "${teamToDelete?.name}"? This will soft delete the team and deactivate all its members. The team can be recovered later if needed.`}
+        icon={<FontAwesomeIcon icon={faTrash} className="w-5 h-5 text-red-600" />}
+        confirmText="Delete Team"
+        loading={deleteLoading}
+      />
+
+      {/* Purge Team Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showPurgeModal}
+        onClose={() => {
+          setShowPurgeModal(false);
+          setTeamToPurge(null);
+        }}
+        onConfirm={confirmPurge}
+        title="Purge Team"
+        message={`Are you sure you want to permanently purge "${teamToPurge?.name}"? This action cannot be undone and will permanently remove all team data, including members, activities, and settings.`}
+        icon={<FontAwesomeIcon icon={faTrashAlt} className="w-5 h-5 text-red-600" />}
+        confirmText="Purge Team"
+        confirmButtonClass="bg-red-700 text-white hover:bg-red-800 focus:ring-red-600"
+        loading={purgeLoading}
       />
     </AdminLayout>
   );
