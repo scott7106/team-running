@@ -47,25 +47,66 @@ function TeamHomePageContent() {
       return;
     }
 
-    // Get subdomain from URL params for development
+    // Get parameters from URL
     const subdomain = searchParams.get('subdomain');
+    const teamId = searchParams.get('teamId');
     
-    // TODO: Add API call to get team info and user info
-    // For now, we'll set placeholder data
-    setTeamInfo({
-      teamId: 'team-123',
-      teamName: subdomain ? `${subdomain.charAt(0).toUpperCase() + subdomain.slice(1)} Running Club` : 'Sample Running Club',
-      subdomain: subdomain || 'sample',
-      primaryColor: '#2563eb',
-      secondaryColor: '#1e40af'
-    });
+    const loadTeamData = async () => {
+      try {
+        if (teamId) {
+          // Load team by ID
+          const response = await fetch(`/api/teams/${teamId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
 
-    setUserInfo({
-      firstName: 'Coach',
-      lastName: 'Smith',
-      email: 'coach@example.com',
-      role: 'Team Owner'
-    });
+          if (response.status === 403) {
+            // User doesn't have access to this team
+            router.push('/no-team-access');
+            return;
+          }
+
+          if (!response.ok) {
+            throw new Error('Failed to load team data');
+          }
+
+          const teamData = await response.json();
+          setTeamInfo({
+            teamId: teamData.id,
+            teamName: teamData.name,
+            subdomain: teamData.subdomain,
+            primaryColor: teamData.primaryColor || '#2563eb',
+            secondaryColor: teamData.secondaryColor || '#1e40af'
+          });
+        } else {
+          // For subdomain-based access, use placeholder data for now
+          // TODO: Implement subdomain-based team loading
+          setTeamInfo({
+            teamId: 'team-123',
+            teamName: subdomain ? `${subdomain.charAt(0).toUpperCase() + subdomain.slice(1)} Running Club` : 'Sample Running Club',
+            subdomain: subdomain || 'sample',
+            primaryColor: '#2563eb',
+            secondaryColor: '#1e40af'
+          });
+        }
+
+        // TODO: Load actual user info from API
+        setUserInfo({
+          firstName: 'Coach',
+          lastName: 'Smith',
+          email: 'coach@example.com',
+          role: 'Team Owner'
+        });
+      } catch (error) {
+        console.error('Error loading team data:', error);
+        // Redirect to home on error
+        router.push('/');
+      }
+    };
+
+    loadTeamData();
   }, [router, searchParams]);
 
   const handleLogout = () => {

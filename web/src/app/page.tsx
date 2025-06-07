@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -8,14 +9,123 @@ import {
   faRunning, 
   faComments, 
   faTrophy, 
-  faClock
+  faClock,
+  faUser,
+  faChevronDown,
+  faSignOutAlt,
+  faBuilding
 } from '@fortawesome/free-solid-svg-icons';
+import { getUserFromToken, logout, isTokenExpired } from '@/utils/auth';
 
 export default function Home() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userInfo, setUserInfo] = useState<{
+    firstName: string;
+    lastName: string;
+    email: string;
+  } | null>(null);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const router = useRouter();
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Check authentication status on component mount
+    const checkAuth = () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          if (!isTokenExpired(token)) {
+            setIsAuthenticated(true);
+            const user = getUserFromToken();
+            if (user) {
+              setUserInfo(user);
+            } else {
+              // Fallback if we can't decode user info from token
+              setUserInfo({
+                firstName: 'User',
+                lastName: '',
+                email: 'user@example.com'
+              });
+            }
+          } else {
+            // Token is expired, clean up
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+            setIsAuthenticated(false);
+          }
+        } catch (error) {
+          console.error('Error validating token:', error);
+          // If validation fails, clean up potentially invalid tokens
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          setIsAuthenticated(false);
+        }
+      } else {
+        setIsAuthenticated(false);
+      }
+    };
+
+    checkAuth();
+
+    // Listen for storage changes (e.g., when user logs out in another tab)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'token') {
+        checkAuth();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Close user menu when clicking outside
+    function handleClickOutside(event: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    }
+
+    if (isUserMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [isUserMenuOpen]);
 
   const handleLoginClick = () => {
     router.push('/login');
+  };
+
+  const handleLogout = () => {
+    logout();
+  };
+
+  const handleDashboard = () => {
+    // Navigate to team or admin dashboard based on user's role
+    // For now, we'll go to the team page
+    router.push('/team');
+    setIsUserMenuOpen(false);
+  };
+
+  const handleProfile = () => {
+    // TODO: Implement profile navigation
+    console.log('Navigate to profile');
+    setIsUserMenuOpen(false);
+  };
+
+  const handlePlanSelect = () => {
+    if (isAuthenticated) {
+      // Navigate to team dashboard/settings for plan management
+      router.push('/team');
+    } else {
+      // Navigate to login for non-authenticated users
+      router.push('/login');
+    }
   };
 
   return (
@@ -30,12 +140,60 @@ export default function Home() {
               </div>
               <span className="ml-2 text-xl font-bold text-gray-900">TeamStride</span>
             </div>
-            <button
-              onClick={handleLoginClick}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-            >
-              Login
-            </button>
+            
+            {/* Authenticated User Menu or Login Button */}
+            {isAuthenticated && userInfo ? (
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors"
+                >
+                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                    <FontAwesomeIcon icon={faUser} className="text-white text-sm" />
+                  </div>
+                  <span className="font-medium">{userInfo.firstName}</span>
+                  <FontAwesomeIcon icon={faChevronDown} className="w-4 h-4" />
+                </button>
+                
+                {/* User Dropdown Menu */}
+                {isUserMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                    <div className="px-4 py-2 border-b border-gray-200">
+                      <p className="text-sm font-medium text-gray-900">{userInfo.firstName} {userInfo.lastName}</p>
+                      <p className="text-xs text-gray-500">{userInfo.email}</p>
+                    </div>
+                    <button
+                      onClick={handleDashboard}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                    >
+                      <FontAwesomeIcon icon={faBuilding} className="w-4 h-4 mr-3" />
+                      Dashboard
+                    </button>
+                    <button
+                      onClick={handleProfile}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                    >
+                      <FontAwesomeIcon icon={faUser} className="w-4 h-4 mr-3" />
+                      Profile
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                    >
+                      <FontAwesomeIcon icon={faSignOutAlt} className="w-4 h-4 mr-3" />
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={handleLoginClick}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              >
+                Login
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -72,25 +230,53 @@ export default function Home() {
             
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 animate-fade-in animation-delay-800">
-              <button 
-                onClick={handleLoginClick}
-                className="group bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-10 py-5 rounded-xl text-lg font-bold hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 hover:shadow-xl"
-              >
-                <span className="flex items-center justify-center">
-                  Start Your Free Team
-                  <svg className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                </span>
-              </button>
-              <button className="group border-2 border-gray-300 text-gray-700 px-10 py-5 rounded-xl text-lg font-bold hover:border-blue-500 hover:text-blue-600 transition-all duration-300 transform hover:scale-105 hover:shadow-lg bg-white/80 backdrop-blur-sm">
-                <span className="flex items-center justify-center">
-                  <svg className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Watch Demo
-                </span>
-              </button>
+              {isAuthenticated ? (
+                // Authenticated user buttons
+                <>
+                  <button 
+                    onClick={handleDashboard}
+                    className="group bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-10 py-5 rounded-xl text-lg font-bold hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 hover:shadow-xl"
+                  >
+                    <span className="flex items-center justify-center">
+                      Go to Dashboard
+                      <svg className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                    </span>
+                  </button>
+                  <button className="group border-2 border-gray-300 text-gray-700 px-10 py-5 rounded-xl text-lg font-bold hover:border-blue-500 hover:text-blue-600 transition-all duration-300 transform hover:scale-105 hover:shadow-lg bg-white/80 backdrop-blur-sm">
+                    <span className="flex items-center justify-center">
+                      <svg className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Watch Demo
+                    </span>
+                  </button>
+                </>
+              ) : (
+                // Non-authenticated user buttons
+                <>
+                  <button 
+                    onClick={handleLoginClick}
+                    className="group bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-10 py-5 rounded-xl text-lg font-bold hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 hover:shadow-xl"
+                  >
+                    <span className="flex items-center justify-center">
+                      Start Your Free Team
+                      <svg className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                    </span>
+                  </button>
+                  <button className="group border-2 border-gray-300 text-gray-700 px-10 py-5 rounded-xl text-lg font-bold hover:border-blue-500 hover:text-blue-600 transition-all duration-300 transform hover:scale-105 hover:shadow-lg bg-white/80 backdrop-blur-sm">
+                    <span className="flex items-center justify-center">
+                      <svg className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Watch Demo
+                    </span>
+                  </button>
+                </>
+              )}
             </div>
             
             {/* Social Proof */}
@@ -224,10 +410,10 @@ export default function Home() {
               </ul>
               
               <button 
-                onClick={handleLoginClick}
+                onClick={handlePlanSelect}
                 className="w-full bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors mt-auto"
               >
-                Get Started Free
+                {isAuthenticated ? 'Manage Plan' : 'Get Started Free'}
               </button>
             </div>
             
@@ -266,10 +452,10 @@ export default function Home() {
               </ul>
               
               <button 
-                onClick={handleLoginClick}
+                onClick={handlePlanSelect}
                 className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors mt-auto"
               >
-                Start Standard Plan
+                {isAuthenticated ? 'Upgrade to Standard' : 'Start Standard Plan'}
               </button>
             </div>
             
@@ -305,10 +491,10 @@ export default function Home() {
               </ul>
               
               <button 
-                onClick={handleLoginClick}
+                onClick={handlePlanSelect}
                 className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors mt-auto"
               >
-                Start Pro Plan
+                {isAuthenticated ? 'Upgrade to Pro' : 'Start Pro Plan'}
               </button>
             </div>
           </div>

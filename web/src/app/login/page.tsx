@@ -188,11 +188,34 @@ export default function LoginPage() {
         // Not a global admin, continue with normal flow
       }
 
-      // 1. If we have a team subdomain, verify access and route accordingly
-      if (currentSubdomain && authData.teamId) {
-        // User authenticated for specific team via subdomain
-        routeToTeamPage(authData.teamId);
-        return;
+      // 1. If we have a team subdomain, verify user has access to that specific team
+      if (currentSubdomain) {
+        // Get user's team access to check if they can access the subdomain team
+        const teamsResponse = await fetch('/api/tenant-switcher/tenants', {
+          headers: {
+            'Authorization': `Bearer ${authData.token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        let userTeams: TenantDto[] = [];
+        if (teamsResponse.ok) {
+          userTeams = await teamsResponse.json();
+        }
+
+        // Check if user has access to the requested subdomain team
+        const subdomainTeam = userTeams.find(team => team.subdomain === currentSubdomain);
+        
+        if (subdomainTeam) {
+          // User has access to the requested team - route them there
+          routeToTeamPage(subdomainTeam.teamId, subdomainTeam.subdomain);
+          return;
+        } else {
+          // User does NOT have access to the requested team - show error
+          const teamName = currentSubdomain.charAt(0).toUpperCase() + currentSubdomain.slice(1);
+          window.location.href = `/team-access-denied?team=${encodeURIComponent(teamName)}`;
+          return;
+        }
       }
 
       // 2. If no subdomain, check user permissions
@@ -284,8 +307,8 @@ export default function LoginPage() {
         window.location.href = `${protocol}//${subdomain}.${baseDomain}${port}/team`;
       }
     } else {
-      // Route to team page without subdomain
-      router.push(`/team/${teamId}`);
+      // Route to team page with teamId parameter
+      router.push(`/team?teamId=${teamId}`);
     }
   };
 
