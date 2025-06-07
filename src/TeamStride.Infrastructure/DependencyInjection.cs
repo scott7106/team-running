@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using TeamStride.Application.Athletes.Services;
+using TeamStride.Application.Common.Services;
 using TeamStride.Application.Teams.Services;
 using TeamStride.Application.Users.Services;
 using TeamStride.Infrastructure.Mapping;
@@ -30,6 +31,9 @@ public static class DependencyInjection
 
         // Register athlete services
         services.AddScoped<IAthleteService, AthleteService>();
+
+        // Register dashboard services
+        services.AddScoped<IGlobalAdminDashboardService, GlobalAdminDashboardService>();
 
         return services;
     }

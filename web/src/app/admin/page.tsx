@@ -1,16 +1,44 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faUsers, 
   faBuilding, 
-  faUserShield
+  faUserShield,
+  faSpinner
 } from '@fortawesome/free-solid-svg-icons';
 import AdminLayout from '@/components/AdminLayout';
+import { dashboardApi, DashboardStatsDto, ApiError } from '@/utils/api';
 
 export default function GlobalAdminPage() {
   const router = useRouter();
+  const [stats, setStats] = useState<DashboardStatsDto | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadDashboardStats = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const dashboardStats = await dashboardApi.getStats();
+        setStats(dashboardStats);
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setError(err.message);
+        } else {
+          setError('Failed to load dashboard statistics. Please try again.');
+        }
+        console.error('Error loading dashboard stats:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboardStats();
+  }, []);
 
   const handleManageTeams = () => {
     router.push('/admin/teams');
@@ -72,6 +100,12 @@ export default function GlobalAdminPage() {
         </div>
 
         {/* Quick stats */}
+        {error && (
+          <div className="mt-8 bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-red-800 text-sm">{error}</p>
+          </div>
+        )}
+        
         <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center">
@@ -79,7 +113,13 @@ export default function GlobalAdminPage() {
                 <FontAwesomeIcon icon={faBuilding} className="text-blue-600" />
               </div>
               <div className="ml-4">
-                <p className="text-2xl font-bold text-gray-900">--</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {loading ? (
+                    <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
+                  ) : (
+                    stats?.activeTeamsCount ?? '--'
+                  )}
+                </p>
                 <p className="text-sm text-gray-600">Active Teams</p>
               </div>
             </div>
@@ -91,7 +131,13 @@ export default function GlobalAdminPage() {
                 <FontAwesomeIcon icon={faUsers} className="text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-2xl font-bold text-gray-900">--</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {loading ? (
+                    <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
+                  ) : (
+                    stats?.totalUsersCount ?? '--'
+                  )}
+                </p>
                 <p className="text-sm text-gray-600">Total Users</p>
               </div>
             </div>
@@ -103,7 +149,13 @@ export default function GlobalAdminPage() {
                 <FontAwesomeIcon icon={faUserShield} className="text-purple-600" />
               </div>
               <div className="ml-4">
-                <p className="text-2xl font-bold text-gray-900">--</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {loading ? (
+                    <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
+                  ) : (
+                    stats?.globalAdminsCount ?? '--'
+                  )}
+                </p>
                 <p className="text-sm text-gray-600">Global Admins</p>
               </div>
             </div>

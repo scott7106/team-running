@@ -1,6 +1,12 @@
 import { TeamsApiParams, TeamsApiResponse, CreateTeamWithNewOwnerDto, CreateTeamWithExistingOwnerDto, GlobalAdminTeamDto, GlobalAdminUpdateTeamDto } from '@/types/team';
 import { UsersApiParams, UsersApiResponse, GlobalAdminUserDto, UserStatus, GlobalAdminResetPasswordDto, PasswordResetResultDto } from '@/types/user';
 
+export interface DashboardStatsDto {
+  activeTeamsCount: number;
+  totalUsersCount: number;
+  globalAdminsCount: number;
+}
+
 class ApiError extends Error {
   status: number;
   
@@ -223,6 +229,12 @@ export const usersApi = {
     return apiRequest<GlobalAdminUserDto>(`/api/admin/users/${userId}/reset-lockout`, {
       method: 'POST',
     });
+  },
+};
+
+export const dashboardApi = {
+  getStats: async (): Promise<DashboardStatsDto> => {
+    return apiRequest<DashboardStatsDto>('/api/admin/dashboard/stats');
   },
 };
 
