@@ -12,7 +12,7 @@ import {
   faClock
 } from '@fortawesome/free-solid-svg-icons';
 import { getUserFromToken, isTokenExpired, getTeamContextFromToken } from '@/utils/auth';
-import UserContextMenu from '@/components/user-context-menu';
+import UserContextMenu from '@/components/shared/UserContextMenu';
 
 export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);

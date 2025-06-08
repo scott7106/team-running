@@ -21,10 +21,10 @@ import {
   faChevronDown,
   faChevronUp
 } from '@fortawesome/free-solid-svg-icons';
-import AdminLayout from '@/components/AdminLayout';
-import CreateTeamModal from '@/components/create-team-modal';
-import EditTeamModal from '@/components/edit-team-modal';
-import ConfirmationModal from '@/components/confirmation-modal';
+import AdminLayout from '@/components/layouts/AdminLayout';
+import CreateTeamModal from '../components/teams/CreateTeamModal';
+import EditTeamModal from '../components/teams/EditTeamModal';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
 import { GlobalAdminTeamDto, TeamStatus, TeamTier, TeamsApiParams } from '@/types/team';
 import { teamsApi, ApiError } from '@/utils/api';
 

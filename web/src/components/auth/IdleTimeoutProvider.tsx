@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import AuthenticatedIdleTimeout from './AuthenticatedIdleTimeout';
+import IdleTimeout from './IdleTimeout';
 
 interface IdleTimeoutProviderProps {
   children: ReactNode;
@@ -22,7 +22,7 @@ export default function IdleTimeoutProvider({ children }: IdleTimeoutProviderPro
   return (
     <>
       {children}
-      {requiresAuth && <AuthenticatedIdleTimeout />}
+      {requiresAuth && <IdleTimeout />}
     </>
   );
 } 

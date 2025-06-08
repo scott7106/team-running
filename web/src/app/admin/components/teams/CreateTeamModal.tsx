@@ -13,7 +13,7 @@ import {
 import { CreateTeamWithNewOwnerDto, CreateTeamWithExistingOwnerDto, TeamTier, GlobalAdminTeamDto } from '@/types/team';
 import { teamsApi, usersApi } from '@/utils/api';
 import { UsersApiResponse } from '@/types/user';
-import FormModal from './FormModal';
+import FormModal from '@/components/ui/FormModal';
 
 interface CreateTeamModalProps {
   isOpen: boolean;

@@ -16,7 +16,7 @@ import {
   faChartLine,
   faMapMarkerAlt
 } from '@fortawesome/free-solid-svg-icons';
-import UserContextMenu from '../../components/user-context-menu';
+import UserContextMenu from '@/components/shared/UserContextMenu';
 
 interface TeamInfo {
   teamId: string;

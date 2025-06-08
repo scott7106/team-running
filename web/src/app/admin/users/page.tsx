@@ -23,11 +23,11 @@ import {
   faUserTimes,
   faKey
 } from '@fortawesome/free-solid-svg-icons';
-import AdminLayout from '@/components/AdminLayout';
-import ConfirmationModal from '@/components/confirmation-modal';
-import CreateUserModal from '@/components/CreateUserModal';
-import EditUserModal from '@/components/EditUserModal';
-import ResetPasswordModal from '@/components/ResetPasswordModal';
+import AdminLayout from '@/components/layouts/AdminLayout';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
+import CreateUserModal from '../components/users/CreateUserModal';
+import EditUserModal from '../components/users/EditUserModal';
+import ResetPasswordModal from '../components/users/ResetPasswordModal';
 import { GlobalAdminUserDto, UserStatus, UsersApiParams } from '@/types/user';
 import { usersApi, ApiError } from '@/utils/api';
 

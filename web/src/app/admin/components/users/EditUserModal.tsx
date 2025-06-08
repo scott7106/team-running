@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUserEdit, faUser, faCheck, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
-import FormModal from './FormModal';
+import FormModal from '@/components/ui/FormModal';
 import { GlobalAdminUserDto, UserStatus } from '@/types/user';
 import { usersApi } from '@/utils/api';
 

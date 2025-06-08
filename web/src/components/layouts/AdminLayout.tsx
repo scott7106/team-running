@@ -10,7 +10,7 @@ import {
   faTimes
 } from '@fortawesome/free-solid-svg-icons';
 import { getUserFromToken } from '@/utils/auth';
-import UserContextMenu from './user-context-menu';
+import UserContextMenu from '../shared/UserContextMenu';
 
 interface AdminLayoutProps {
   children: ReactNode;

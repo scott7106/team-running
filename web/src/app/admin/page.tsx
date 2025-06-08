@@ -9,7 +9,7 @@ import {
   faUserShield,
   faSpinner
 } from '@fortawesome/free-solid-svg-icons';
-import AdminLayout from '@/components/AdminLayout';
+import AdminLayout from '@/components/layouts/AdminLayout';
 import { dashboardApi, DashboardStatsDto, ApiError } from '@/utils/api';
 
 export default function GlobalAdminPage() {

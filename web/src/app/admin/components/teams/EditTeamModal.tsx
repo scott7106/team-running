@@ -10,7 +10,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { GlobalAdminTeamDto, GlobalAdminUpdateTeamDto, TeamTier, TeamStatus } from '@/types/team';
 import { teamsApi } from '@/utils/api';
-import FormModal from './FormModal';
+import FormModal from '@/components/ui/FormModal';
 
 interface EditTeamModalProps {
   isOpen: boolean;

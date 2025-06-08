@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUserPlus, faUser, faEye, faEyeSlash, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
-import FormModal from './FormModal';
+import FormModal from '@/components/ui/FormModal';
 import { usersApi } from '@/utils/api';
 
 interface ApplicationRole {

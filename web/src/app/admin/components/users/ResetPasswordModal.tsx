@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faKey, faEye, faEyeSlash, faCopy, faCheck } from '@fortawesome/free-solid-svg-icons';
-import FormModal from './FormModal';
+import FormModal from '@/components/ui/FormModal';
 import { GlobalAdminUserDto, GlobalAdminResetPasswordDto, PasswordResetResultDto } from '@/types/user';
 import { usersApi, ApiError } from '@/utils/api';
 
@@ -154,16 +154,16 @@ export default function ResetPasswordModal({
               </div>
             )}
             
-                         <div className="mt-4 space-y-2 text-sm text-green-700">
-               {resetResult.requirePasswordChange && (
-                 <p>• User will be required to change password on next login</p>
-               )}
-               {resetResult.passwordSentByEmail && (
-                 <p>• Password has been sent to the user&apos;s email address</p>
-               )}
-               {resetResult.passwordSentBySms && (
-                 <p>• Password has been sent to the user&apos;s phone number</p>
-               )}
+            <div className="mt-4 space-y-2 text-sm text-green-700">
+              {resetResult.requirePasswordChange && (
+                <p>• User will be required to change password on next login</p>
+              )}
+              {resetResult.passwordSentByEmail && (
+                <p>• Password has been sent to the user&apos;s email address</p>
+              )}
+              {resetResult.passwordSentBySms && (
+                <p>• Password has been sent to the user&apos;s phone number</p>
+              )}
             </div>
           </div>
         </div>

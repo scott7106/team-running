@@ -8,7 +8,7 @@ import IdleTimeoutModal from './IdleTimeoutModal';
 const TIMEOUT_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 const WARNING_DURATION = 1 * 60 * 1000; // 1 minute warning in milliseconds
 
-export default function AuthenticatedIdleTimeout() {
+export default function IdleTimeout() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     // Initialize with current auth state to prevent unnecessary re-renders
     if (typeof window !== 'undefined') {
