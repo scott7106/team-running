@@ -185,9 +185,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       dispatch({ type: 'LOGIN_SUCCESS', payload: tokenData });
       
-      // Emit custom event for cross-tab sync
-      window.dispatchEvent(new CustomEvent('auth-login', { detail: tokenData }));
-      
       console.log('[AuthContext] Login successful:', tokenData.user.email);
     } catch (error) {
       console.error('Login error:', error);
@@ -208,9 +205,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     // Update state
     dispatch({ type: 'LOGOUT' });
-    
-    // Emit custom event for cross-tab sync
-    window.dispatchEvent(new CustomEvent('auth-logout'));
     
     console.log('[AuthContext] Logout completed');
     
@@ -258,9 +252,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       dispatch({ type: 'LOGIN_SUCCESS', payload: tokenData });
       
-      // Emit event for cross-tab sync
-      window.dispatchEvent(new CustomEvent('auth-context-refresh', { detail: tokenData }));
-      
       console.log('[AuthContext] Context refreshed for subdomain:', subdomain, 'user:', authData.email);
       return true;
     } catch (error) {
@@ -285,45 +276,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadAuthState();
   }, [loadAuthState]);
 
-  // Initial load and event listeners
+  // Initial load
   useEffect(() => {
     loadAuthState();
-
-    // Listen for storage changes (cross-tab sync)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'token') {
-        loadAuthState();
-      }
-    };
-
-    // Listen for custom auth events
-    const handleAuthLogin = () => {
-      console.log('[AuthContext] Auth login event received');
-      loadAuthState();
-    };
-
-    const handleAuthLogout = () => {
-      console.log('[AuthContext] Auth logout event received');
-      dispatch({ type: 'LOGOUT' });
-    };
-
-    const handleContextRefresh = () => {
-      console.log('[AuthContext] Context refresh event received');
-      loadAuthState();
-    };
-
-    // Add event listeners
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('auth-login', handleAuthLogin as EventListener);
-    window.addEventListener('auth-logout', handleAuthLogout);
-    window.addEventListener('auth-context-refresh', handleContextRefresh as EventListener);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('auth-login', handleAuthLogin as EventListener);
-      window.removeEventListener('auth-logout', handleAuthLogout);
-      window.removeEventListener('auth-context-refresh', handleContextRefresh as EventListener);
-    };
   }, [loadAuthState]);
 
   const contextValue: AuthContextType = {

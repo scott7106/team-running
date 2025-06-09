@@ -47,7 +47,7 @@ export default function IdleTimeout() {
   } = useIdleTimeout(config);
 
   useEffect(() => {
-    // Check authentication status on mount and when localStorage changes
+    // Check authentication status on mount
     const checkAuth = () => {
       const token = localStorage.getItem('token');
       const isAuth = !!token;
@@ -60,19 +60,6 @@ export default function IdleTimeout() {
     };
 
     checkAuth();
-
-    // Listen for storage changes (e.g., when user logs out in another tab)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'token') {
-        checkAuth();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
   }, []);
 
   const handleContinueSession = useCallback(() => {

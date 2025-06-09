@@ -191,12 +191,7 @@ const fingerprint = {
 
 ---
 
-## 8. Multi-Tab Session Synchronization
-
-### Cross-Tab Communication
-- **Method**: localStorage change event monitoring
-- **Purpose**: Synchronize logout events across browser tabs
-- **Implementation**: Automatic logout propagation when token is removed
+## 8. Focus-Based Validation
 
 ### Focus-Based Validation
 - **Trigger**: Window focus/visibility change events
@@ -322,7 +317,6 @@ const fingerprint = {
 ### Session Security:
 - Idle timeout enforcement
 - Activity monitoring
-- Cross-tab synchronization
 - Fingerprint validation
 
 ### Administrative Security:

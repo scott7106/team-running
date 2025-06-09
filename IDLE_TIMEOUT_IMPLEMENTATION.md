@@ -43,7 +43,7 @@ This component integrates the idle timeout hook with authentication logic:
 - **Timeout Configuration**: 5 minutes total, 1 minute warning
 - **Authentication Check**: Only runs for authenticated users
 - **Automatic Logout**: Calls `logout()` function when timeout expires
-- **Storage Monitoring**: Listens for token changes across browser tabs
+
 
 #### Idle Timeout Provider
 **Location**: `web/src/components/IdleTimeoutProvider.tsx`
@@ -154,7 +154,7 @@ Administrators can force logout users through the `/api/authentication/force-log
 - Causes subsequent heartbeat validations to fail
 
 ### Multi-Tab Synchronization
-The system monitors localStorage changes to handle logout events across multiple browser tabs.
+
 
 ### Focus-Based Validation
 Additional security validation occurs when the browser window regains focus, checking:
