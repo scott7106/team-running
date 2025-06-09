@@ -78,42 +78,27 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         var userRoles = await _userManager.GetRolesAsync(user);
         var isGlobalAdmin = userRoles.Contains("GlobalAdmin");
         
-        // Get user's default team and role if they have one
-        Guid? teamId = null;
-        TeamRole? role = null;
-        MemberType? memberType = null;
-        
-        if (!isGlobalAdmin)
+        // Get all active team memberships for the user
+        var teams = new List<TeamMembershipDto>();
+        var userTeams = await _context.UserTeams
+            .Where(ut => ut.UserId == user.Id && ut.IsActive)
+            .ToListAsync();
+            
+        teams = userTeams.Select(ut => new TeamMembershipDto
         {
-            // Look up user's default team or their first active team membership
-            var userTeam = await _context.UserTeams
-                .Where(ut => ut.UserId == user.Id && ut.IsActive)
-                .OrderByDescending(ut => ut.IsDefault)
-                .ThenBy(ut => ut.JoinedOn)
-                .FirstOrDefaultAsync();
-                
-            if (userTeam != null)
-            {
-                teamId = userTeam.TeamId;
-                role = userTeam.Role;
-                memberType = userTeam.MemberType;
-            }
-        }
+            TeamId = ut.TeamId,
+            TeamRole = ut.Role,
+            MemberType = ut.MemberType
+        }).ToList();
+
         
         // Update last login
         user.LastLoginOn = DateTime.UtcNow;
         await _userManager.UpdateAsync(user);
 
-        // Generate tokens with team context if available
-        string? teamSubdomain = null;
-        if (teamId.HasValue)
-        {
-            var team = await _context.Teams.FindAsync(teamId.Value);
-            teamSubdomain = team?.Subdomain;
-        }
-        
-        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teamId, role, memberType, teamSubdomain);
-        var refreshToken = await CreateRefreshTokenAsync(user, teamId);
+        // Generate tokens
+        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teams);
+        var refreshToken = await CreateRefreshTokenAsync(user);
 
         return new AuthResponseDto
         {
@@ -122,8 +107,8 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             Email = user.Email ?? string.Empty,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            TeamId = teamId,
-            Role = role,
+            IsGlobalAdmin = isGlobalAdmin,
+            Teams = teams,
             RequiresEmailConfirmation = false
         };
     }
@@ -163,18 +148,22 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             throw new AuthenticationException($"Registration failed: {errors}");
         }
 
-        // Create user-team relationship
-        var userTeam = new UserTeam
+        UserTeam? userTeam = null;
+        if (request.TeamId.HasValue) 
         {
-            UserId = user.Id,
-            TeamId = request.TeamId,
-            Role = request.Role,
-            IsActive = true,
-            IsDefault = true,
-            JoinedOn = DateTime.UtcNow
-        };
-        _context.UserTeams.Add(userTeam);
-        await _context.SaveChangesAsync();
+            // Create user-team relationship
+            userTeam = new UserTeam
+            {
+                UserId = user.Id,
+                TeamId = request.TeamId.Value,
+                Role = request.Role,
+                IsActive = true,
+                IsDefault = true,
+                JoinedOn = DateTime.UtcNow
+            };
+            _context.UserTeams.Add(userTeam);
+            await _context.SaveChangesAsync();
+        }        
 
         // Generate email confirmation token and send email
         var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
@@ -182,8 +171,20 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         await _emailService.SendEmailConfirmationAsync(user.Email!, confirmationLink);
 
         // Generate tokens
-        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, request.TeamId, request.Role, userTeam.MemberType);
-        var refreshToken = await CreateRefreshTokenAsync(user, request.TeamId);
+        var teams = request.TeamId.HasValue ?  
+            new List<TeamMembershipDto>
+            {
+                new()
+                {
+                    TeamId = request.TeamId.Value,
+                    TeamRole = request.Role,
+                    MemberType = userTeam?.MemberType ?? MemberType.Athlete
+                }
+            }
+            : new List<TeamMembershipDto>();
+        
+        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teams);
+        var refreshToken = await CreateRefreshTokenAsync(user);
 
         return new AuthResponseDto
         {
@@ -192,8 +193,8 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             Email = user.Email ?? string.Empty,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            TeamId = request.TeamId,
-            Role = request.Role,
+            IsGlobalAdmin = false,
+            Teams = teams,
             RequiresEmailConfirmation = true
         };
     }
@@ -212,20 +213,26 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             throw new AuthenticationException("Refresh token is expired or revoked", AuthenticationException.ErrorCodes.InvalidToken);
         }
 
-        var userTeam = await _context.UserTeams
-            .FirstOrDefaultAsync(ut => ut.UserId == token.UserId && ut.TeamId == token.TeamId) ??
-            throw new AuthenticationException("Invalid team access", AuthenticationException.ErrorCodes.TenantNotFound);
+        // Check if user is a global admin
+        var userRoles = await _userManager.GetRolesAsync(token.User!);
+        var isGlobalAdmin = userRoles.Contains("GlobalAdmin");
+        
+        // Get all active team memberships for the user
+        var teams = new List<TeamMembershipDto>();
+        var userTeams = await _context.UserTeams
+            .Where(ut => ut.UserId == token.UserId && ut.IsActive)
+            .ToListAsync();
+            
+        teams = userTeams.Select(ut => new TeamMembershipDto
+        {
+            TeamId = ut.TeamId,
+            TeamRole = ut.Role,
+            MemberType = ut.MemberType
+        }).ToList();
 
         // Generate new tokens
-        string? teamSubdomain = null;
-        if (token.TeamId.HasValue)
-        {
-            var team = await _context.Teams.FindAsync(token.TeamId.Value);
-            teamSubdomain = team?.Subdomain;
-        }
-        
-        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(token.User!, token.TeamId, userTeam.Role, userTeam.MemberType, teamSubdomain);
-        var newRefreshToken = await CreateRefreshTokenAsync(token.User!, token.TeamId);
+        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(token.User!, teams);
+        var newRefreshToken = await CreateRefreshTokenAsync(token.User!);
 
         // Revoke old refresh token
         token.RevokedOn = DateTime.UtcNow;
@@ -240,8 +247,8 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             Email = token.User!.Email ?? string.Empty,
             FirstName = token.User.FirstName,
             LastName = token.User.LastName,
-            TeamId = token.TeamId,
-            Role = userTeam.Role,
+            IsGlobalAdmin = isGlobalAdmin,
+            Teams = teams,
             RequiresEmailConfirmation = false
         };
     }
@@ -387,34 +394,47 @@ public class AuthenticationService : ITeamStrideAuthenticationService
                 throw new AuthenticationException($"External registration failed: {errors}");
             }
 
-            // Create user-team relationship with default role
-            var newUserTeam = new UserTeam
+            UserTeam? newUserTeam = null;
+            if (request.TeamId.HasValue)
             {
-                UserId = user.Id,
-                TeamId = request.TeamId,
-                Role = TeamRole.TeamMember, // Default role for external users
-                IsActive = true
-            };
-            _context.UserTeams.Add(newUserTeam);
-            await _context.SaveChangesAsync();
+                // Create user-team relationship with default role
+                newUserTeam = new UserTeam
+                {
+                    UserId = user.Id,
+                    TeamId = request.TeamId.Value,
+                    Role = TeamRole.TeamMember, // Default role for external users
+                    IsActive = true
+                };
+                _context.UserTeams.Add(newUserTeam);
+                await _context.SaveChangesAsync();
+            }            
         }
 
-        // Get team and role
-        var teamId = request.TeamId;
-        var userTeam = await _context.UserTeams
-            .FirstOrDefaultAsync(ut => ut.UserId == user!.Id && ut.TeamId == teamId) ??
-            throw new AuthenticationException("Invalid team", AuthenticationException.ErrorCodes.TenantNotFound);
+        // Check if user is a global admin
+        var userRoles = await _userManager.GetRolesAsync(user!);
+        var isGlobalAdmin = userRoles.Contains("GlobalAdmin");
+        
+        // Get all active team memberships for the user
+        var teams = new List<TeamMembershipDto>();
+        var userTeams = await _context.UserTeams
+            .Where(ut => ut.UserId == user!.Id && ut.IsActive)
+            .ToListAsync();
+            
+        teams = userTeams.Select(ut => new TeamMembershipDto
+        {
+            TeamId = ut.TeamId,
+            TeamRole = ut.Role,
+            MemberType = ut.MemberType
+        }).ToList();
+        
 
         // Update last login
         user!.LastLoginOn = DateTime.UtcNow;
         await _userManager.UpdateAsync(user);
 
         // Generate tokens
-        var team = await _context.Teams.FindAsync(teamId);
-        var teamSubdomain = team?.Subdomain;
-        
-        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teamId, userTeam.Role, userTeam.MemberType, teamSubdomain);
-        var refreshToken = await CreateRefreshTokenAsync(user, teamId);
+        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teams);
+        var refreshToken = await CreateRefreshTokenAsync(user);
 
         return new AuthResponseDto
         {
@@ -423,8 +443,8 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             Email = user.Email ?? string.Empty,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            TeamId = teamId,
-            Role = userTeam.Role,
+            IsGlobalAdmin = isGlobalAdmin,
+            Teams = teams,
             RequiresEmailConfirmation = false
         };
     }
@@ -488,13 +508,13 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         return await Task.FromResult($"{baseUrl}/api/authentication/external-login/{provider.ToLowerInvariant()}/callback");
     }
 
-    private async Task<RefreshToken> CreateRefreshTokenAsync(ApplicationUser user, Guid? teamId)
+    private async Task<RefreshToken> CreateRefreshTokenAsync(ApplicationUser user)
     {
         var refreshToken = new RefreshToken
         {
             Token = _jwtTokenService.GenerateRefreshToken(),
             UserId = user.Id,
-            TeamId = teamId ?? Guid.Empty,
+            TeamId = Guid.Empty, // No longer team-specific
             CreatedOn = DateTime.UtcNow,
             ExpiresOn = DateTime.UtcNow.AddDays(7),
             CreatedByIp = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown"
@@ -650,12 +670,25 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         user.LastLoginOn = DateTime.UtcNow;
         await _userManager.UpdateAsync(user);
 
-        // Generate tokens with team context
-        var team = await _context.Teams.FindAsync(teamId);
-        var teamSubdomain = team?.Subdomain;
+        // Get all active team memberships for the user
+        var teams = new List<TeamMembershipDto>();
+        if (!isGlobalAdmin)
+        {
+            var userTeams = await _context.UserTeams
+                .Where(ut => ut.UserId == userId && ut.IsActive)
+                .ToListAsync();
+                
+            teams = userTeams.Select(ut => new TeamMembershipDto
+            {
+                TeamId = ut.TeamId,
+                TeamRole = ut.Role,
+                MemberType = ut.MemberType
+            }).ToList();
+        }
         
-        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teamId, userTeam.Role, userTeam.MemberType, teamSubdomain);
-        var refreshToken = await CreateRefreshTokenAsync(user, teamId);
+        // Generate tokens
+        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teams);
+        var refreshToken = await CreateRefreshTokenAsync(user);
 
         return new AuthResponseDto
         {
@@ -664,8 +697,8 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             Email = user.Email ?? string.Empty,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            TeamId = teamId,
-            Role = userTeam.Role,
+            IsGlobalAdmin = isGlobalAdmin,
+            Teams = teams,
             RequiresEmailConfirmation = false
         };
     }
@@ -705,8 +738,9 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             }
 
             // Generate tokens for global admin context (no specific team)
-            var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, null, null, null, "app");
-            var refreshToken = await CreateRefreshTokenAsync(user, null);
+            var teams = new List<TeamMembershipDto>();
+            var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teams);
+            var refreshToken = await CreateRefreshTokenAsync(user);
 
             return new AuthResponseDto
             {
@@ -715,16 +749,17 @@ public class AuthenticationService : ITeamStrideAuthenticationService
                 Email = user.Email ?? string.Empty,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                TeamId = null,
-                Role = null,
+                IsGlobalAdmin = true,
+                Teams = teams,
                 RequiresEmailConfirmation = false
             };
         }
         else if (subdomain == "www" || subdomain == "localhost")
         {
             // Marketing site context - no team context needed
-            var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, null, null, null, null);
-            var refreshToken = await CreateRefreshTokenAsync(user, null);
+            var teams = new List<TeamMembershipDto>();
+            var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teams);
+            var refreshToken = await CreateRefreshTokenAsync(user);
 
             return new AuthResponseDto
             {
@@ -733,8 +768,8 @@ public class AuthenticationService : ITeamStrideAuthenticationService
                 Email = user.Email ?? string.Empty,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                TeamId = null,
-                Role = null,
+                IsGlobalAdmin = isGlobalAdmin,
+                Teams = teams,
                 RequiresEmailConfirmation = false
             };
         }
@@ -774,9 +809,25 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             user.LastLoginOn = DateTime.UtcNow;
             await _userManager.UpdateAsync(user);
 
-            // Generate tokens with team context
-            var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, team.Id, userTeam.Role, userTeam.MemberType, subdomain);
-            var refreshToken = await CreateRefreshTokenAsync(user, team.Id);
+            // Get all active team memberships for the user
+            var teams = new List<TeamMembershipDto>();
+            if (!isGlobalAdmin)
+            {
+                var userTeams = await _context.UserTeams
+                    .Where(ut => ut.UserId == userId && ut.IsActive)
+                    .ToListAsync();
+                    
+                teams = userTeams.Select(ut => new TeamMembershipDto
+                {
+                    TeamId = ut.TeamId,
+                    TeamRole = ut.Role,
+                    MemberType = ut.MemberType
+                }).ToList();
+            }
+
+            // Generate tokens
+            var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teams);
+            var refreshToken = await CreateRefreshTokenAsync(user);
 
             return new AuthResponseDto
             {
@@ -785,8 +836,8 @@ public class AuthenticationService : ITeamStrideAuthenticationService
                 Email = user.Email ?? string.Empty,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                TeamId = team.Id,
-                Role = userTeam.Role,
+                IsGlobalAdmin = isGlobalAdmin,
+                Teams = teams,
                 RequiresEmailConfirmation = false
             };
         }

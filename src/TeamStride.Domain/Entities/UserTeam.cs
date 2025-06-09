@@ -5,7 +5,7 @@ namespace TeamStride.Domain.Entities;
 public class UserTeam : AuditedEntity<Guid>
 {
     public Guid UserId { get; set; }
-    public Guid? TeamId { get; set; }
+    public Guid TeamId { get; set; }
     public TeamRole Role { get; set; }
     public MemberType MemberType { get; set; }
     public bool IsDefault { get; set; }

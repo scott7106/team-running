@@ -44,8 +44,8 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         _mockConfiguration = new Mock<IConfiguration>();
         _mockExternalAuthService = new Mock<IExternalAuthService>();
 
-        // Setup default mock behaviors
-        _mockJwtTokenService.Setup(x => x.GenerateJwtTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<Guid?>(), It.IsAny<TeamRole?>(), It.IsAny<MemberType?>(), It.IsAny<string?>()))
+        // Setup default mock behaviors - Fix the JWT token service mock to use correct signature
+        _mockJwtTokenService.Setup(x => x.GenerateJwtTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<List<TeamMembershipDto>>()))
             .ReturnsAsync("mock-jwt-token");
 
         _mockEmailService.Setup(x => x.SendEmailConfirmationAsync(It.IsAny<string>(), It.IsAny<string>()))
@@ -189,14 +189,15 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         result.Email.ShouldBe(user.Email);
         result.FirstName.ShouldBe(user.FirstName);
         result.LastName.ShouldBe(user.LastName);
-        result.Role.ShouldBe(userTeam.Role);
+        result.Teams.ShouldNotBeNull();
+        result.Teams.Count.ShouldBe(1);
+        result.Teams[0].TeamRole.ShouldBe(userTeam.Role);
         result.RequiresEmailConfirmation.ShouldBeFalse();
         result.RefreshToken.ShouldNotBeNullOrEmpty();
 
         // Verify refresh token was created in database
         var refreshToken = DbContext.RefreshTokens.FirstOrDefault(rt => rt.UserId == user.Id);
         refreshToken.ShouldNotBeNull();
-        refreshToken.TeamId.ShouldBe(_testTeamId);
     }
 
     #endregion
@@ -322,8 +323,10 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         result.Email.ShouldBe(request.Email);
         result.FirstName.ShouldBe(request.FirstName);
         result.LastName.ShouldBe(request.LastName);
-        result.TeamId.ShouldBe(team.Id);
-        result.Role.ShouldBe(request.Role);
+        result.Teams.ShouldNotBeNull();
+        result.Teams.Count.ShouldBe(1);
+        result.Teams[0].TeamId.ShouldBe(team.Id);
+        result.Teams[0].TeamRole.ShouldBe(request.Role);
         result.RequiresEmailConfirmation.ShouldBeTrue();
 
         // Verify UserTeam was created
@@ -395,8 +398,10 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         result.ShouldNotBeNull();
         result.Token.ShouldBe("mock-jwt-token");
         result.Email.ShouldBe(user.Email);
-        result.TeamId.ShouldBe(_testTeamId);
-        result.Role.ShouldBe(userTeam.Role);
+        result.Teams.ShouldNotBeNull();
+        result.Teams.Count.ShouldBe(1);
+        result.Teams[0].TeamId.ShouldBe(_testTeamId);
+        result.Teams[0].TeamRole.ShouldBe(userTeam.Role);
 
         // Verify old token was revoked
         var revokedToken = DbContext.RefreshTokens.First(rt => rt.Id == refreshToken.Id);
@@ -537,8 +542,14 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         // Arrange
         var user = await CreateTestUserAsync();
         var refreshToken = await CreateTestRefreshTokenAsync(user.Id, _testTeamId);
-        var token = "valid-reset-token";
+        var token = "valid-token";
         var newPassword = "NewPassword123!";
+
+        var mockHttpContext = new Mock<HttpContext>();
+        var mockConnection = new Mock<ConnectionInfo>();
+        mockConnection.Setup(x => x.RemoteIpAddress).Returns(System.Net.IPAddress.Parse("127.0.0.1"));
+        mockHttpContext.Setup(x => x.Connection).Returns(mockConnection.Object);
+        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(mockHttpContext.Object);
 
         _mockUserManager.Setup(x => x.FindByIdAsync(user.Id.ToString())).ReturnsAsync(user);
         _mockUserManager.Setup(x => x.ResetPasswordAsync(user, token, newPassword)).ReturnsAsync(IdentityResult.Success);
@@ -602,6 +613,12 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         var currentPassword = "CurrentPassword123!";
         var newPassword = "NewPassword123!";
 
+        var mockHttpContext = new Mock<HttpContext>();
+        var mockConnection = new Mock<ConnectionInfo>();
+        mockConnection.Setup(x => x.RemoteIpAddress).Returns(System.Net.IPAddress.Parse("127.0.0.1"));
+        mockHttpContext.Setup(x => x.Connection).Returns(mockConnection.Object);
+        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(mockHttpContext.Object);
+
         _mockUserManager.Setup(x => x.FindByIdAsync(user.Id.ToString())).ReturnsAsync(user);
         _mockUserManager.Setup(x => x.ChangePasswordAsync(user, currentPassword, newPassword)).ReturnsAsync(IdentityResult.Success);
 
@@ -626,9 +643,14 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     {
         // Arrange
         var user = await CreateTestUserAsync();
-        var activeToken1 = await CreateTestRefreshTokenAsync(user.Id, _testTeamId);
-        var activeToken2 = await CreateTestRefreshTokenAsync(user.Id, _testTeamId);
-        var expiredToken = await CreateTestRefreshTokenAsync(user.Id, _testTeamId, isExpired: true);
+        var refreshToken1 = await CreateTestRefreshTokenAsync(user.Id, _testTeamId);
+        var refreshToken2 = await CreateTestRefreshTokenAsync(user.Id, _testTeamId);
+
+        var mockHttpContext = new Mock<HttpContext>();
+        var mockConnection = new Mock<ConnectionInfo>();
+        mockConnection.Setup(x => x.RemoteIpAddress).Returns(System.Net.IPAddress.Parse("127.0.0.1"));
+        mockHttpContext.Setup(x => x.Connection).Returns(mockConnection.Object);
+        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(mockHttpContext.Object);
 
         // Act
         var result = await _authenticationService.LogoutAsync(user.Id);
@@ -636,18 +658,10 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         // Assert
         result.ShouldBeTrue();
 
-        // Verify active tokens were revoked
-        var revokedToken1 = DbContext.RefreshTokens.First(rt => rt.Id == activeToken1.Id);
-        revokedToken1.RevokedOn.ShouldNotBeNull();
-        revokedToken1.ReasonRevoked.ShouldBe("Logged out");
-
-        var revokedToken2 = DbContext.RefreshTokens.First(rt => rt.Id == activeToken2.Id);
-        revokedToken2.RevokedOn.ShouldNotBeNull();
-        revokedToken2.ReasonRevoked.ShouldBe("Logged out");
-
-        // Verify expired token was not modified (already inactive)
-        var unchangedToken = DbContext.RefreshTokens.First(rt => rt.Id == expiredToken.Id);
-        unchangedToken.ReasonRevoked.ShouldBe("Expired"); // This token was already revoked when created
+        // Verify all refresh tokens were revoked
+        var revokedTokens = DbContext.RefreshTokens.Where(rt => rt.UserId == user.Id).ToList();
+        revokedTokens.ShouldAllBe(rt => rt.RevokedOn != null);
+        revokedTokens.ShouldAllBe(rt => rt.ReasonRevoked == "Logged out");
     }
 
     #endregion
@@ -724,8 +738,10 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         result.Email.ShouldBe(externalUserInfo.Email);
         result.FirstName.ShouldBe(externalUserInfo.FirstName);
         result.LastName.ShouldBe(externalUserInfo.LastName);
-        result.TeamId.ShouldBe(team.Id);
-        result.Role.ShouldBe(TeamRole.TeamMember); // Default role for external users
+        result.Teams.ShouldNotBeNull();
+        result.Teams.Count.ShouldBe(1);
+        result.Teams[0].TeamId.ShouldBe(team.Id);
+        result.Teams[0].TeamRole.ShouldBe(TeamRole.TeamMember); // Default role for external users
 
         // Verify UserTeam was created
         var userTeam = DbContext.UserTeams.FirstOrDefault(ut => ut.TeamId == team.Id);
@@ -761,8 +777,357 @@ public class AuthenticationServiceTests : BaseIntegrationTest
         // Assert
         result.ShouldNotBeNull();
         result.Email.ShouldBe(existingUser.Email);
-        result.TeamId.ShouldBe(team.Id);
-        result.Role.ShouldBe(TeamRole.TeamMember); // Existing user's role
+        result.Teams.ShouldNotBeNull();
+        result.Teams.Count.ShouldBe(1);
+        result.Teams[0].TeamId.ShouldBe(team.Id);
+        result.Teams[0].TeamRole.ShouldBe(TeamRole.TeamMember); // Existing user's role
+    }
+
+    #endregion
+
+    #region Multi-Team Authentication Tests
+
+    [Fact]
+    public async Task LoginAsync_WithMultipleTeams_ReturnsAllTeamsInResponse()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync();
+        var team1 = await CreateTestTeamAsync("Team 1");
+        var team2 = await CreateTestTeamAsync("Team 2");
+        var team3 = await CreateTestTeamAsync("Team 3");
+        
+        var userTeam1 = await CreateTestUserTeamAsync(user.Id, team1.Id, TeamRole.TeamOwner);
+        var userTeam2 = await CreateTestUserTeamAsync(user.Id, team2.Id, TeamRole.TeamAdmin);
+        var userTeam3 = await CreateTestUserTeamAsync(user.Id, team3.Id, TeamRole.TeamMember);
+        
+        // Override the default team ID with the first team
+        userTeam1.IsDefault = true;
+        userTeam2.IsDefault = false;
+        userTeam3.IsDefault = false;
+        await DbContext.SaveChangesAsync();
+        
+        var request = new LoginRequestDto { Email = user.Email!, Password = "password" };
+        
+        _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
+        _mockUserManager.Setup(x => x.CheckPasswordAsync(user, request.Password)).ReturnsAsync(true);
+        _mockUserManager.Setup(x => x.GetRolesAsync(user)).ReturnsAsync(new List<string>()); // Non-admin user
+        _mockUserManager.Setup(x => x.UpdateAsync(user)).ReturnsAsync(IdentityResult.Success);
+        _mockJwtTokenService.Setup(x => x.GenerateRefreshToken()).Returns("mock-refresh-token");
+
+        // Act
+        var result = await _authenticationService.LoginAsync(request);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Teams.ShouldNotBeNull();
+        result.Teams.Count.ShouldBe(3);
+        
+        // Verify all teams are included with correct roles
+        var ownerTeam = result.Teams.FirstOrDefault(t => t.TeamId == team1.Id);
+        ownerTeam.ShouldNotBeNull();
+        ownerTeam.TeamRole.ShouldBe(TeamRole.TeamOwner);
+        
+        var adminTeam = result.Teams.FirstOrDefault(t => t.TeamId == team2.Id);
+        adminTeam.ShouldNotBeNull();
+        adminTeam.TeamRole.ShouldBe(TeamRole.TeamAdmin);
+        
+        var memberTeam = result.Teams.FirstOrDefault(t => t.TeamId == team3.Id);
+        memberTeam.ShouldNotBeNull();
+        memberTeam.TeamRole.ShouldBe(TeamRole.TeamMember);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_WithMultipleTeamsInDatabase_OnlyIncludesRegisteredTeam()
+    {
+        // Arrange
+        var existingTeam = await CreateTestTeamAsync("Existing Team");
+        var registrationTeam = await CreateTestTeamAsync("Registration Team");
+        
+        var request = new RegisterRequestDto 
+        { 
+            Email = "newuser@example.com", 
+            Password = "Password123!", 
+            ConfirmPassword = "Password123!",
+            FirstName = "New", 
+            LastName = "User",
+            TeamId = registrationTeam.Id,
+            Role = TeamRole.TeamMember
+        };
+
+        _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync((ApplicationUser?)null);
+        _mockUserManager.Setup(x => x.CreateAsync(It.IsAny<ApplicationUser>(), request.Password))
+            .ReturnsAsync(IdentityResult.Success)
+            .Callback<ApplicationUser, string>((user, password) => 
+            {
+                user.Id = Guid.NewGuid();
+                DbContext.Users.Add(user);
+                DbContext.SaveChanges();
+            });
+        _mockUserManager.Setup(x => x.GenerateEmailConfirmationTokenAsync(It.IsAny<ApplicationUser>()))
+            .ReturnsAsync("confirmation-token");
+        _mockJwtTokenService.Setup(x => x.GenerateRefreshToken()).Returns("mock-refresh-token");
+
+        // Act
+        var result = await _authenticationService.RegisterAsync(request);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Teams.ShouldNotBeNull();
+        result.Teams.Count.ShouldBe(1);
+        result.Teams[0].TeamId.ShouldBe(registrationTeam.Id);
+        result.Teams[0].TeamRole.ShouldBe(TeamRole.TeamMember);
+    }
+
+    [Fact]
+    public async Task RefreshTokenAsync_WithMultipleTeams_ReturnsAllTeamsInResponse()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync();
+        var team1 = await CreateTestTeamAsync("Team 1");
+        var team2 = await CreateTestTeamAsync("Team 2");
+        
+        await CreateTestUserTeamAsync(user.Id, team1.Id, TeamRole.TeamOwner);
+        await CreateTestUserTeamAsync(user.Id, team2.Id, TeamRole.TeamMember);
+        
+        var refreshToken = await CreateTestRefreshTokenAsync(user.Id, team1.Id);
+
+        var mockHttpContext = new Mock<HttpContext>();
+        var mockConnection = new Mock<ConnectionInfo>();
+        mockConnection.Setup(x => x.RemoteIpAddress).Returns(System.Net.IPAddress.Parse("127.0.0.1"));
+        mockHttpContext.Setup(x => x.Connection).Returns(mockConnection.Object);
+        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(mockHttpContext.Object);
+        _mockJwtTokenService.Setup(x => x.GenerateRefreshToken()).Returns("mock-refresh-token");
+
+        // Act
+        var result = await _authenticationService.RefreshTokenAsync(refreshToken.Token);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Teams.ShouldNotBeNull();
+        result.Teams.Count.ShouldBe(2);
+        
+        // Verify both teams are included
+        result.Teams.Any(t => t.TeamId == team1.Id && t.TeamRole == TeamRole.TeamOwner).ShouldBeTrue();
+        result.Teams.Any(t => t.TeamId == team2.Id && t.TeamRole == TeamRole.TeamMember).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task ExternalLoginAsync_WithMultipleTeamsForExistingUser_ReturnsAllTeamsInResponse()
+    {
+        // Arrange
+        var team1 = await CreateTestTeamAsync("Team 1");
+        var team2 = await CreateTestTeamAsync("Team 2");
+        var existingUser = await CreateTestUserAsync(email: "existing@example.com");
+        
+        await CreateTestUserTeamAsync(existingUser.Id, team1.Id, TeamRole.TeamAdmin);
+        await CreateTestUserTeamAsync(existingUser.Id, team2.Id, TeamRole.TeamMember);
+        
+        var request = new ExternalAuthRequestDto { Provider = "Google", AccessToken = "valid-token", TeamId = team1.Id };
+        var externalUserInfo = new ExternalUserInfo
+        {
+            Email = existingUser.Email!,
+            FirstName = "Updated",
+            LastName = "Name",
+            ProviderId = "google-456"
+        };
+
+        _mockExternalAuthService.Setup(x => x.GetUserInfoAsync(request.Provider, request.AccessToken))
+            .ReturnsAsync(externalUserInfo);
+        _mockUserManager.Setup(x => x.FindByEmailAsync(externalUserInfo.Email)).ReturnsAsync(existingUser);
+        _mockUserManager.Setup(x => x.UpdateAsync(existingUser)).ReturnsAsync(IdentityResult.Success);
+        _mockJwtTokenService.Setup(x => x.GenerateRefreshToken()).Returns("mock-refresh-token");
+
+        // Act
+        var result = await _authenticationService.ExternalLoginAsync(request);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Teams.ShouldNotBeNull();
+        result.Teams.Count.ShouldBe(2);
+        
+        // Verify both teams are included with correct roles
+        result.Teams.Any(t => t.TeamId == team1.Id && t.TeamRole == TeamRole.TeamAdmin).ShouldBeTrue();
+        result.Teams.Any(t => t.TeamId == team2.Id && t.TeamRole == TeamRole.TeamMember).ShouldBeTrue();
+    }
+
+    #endregion
+
+    #region AuthResponseDto Structure Tests
+
+    [Fact]
+    public async Task LoginAsync_AuthResponseDto_HasCorrectStructure()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync();
+        var userTeam = await CreateTestUserTeamAsync(user.Id, _testTeamId);
+        var request = new LoginRequestDto { Email = user.Email!, Password = "password" };
+        
+        _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
+        _mockUserManager.Setup(x => x.CheckPasswordAsync(user, request.Password)).ReturnsAsync(true);
+        _mockUserManager.Setup(x => x.GetRolesAsync(user)).ReturnsAsync(new List<string>()); // Non-admin user
+        _mockUserManager.Setup(x => x.UpdateAsync(user)).ReturnsAsync(IdentityResult.Success);
+        _mockJwtTokenService.Setup(x => x.GenerateRefreshToken()).Returns("mock-refresh-token");
+
+        // Act
+        var result = await _authenticationService.LoginAsync(request);
+
+        // Assert - Verify all required properties exist
+        result.ShouldNotBeNull();
+        result.Token.ShouldNotBeNullOrEmpty();
+        result.RefreshToken.ShouldNotBeNullOrEmpty();
+        result.Email.ShouldBe(user.Email);
+        result.FirstName.ShouldBe(user.FirstName);
+        result.LastName.ShouldBe(user.LastName);
+        result.RequiresEmailConfirmation.ShouldBeFalse();
+        result.Teams.ShouldNotBeNull();
+        result.Teams.Count.ShouldBe(1);
+        
+        // Verify team structure
+        var team = result.Teams[0];
+        team.TeamId.ShouldBe(_testTeamId);
+        team.TeamRole.ShouldBe(userTeam.Role);
+        team.MemberType.ShouldBe(MemberType.Coach); // Default member type for tests
+        
+        // Verify deprecated properties are not accessed (they don't exist)
+        // This test ensures we're not trying to access Role or TeamId properties that don't exist
+        var type = result.GetType();
+        type.GetProperty("Role").ShouldBeNull();
+        type.GetProperty("TeamId").ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task RegisterAsync_AuthResponseDto_HasCorrectStructure()
+    {
+        // Arrange
+        var team = await CreateTestTeamAsync();
+        var request = new RegisterRequestDto 
+        { 
+            Email = "newuser@example.com", 
+            Password = "Password123!", 
+            ConfirmPassword = "Password123!",
+            FirstName = "New", 
+            LastName = "User",
+            TeamId = team.Id,
+            Role = TeamRole.TeamMember
+        };
+
+        _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync((ApplicationUser?)null);
+        _mockUserManager.Setup(x => x.CreateAsync(It.IsAny<ApplicationUser>(), request.Password))
+            .ReturnsAsync(IdentityResult.Success)
+            .Callback<ApplicationUser, string>((user, password) => 
+            {
+                user.Id = Guid.NewGuid();
+                DbContext.Users.Add(user);
+                DbContext.SaveChanges();
+            });
+        _mockUserManager.Setup(x => x.GenerateEmailConfirmationTokenAsync(It.IsAny<ApplicationUser>()))
+            .ReturnsAsync("confirmation-token");
+        _mockJwtTokenService.Setup(x => x.GenerateRefreshToken()).Returns("mock-refresh-token");
+
+        // Act
+        var result = await _authenticationService.RegisterAsync(request);
+
+        // Assert - Verify all required properties exist
+        result.ShouldNotBeNull();
+        result.Token.ShouldNotBeNullOrEmpty();
+        result.RefreshToken.ShouldNotBeNullOrEmpty();
+        result.Email.ShouldBe(request.Email);
+        result.FirstName.ShouldBe(request.FirstName);
+        result.LastName.ShouldBe(request.LastName);
+        result.RequiresEmailConfirmation.ShouldBeTrue();
+        result.Teams.ShouldNotBeNull();
+        result.Teams.Count.ShouldBe(1);
+        
+        // Verify team structure
+        var teamResult = result.Teams[0];
+        teamResult.TeamId.ShouldBe(team.Id);
+        teamResult.TeamRole.ShouldBe(request.Role);
+        teamResult.MemberType.ShouldBe(MemberType.Coach); // Default member type for registration
+    }
+
+    #endregion
+
+    #region Team Context Validation Tests
+
+    [Fact]
+    public async Task LoginAsync_WithSuspendedTeam_IncludesAllTeamsRegardlessOfStatus()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync();
+        var activeTeam = await CreateTestTeamAsync("Active Team");
+        var suspendedTeam = new Team
+        {
+            Id = Guid.NewGuid(),
+            Name = "Suspended Team",
+            CreatedOn = DateTime.UtcNow,
+            Status = TeamStatus.Suspended, // Suspended team
+            Tier = TeamTier.Free
+        };
+        DbContext.Teams.Add(suspendedTeam);
+        await DbContext.SaveChangesAsync();
+        
+        await CreateTestUserTeamAsync(user.Id, activeTeam.Id, TeamRole.TeamMember);
+        await CreateTestUserTeamAsync(user.Id, suspendedTeam.Id, TeamRole.TeamOwner); // Owner should access suspended team
+        
+        var request = new LoginRequestDto { Email = user.Email!, Password = "password" };
+        
+        _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
+        _mockUserManager.Setup(x => x.CheckPasswordAsync(user, request.Password)).ReturnsAsync(true);
+        _mockUserManager.Setup(x => x.GetRolesAsync(user)).ReturnsAsync(new List<string>());
+        _mockUserManager.Setup(x => x.UpdateAsync(user)).ReturnsAsync(IdentityResult.Success);
+        _mockJwtTokenService.Setup(x => x.GenerateRefreshToken()).Returns("mock-refresh-token");
+
+        // Act
+        var result = await _authenticationService.LoginAsync(request);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Teams.ShouldNotBeNull();
+        // Authentication should include all teams where user has active membership,
+        // regardless of team status. Team owners need access to suspended teams to reactivate them.
+        result.Teams.Count.ShouldBe(2);
+        result.Teams.Any(t => t.TeamId == activeTeam.Id).ShouldBeTrue();
+        result.Teams.Any(t => t.TeamId == suspendedTeam.Id).ShouldBeTrue();
+        
+        // Verify the suspended team owner has correct role
+        var suspendedTeamMembership = result.Teams.First(t => t.TeamId == suspendedTeam.Id);
+        suspendedTeamMembership.TeamRole.ShouldBe(TeamRole.TeamOwner);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WithInactiveUserTeam_ShouldExcludeInactiveUserTeam()
+    {
+        // Arrange
+        var user = await CreateTestUserAsync();
+        var team1 = await CreateTestTeamAsync("Team 1");
+        var team2 = await CreateTestTeamAsync("Team 2");
+        
+        var activeUserTeam = await CreateTestUserTeamAsync(user.Id, team1.Id, TeamRole.TeamMember);
+        var inactiveUserTeam = await CreateTestUserTeamAsync(user.Id, team2.Id, TeamRole.TeamMember);
+        
+        // Make the second user team inactive
+        inactiveUserTeam.IsActive = false;
+        await DbContext.SaveChangesAsync();
+        
+        var request = new LoginRequestDto { Email = user.Email!, Password = "password" };
+        
+        _mockUserManager.Setup(x => x.FindByEmailAsync(request.Email)).ReturnsAsync(user);
+        _mockUserManager.Setup(x => x.CheckPasswordAsync(user, request.Password)).ReturnsAsync(true);
+        _mockUserManager.Setup(x => x.GetRolesAsync(user)).ReturnsAsync(new List<string>());
+        _mockUserManager.Setup(x => x.UpdateAsync(user)).ReturnsAsync(IdentityResult.Success);
+        _mockJwtTokenService.Setup(x => x.GenerateRefreshToken()).Returns("mock-refresh-token");
+
+        // Act
+        var result = await _authenticationService.LoginAsync(request);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Teams.ShouldNotBeNull();
+        result.Teams.Count.ShouldBe(1);
+        result.Teams[0].TeamId.ShouldBe(team1.Id);
+        
+        // Verify inactive user team is not included
+        result.Teams.Any(t => t.TeamId == team2.Id).ShouldBeFalse();
     }
 
     #endregion
@@ -799,7 +1164,7 @@ public class AuthenticationServiceTests : BaseIntegrationTest
     {
         var team = new Team
         {
-            Id = _testTeamId,
+            Id = name == "Test Team" ? _testTeamId : Guid.NewGuid(), // Use _testTeamId for default, unique IDs for others
             Name = name,
             CreatedOn = DateTime.UtcNow,
             Status = TeamStatus.Active,

@@ -6,8 +6,10 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using TeamStride.Application.Authentication.Services;
+using TeamStride.Application.Authentication.Dtos;
 using TeamStride.Domain.Identity;
 using TeamStride.Domain.Entities;
 
@@ -15,7 +17,7 @@ namespace TeamStride.Infrastructure.Identity;
 
 public interface IJwtTokenService
 {
-    Task<string> GenerateJwtTokenAsync(ApplicationUser user, Guid? teamId, TeamRole? teamRole, MemberType? memberType, string? teamSubdomain = null);
+    Task<string> GenerateJwtTokenAsync(ApplicationUser user, List<TeamMembershipDto> teams);
     string GenerateRefreshToken();
     ClaimsPrincipal? GetPrincipalFromToken(string token);
 }
@@ -31,9 +33,10 @@ public class JwtTokenService : IJwtTokenService
         _userManager = userManager;
     }
 
-    public async Task<string> GenerateJwtTokenAsync(ApplicationUser user, Guid? teamId, TeamRole? teamRole, MemberType? memberType, string? teamSubdomain = null)
+    public async Task<string> GenerateJwtTokenAsync(ApplicationUser user, List<TeamMembershipDto> teams)
     {
         ArgumentNullException.ThrowIfNull(user);
+        ArgumentNullException.ThrowIfNull(teams);
 
         var claims = new List<Claim>
         {
@@ -44,37 +47,17 @@ public class JwtTokenService : IJwtTokenService
             new("last_name", user.LastName)
         };
 
-        if (teamId.HasValue)
-        {
-            claims.Add(new Claim("team_id", teamId.Value.ToString()));
-        }
-
-        if (teamRole.HasValue)
-        {
-            claims.Add(new Claim("team_role", teamRole.Value.ToString()));
-        }
-
-        if (memberType.HasValue)
-        {
-            claims.Add(new Claim("member_type", memberType.Value.ToString()));
-        }
-
-        if (!string.IsNullOrEmpty(teamSubdomain))
-        {
-            claims.Add(new Claim("team_subdomain", teamSubdomain));
-        }
-
         // Check if user has GlobalAdmin application role
         var userRoles = await _userManager.GetRolesAsync(user);
         var isGlobalAdmin = userRoles.Contains("GlobalAdmin");
         claims.Add(new Claim("is_global_admin", isGlobalAdmin.ToString().ToLowerInvariant()));
 
-        // If user is global admin and no specific team context, set 'app' context
-        if (isGlobalAdmin && !teamId.HasValue)
-        {
-            claims.Add(new Claim("team_subdomain", "app"));
-            claims.Add(new Claim("team_role", "GlobalAdmin"));
-        }
+        // Add teams as JSON array
+        var teamsJson = JsonSerializer.Serialize(teams, new JsonSerializerOptions 
+        { 
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
+        });
+        claims.Add(new Claim("teams", teamsJson));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config.JwtSecret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

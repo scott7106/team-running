@@ -667,7 +667,7 @@ public class GlobalAdminUserService : IGlobalAdminUserService
         var teamMemberships = user.UserTeams?.Where(ut => ut.IsActive).Select(ut => new UserTeamSummaryDto
         {
             UserTeamId = ut.Id,
-            TeamId = ut.TeamId ?? Guid.Empty,
+            TeamId = ut.TeamId,
             TeamName = ut.Team?.Name ?? "Unknown Team",
             TeamSubdomain = ut.Team?.Subdomain ?? string.Empty,
             Role = ut.Role,
