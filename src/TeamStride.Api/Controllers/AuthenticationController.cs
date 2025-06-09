@@ -180,12 +180,54 @@ public class AuthenticationController : ControllerBase
         }
         
         var result = await _authenticationService.ForceUserLogoutAsync(userId);
-              return result ? Ok() : BadRequest("Failed to force logout");
-  }
+        return result ? Ok() : BadRequest("Failed to force logout");
+    }
+
+    /// <summary>
+    /// Refreshes the user's JWT token with a new subdomain context
+    /// </summary>
+    /// <param name="request">The refresh context request containing the target subdomain</param>
+    /// <returns>New authentication response with updated token</returns>
+    [Authorize]
+    [HttpPost("refresh-context")]
+    [ProducesResponseType(typeof(AuthResponseDto), 200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(403)]
+    public async Task<IActionResult> RefreshContext([FromBody] RefreshContextRequestDto request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            var result = await _authenticationService.RefreshContextAsync(request.Subdomain);
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception)
+        {
+            return StatusCode(500, new { message = "Internal server error during context refresh" });
+        }
+    }
 }
 
 public class ChangePasswordRequestDto
 {
     public required string CurrentPassword { get; set; }
     public required string NewPassword { get; set; }
+}
+
+public class RefreshContextRequestDto
+{
+    public required string Subdomain { get; set; }
 } 

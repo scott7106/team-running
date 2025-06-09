@@ -16,29 +16,38 @@ Implementing three-subdomain architecture:
 
 ---
 
-## Planned Code Organization
+## Validated Code Organization (After Proof of Concept)
 ```
 web/src/
 ├── app/
-│   ├── (www)/                    # Marketing site (www.teamstride.net)
-│   │   ├── page.tsx             # Marketing homepage
-│   │   ├── signup/              # Team creation
-│   │   ├── pricing/
+│   ├── page.tsx                 # Single root page - conditional rendering by subdomain
+│   ├── register/
+│   │   └── page.tsx             # Single register page - conditional rendering  
+│   ├── (www)/                   # Site/marketing context (www.teamstride.net)
+│   │   ├── components/          # Site-specific components
+│   │   │   ├── SiteHomePage.tsx
+│   │   │   └── SiteRegisterPage.tsx
 │   │   └── layout.tsx           # Marketing layout
-│   ├── (app)/                   # Global admin (app.teamstride.net)  
-│   │   ├── page.tsx             # Admin dashboard
-│   │   ├── teams/               # Team management
-│   │   ├── users/               # User management
+│   ├── (app)/                   # Global admin context (app.teamstride.net)  
+│   │   ├── components/          # Admin-specific components
+│   │   │   ├── AdminHomePage.tsx
 │   │   └── layout.tsx           # Admin layout
-│   ├── (team)/                  # Team pages ([team].teamstride.net)
-│   │   ├── page.tsx             # Public team homepage
-│   │   ├── join/                # Parent/guardian signup
-│   │   ├── dashboard/           # Team management (authenticated)
-│   │   ├── widgets/             # Widget components
+│   ├── (team)/                  # Team context ([team].teamstride.net)
+│   │   ├── components/          # Team-specific components
+│   │   │   ├── TeamHomePage.tsx
+│   │   │   ├── TeamRegisterPage.tsx
+│   │   │   └── TeamThemeProvider.tsx
 │   │   └── layout.tsx           # Team layout with theming
-│   ├── middleware.ts            # Subdomain routing logic
-│   └── layout.tsx               # Root layout (auth providers)
+│   ├── middleware.ts            # Subdomain detection + context headers
+│   └── layout.tsx               # Root layout (auth providers only)
 ```
+
+**Key Architecture Changes:**
+- **Single page.tsx files** that conditionally render based on `x-context` header
+- **Route groups for organization only** - contain components and layouts, not pages
+- **Middleware sets context headers** - pages read headers and render appropriate components
+- **CSS custom properties** for dynamic team theming via TeamThemeProvider
+- **No parallel route conflicts** - each URL path has only one page.tsx
 
 ## Planned API Structure
 ```
@@ -62,118 +71,183 @@ api.teamstride.net/
 
 ## Phase 1: Foundation & Route Structure
 
-### Step 1: Create Route Groups Structure
-**Status:** ❌ Not Started | ✅ Complete
-**Prompt:** "Create the Next.js route groups structure for (www), (app), and (team) subdomains. Move the existing pages to appropriate route groups."
+### Step 1: Migrate Existing Content from *-temp Directories  
+**Status:** ✅ Complete (Validated)
+**Prompt:** "Migrate content from existing *-temp directories to the new validated conditional rendering structure."
 
 **Tasks:**
-- [ ] Create `src/app/(www)/` directory
-- [ ] Create `src/app/(app)/` directory  
-- [ ] Create `src/app/(team)/` directory
-- [ ] Move current `page.tsx` to `(www)/page.tsx`, do this via file move and then edit instead of regenerating file
-- [ ] Move current `team/page.tsx` to `(team)/dashboard/page.tsx`, do this via file move and then edit instead of regenerating files
-- [ ] Move current `src/app/admin/*` to `src/app/(app)/*`, do this via file move instead of regenerating files
-- [ ] Create placeholder pages for each route group
+- [x] Migrate `www-temp/` content to `(www)/components/` directory
+- [x] Migrate `app-temp/` content to `(app)/components/` directory  
+- [x] Migrate `team-temp/` content to `(team)/components/` directory
+- [x] Create wrapper components for existing pages (SiteHomePage, AdminHomePage, TeamHomePage)
+- [x] Update any hardcoded routes to use conditional rendering pattern
+- [x] Preserve existing functionality while adapting to new structure
+- [ ] Test that all migrated content works with subdomain routing
 
 **Success Criteria:**
-- Route groups exist and pages render without errors
-- URL structure remains functional during transition
-- No broken imports or missing components
+- All existing functionality is preserved
+- No broken pages or components
+- Conditional rendering works for all migrated content
+- Subdomain routing correctly serves appropriate content
+
+**Migration Strategy:**
+- Don't regenerate existing complex components - wrap them
+- Preserve all existing logic and state management
+- Update imports and exports to match new component structure
 
 ---
 
-### Step 2: Implement Subdomain Middleware
-**Status:** ❌ Not Started | ✅ Complete
-**Prompt:** "Implement Next.js middleware to handle subdomain routing between www, app, and team contexts with team resolution from database."
+### Step 2: Implement Conditional Page Routing
+**Status:** ✅ Complete (Validated)
+**Prompt:** "Create single page.tsx files that conditionally render based on subdomain context headers from middleware."
 
-**Implementation Reference:**
+**Validated Implementation:**
 ```typescript
-// middleware.ts
+// app/page.tsx - Single root page
+export default async function RootPage() {
+  const headersList = await headers();
+  const context = headersList.get('x-context');
+  
+  switch(context) {
+    case 'app': return <AdminHomePage />;
+    case 'team': return <TeamHomePage />;
+    case 'www':
+    default: return <SiteHomePage />;
+  }
+}
+
+// app/register/page.tsx - Single register page  
+export default async function RegisterPage() {
+  const headersList = await headers();
+  const context = headersList.get('x-context');
+  
+  switch(context) {
+    case 'team': return <TeamRegisterPage />;
+    case 'www':
+    default: return <SiteRegisterPage />;
+  }
+}
+```
+
+**Tasks:**
+- [x] Create single `app/page.tsx` with conditional rendering
+- [x] Create single `app/register/page.tsx` with conditional rendering
+- [x] Create context-specific components in route group directories
+- [x] Test conditional rendering works with subdomain context
+- [x] Verify no "parallel pages" conflicts
+
+**Success Criteria:**
+- Single page serves different content based on subdomain
+- No route conflicts or build errors
+- Context switching works properly
+- All subdomains serve appropriate content at same URL paths
+
+---
+
+### Step 3: Implement Subdomain Middleware with Context Headers
+**Status:** ✅ Complete (Validated)
+**Prompt:** "Implement Next.js middleware to detect subdomains and set context headers for conditional page rendering."
+
+**Validated Implementation:**
+```typescript
+// middleware.ts - Context header approach (not URL rewrites)
 export async function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
-  const subdomain = hostname.split('.')[0];
-  
-  if (subdomain !== 'www' && subdomain !== 'app') {
-    // Team subdomain - resolve team
-    const team = await resolveTeamBySubdomain(subdomain);
-    
-    if (!team) {
-      // Subdomain doesn't exist - redirect to 404 or main site
-      return NextResponse.redirect(new URL('https://www.teamstride.net/404'));
-    }
-    
-    // Pass team context via headers
+  const subdomain = hostnameWithoutPort.split('.')[0];
+
+  if (subdomain === 'www' || subdomain === '' || subdomain === 'localhost') {
     const response = NextResponse.next();
+    response.headers.set('x-context', 'www');
+    return response;
+  }
+
+  if (subdomain === 'app') {
+    const response = NextResponse.next();
+    response.headers.set('x-context', 'app');
+    return response;
+  }
+
+  // Team subdomain
+  const team = await resolveTeamBySubdomain(subdomain);
+  if (team) {
+    const response = NextResponse.next();
+    response.headers.set('x-context', 'team');
     response.headers.set('x-team-id', team.id);
-    response.headers.set('x-team-subdomain', subdomain);
+    response.headers.set('x-team-name', team.name);
+    response.headers.set('x-team-primary-color', team.theme.primaryColor);
+    response.headers.set('x-team-secondary-color', team.theme.secondaryColor);
+    response.headers.set('x-team-logo-url', team.theme.logoUrl);
     return response;
   }
 }
 ```
 
 **Tasks:**
-- [ ] Create `src/middleware.ts`
-- [ ] Implement subdomain detection logic
-- [ ] Add team resolution from subdomain (mock for now)
-- [ ] Set up headers for team context (`x-team-id`, `x-team-subdomain`)
-- [ ] Handle fallbacks for non-existent teams
-- [ ] Test with local hosts file entries
+- [x] Create `src/middleware.ts` with subdomain detection
+- [x] Set context headers (`x-context`, `x-team-*`) instead of URL rewrites
+- [x] Add mock team resolution with theme data
+- [x] Handle www, app, and team subdomain routing
+- [x] Test with localhost development
 
 **Success Criteria:**
-- Middleware correctly routes based on subdomain
-- Team context headers are set for team subdomains
-- Non-existent subdomains redirect appropriately
-- Local development works with hosts file
-
-**Context Notes:**
-- Use `localhost` pattern for local development
-- Mock team resolution initially, will integrate with API later
-- Consider caching strategy for team lookups
-
----
-
-### Step 3: Create Subdomain-Specific Layouts
-**Status:** ❌ Not Started | ✅ Complete  
-**Prompt:** "Create layout.tsx files for each route group (www, app, team) with appropriate styling, navigation, and theme support."
-
-**Tasks:**
-- [ ] Create `(www)/layout.tsx` - marketing site layout
-- [ ] Create `(app)/layout.tsx` - admin dashboard layout
-- [ ] Create `(team)/layout.tsx` - team-themed layout
-- [ ] Update root `layout.tsx` to be minimal (auth providers only)
-- [ ] Ensure shared components work across all layouts
-
-**Success Criteria:**
-- Each subdomain has distinct layout and styling
-- Authentication providers work across all layouts
-- Navigation is appropriate for each context
-- No duplicate provider nesting
+- Middleware sets correct context headers for each subdomain
+- Team theme data passed via headers
+- No URL rewriting conflicts
+- Local development works with subdomain patterns
 
 ---
 
 ## Phase 2: Team Theming System
 
-### Step 4: Implement Team Theme Provider
-**Status:** ❌ Not Started | ✅ Complete
-**Prompt:** "Create a team theming system that applies primary/secondary colors and logos dynamically across team subdomain pages."
+### Step 4: Implement Dynamic Team Theming
+**Status:** ✅ Complete (Validated)
+**Prompt:** "Create a team theming system that applies primary/secondary colors and logos dynamically via CSS custom properties."
+
+**Validated Implementation:**
+```typescript
+// TeamThemeProvider.tsx - CSS custom properties approach
+export default async function TeamThemeProvider({ children }: TeamThemeProviderProps) {
+  const headersList = await headers();
+  const primaryColor = headersList.get('x-team-primary-color');
+  const secondaryColor = headersList.get('x-team-secondary-color');
+
+  const themeStyles = {
+    '--team-primary': primaryColor || '#10B981',
+    '--team-secondary': primaryColor ? `${primaryColor}20` : '#D1FAE5',
+    '--team-primary-bg': secondaryColor || '#F0FDF4',
+  } as React.CSSProperties;
+
+  return (
+    <div style={themeStyles} className="team-themed">
+      {children}
+    </div>
+  );
+}
+
+// Usage in components
+<h1 style={{ color: 'var(--team-primary)' }}>Team Name</h1>
+<div style={{ backgroundColor: 'var(--team-primary-bg)' }}>Content</div>
+```
 
 **Tasks:**
-- [ ] Create `src/contexts/ThemeContext.tsx`
-- [ ] Create `src/utils/theme.ts` with theme utilities
-- [ ] Implement CSS custom properties for dynamic theming
-- [ ] Create theme provider for team layouts
-- [ ] Add theme resolution from team context headers
+- [x] Create `TeamThemeProvider.tsx` component
+- [x] Implement CSS custom properties for dynamic theming  
+- [x] Read theme data from middleware headers
+- [x] Apply team colors to UI elements
+- [x] Add team logo display capability
+- [x] Test with multiple team subdomains (wildcats, eagles, lightning)
 
 **Success Criteria:**
-- Team colors apply throughout team subdomain pages
-- Theme switches automatically based on subdomain
-- CSS custom properties update correctly
-- Logo integration points are ready
+- Different team subdomains show different colors automatically
+- CSS custom properties apply correctly at runtime
+- Theme provider works with server components
+- Logo display integration ready
+- Multiple teams tested with distinct themes
 
-**Context Notes:**
-- Use CSS custom properties for runtime theme changes
-- Support both light/dark variants if needed
-- Consider accessibility for color contrast
+**Validated Teams:**
+- Wildcats: Brown primary (#8B5A3C), cream secondary (#F4E4C1)
+- Eagles: Blue primary (#1E40AF), light blue secondary (#DBEAFE)  
+- Lightning: Dark red primary (#7C2D12), yellow secondary (#FEF3C7)
 
 ---
 

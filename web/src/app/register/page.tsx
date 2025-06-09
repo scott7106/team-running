@@ -1,19 +1,19 @@
 import { headers } from 'next/headers';
-import SiteLoginPage from '../(www)/components/site-login-page';
-import AdminLoginPage from '../(app)/components/admin-login-page';
-import TeamLoginPage from '../(team)/components/team-login-page';
+import SiteRegisterPage from '../(www)/components/site-register-page';
+import TeamRegisterPage from '../(team)/components/team-register-page';
 
-export default async function LoginPage() {
+export default async function RegisterPage() {
   const headersList = await headers();
   const context = headersList.get('x-context');
   
-  console.log('[LoginPage] Context detected:', context);
+  console.log('[RegisterPage] Context detected:', context);
   
   switch(context) {
     case 'app':
-      return <AdminLoginPage />;
+      // Admin registration could redirect to team creation or show different form
+      return <SiteRegisterPage />;
     case 'team':
-      // Extract team data from headers for team login
+      // Extract team data from headers for team registration
       const teamId = headersList.get('x-team-id') || '';
       const teamName = headersList.get('x-team-name') || 'Team';
       const primaryColor = headersList.get('x-team-primary-color') || '#10B981';
@@ -21,7 +21,7 @@ export default async function LoginPage() {
       const logoUrl = headersList.get('x-team-logo-url') || undefined;
       
       return (
-        <TeamLoginPage 
+        <TeamRegisterPage 
           teamId={teamId}
           teamName={teamName}
           primaryColor={primaryColor}
@@ -31,6 +31,6 @@ export default async function LoginPage() {
       );
     case 'www':
     default:
-      return <SiteLoginPage />;
+      return <SiteRegisterPage />;
   }
 } 

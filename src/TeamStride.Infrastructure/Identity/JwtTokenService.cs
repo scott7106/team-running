@@ -69,6 +69,13 @@ public class JwtTokenService : IJwtTokenService
         var isGlobalAdmin = userRoles.Contains("GlobalAdmin");
         claims.Add(new Claim("is_global_admin", isGlobalAdmin.ToString().ToLowerInvariant()));
 
+        // If user is global admin and no specific team context, set 'app' context
+        if (isGlobalAdmin && !teamId.HasValue)
+        {
+            claims.Add(new Claim("team_subdomain", "app"));
+            claims.Add(new Claim("team_role", "GlobalAdmin"));
+        }
+
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config.JwtSecret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 

@@ -54,6 +54,27 @@ public class TenantSwitcherController : BaseApiController
     }
 
     /// <summary>
+    /// Gets all active tenants (teams) for public access - used by middleware for subdomain resolution
+    /// </summary>
+    /// <returns>List of all active team subdomains</returns>
+    [HttpGet("tenants/all")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(IEnumerable<SubdomainDto>), 200)]
+    [ProducesResponseType(500)]
+    public async Task<IActionResult> GetTenants()
+    {
+        try
+        {
+            var tenants = await _tenantSwitcherService.GetAllTenantsAsync();
+            return Ok(tenants);
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex, "Failed to retrieve all tenants");
+        }
+    }
+
+    /// <summary>
     /// Switches to a specific tenant and generates a new JWT token with team context.
     /// Available for global admins and users with access to the specified team.
     /// </summary>

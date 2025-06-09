@@ -60,4 +60,22 @@ public class TenantSwitcherService : ITenantSwitcherService
 
         return tenantDtos;
     }
+
+    public async Task<IEnumerable<SubdomainDto>> GetAllTenantsAsync()
+    {
+        var teams = await _context.Teams
+            .Where(t => !t.IsDeleted && t.Status == Domain.Entities.TeamStatus.Active)
+            .OrderBy(t => t.Subdomain)
+            .ToListAsync();
+
+        var subdomainDtos = teams.Select(team => new SubdomainDto
+        {
+            TeamId = team.Id,
+            Subdomain = team.Subdomain
+        }).ToList();
+
+        _logger.LogInformation("Retrieved {Count} active team subdomains", subdomainDtos.Count);
+
+        return subdomainDtos;
+    }
 } 

@@ -25,6 +25,8 @@ export function decodeToken(token: string): JwtClaims | null {
 }
 
 export function getUserFromToken(): { firstName: string; lastName: string; email: string } | null {
+  if (typeof window === 'undefined') return null;
+  
   const token = localStorage.getItem('token');
   if (!token) return null;
   
@@ -44,7 +46,10 @@ export function getTeamContextFromToken(): {
   hasTeam: boolean; 
   teamId?: string;
   teamRole?: string;
+  teamSubdomain?: string;
 } | null {
+  if (typeof window === 'undefined') return null;
+  
   const token = localStorage.getItem('token');
   if (!token) return null;
   
@@ -59,11 +64,14 @@ export function getTeamContextFromToken(): {
   
   let contextLabel: string;
   
-  if (hasTeam && teamId) {
+  if (teamSubdomain === 'app' && isGlobalAdmin) {
+    // Global admin in app context
+    contextLabel = 'Global Admin';
+  } else if (hasTeam && teamId) {
     // Show the team subdomain (code) if available, otherwise fall back to generic label
     contextLabel = teamSubdomain || 'Team Context';
   } else if (isGlobalAdmin) {
-    contextLabel = 'Global';
+    contextLabel = 'Global Admin';
   } else {
     contextLabel = 'None';
   }
@@ -73,8 +81,35 @@ export function getTeamContextFromToken(): {
     isGlobalAdmin,
     hasTeam,
     teamId,
-    teamRole
+    teamRole,
+    teamSubdomain
   };
+}
+
+export function shouldRefreshTokenForSubdomain(currentSubdomain: string): boolean {
+  if (typeof window === 'undefined') return false;
+  
+  const token = localStorage.getItem('token');
+  if (!token || isTokenExpired(token)) return false;
+  
+  const claims = decodeToken(token);
+  if (!claims) return false;
+  
+  const tokenSubdomain = claims.team_subdomain;
+  const isGlobalAdmin = claims.is_global_admin === 'true';
+  
+  // Handle global admin context
+  if (currentSubdomain === 'app') {
+    return !isGlobalAdmin || tokenSubdomain !== 'app';
+  }
+  
+  // Handle www/marketing context
+  if (currentSubdomain === 'www' || currentSubdomain === 'localhost') {
+    return !!tokenSubdomain; // Should have no team context for marketing
+  }
+  
+  // Handle team subdomain context
+  return tokenSubdomain !== currentSubdomain;
 }
 
 export function isTokenExpired(token: string): boolean {
@@ -87,6 +122,10 @@ export function isTokenExpired(token: string): boolean {
 
 // SESSION FINGERPRINTING
 export function generateFingerprint(): string {
+  if (typeof window === 'undefined') {
+    return btoa(JSON.stringify({ userAgent: "server-side" }));
+  }
+  
   try {
     const fingerprint = {
       userAgent: navigator.userAgent.substring(0, 100),
@@ -106,6 +145,8 @@ export function generateFingerprint(): string {
 }
 
 export function validateSessionFingerprint(): boolean {
+  if (typeof window === 'undefined') return true;
+  
   const storedFingerprint = localStorage.getItem('sessionFingerprint');
   if (!storedFingerprint) {
     console.warn('No stored session fingerprint found');
@@ -260,6 +301,10 @@ export function disableFocusValidation(): void {
 export function logoutForSecurityViolation(reason: string): void {
   console.error(`Security violation logout: ${reason}`);
   
+  // Stop all security mechanisms
+  stopHeartbeat();
+  disableFocusValidation();
+  
   // Clear session data
   localStorage.removeItem('token');
   localStorage.removeItem('refreshToken');
@@ -271,6 +316,10 @@ export function logoutForSecurityViolation(reason: string): void {
 
 // For idle timeout and manual logout - allows modal to show
 export function logout(): void {
+  // Stop all security mechanisms
+  stopHeartbeat();
+  disableFocusValidation();
+  
   // Clear session data
   localStorage.removeItem('token');
   localStorage.removeItem('refreshToken');

@@ -669,4 +669,126 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             RequiresEmailConfirmation = false
         };
     }
+
+    public async Task<AuthResponseDto> RefreshContextAsync(string subdomain)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(subdomain);
+
+        // Get current user from HTTP context
+        var userIdClaim = _httpContextAccessor.HttpContext?.User?.Claims
+            .FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            throw new AuthenticationException("User not authenticated", AuthenticationException.ErrorCodes.InvalidCredentials);
+        }
+
+        var user = await _userManager.FindByIdAsync(userId.ToString()) ??
+            throw new AuthenticationException("User not found", AuthenticationException.ErrorCodes.UserNotFound);
+
+        if (!user.IsActive)
+        {
+            throw new AuthenticationException("Account is locked", AuthenticationException.ErrorCodes.AccountLocked);
+        }
+
+        // Check if user is a global admin
+        var userRoles = await _userManager.GetRolesAsync(user);
+        var isGlobalAdmin = userRoles.Contains("GlobalAdmin");
+
+        // Handle different subdomain contexts
+        if (subdomain == "app")
+        {
+            // Global admin context - user must be a global admin
+            if (!isGlobalAdmin)
+            {
+                throw new UnauthorizedAccessException("Global admin privileges required for app subdomain");
+            }
+
+            // Generate tokens for global admin context (no specific team)
+            var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, null, null, null, "app");
+            var refreshToken = await CreateRefreshTokenAsync(user, null);
+
+            return new AuthResponseDto
+            {
+                Token = jwtToken,
+                RefreshToken = refreshToken.Token,
+                Email = user.Email ?? string.Empty,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                TeamId = null,
+                Role = null,
+                RequiresEmailConfirmation = false
+            };
+        }
+        else if (subdomain == "www" || subdomain == "localhost")
+        {
+            // Marketing site context - no team context needed
+            var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, null, null, null, null);
+            var refreshToken = await CreateRefreshTokenAsync(user, null);
+
+            return new AuthResponseDto
+            {
+                Token = jwtToken,
+                RefreshToken = refreshToken.Token,
+                Email = user.Email ?? string.Empty,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                TeamId = null,
+                Role = null,
+                RequiresEmailConfirmation = false
+            };
+        }
+        else
+        {
+            // Team subdomain context - resolve team and check access
+            var team = await _context.Teams
+                .FirstOrDefaultAsync(t => t.Subdomain == subdomain && !t.IsDeleted) ??
+                throw new AuthenticationException($"Team with subdomain '{subdomain}' not found", AuthenticationException.ErrorCodes.TenantNotFound);
+
+            UserTeam? userTeam = null;
+
+            if (isGlobalAdmin)
+            {
+                // Global admins can access any team with full permissions
+                userTeam = new UserTeam
+                {
+                    UserId = userId,
+                    TeamId = team.Id,
+                    Role = TeamRole.TeamOwner,
+                    MemberType = MemberType.Coach,
+                    IsActive = true,
+                    IsDefault = false,
+                    JoinedOn = DateTime.UtcNow,
+                    CreatedOn = DateTime.UtcNow
+                };
+            }
+            else
+            {
+                // Regular users must have explicit team membership
+                userTeam = await _context.UserTeams
+                    .FirstOrDefaultAsync(ut => ut.UserId == userId && ut.TeamId == team.Id && ut.IsActive) ??
+                    throw new UnauthorizedAccessException($"Access denied to team with subdomain '{subdomain}'");
+            }
+
+            // Update last login
+            user.LastLoginOn = DateTime.UtcNow;
+            await _userManager.UpdateAsync(user);
+
+            // Generate tokens with team context
+            var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, team.Id, userTeam.Role, userTeam.MemberType, subdomain);
+            var refreshToken = await CreateRefreshTokenAsync(user, team.Id);
+
+            return new AuthResponseDto
+            {
+                Token = jwtToken,
+                RefreshToken = refreshToken.Token,
+                Email = user.Email ?? string.Empty,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                TeamId = team.Id,
+                Role = userTeam.Role,
+                RequiresEmailConfirmation = false
+            };
+        }
+    }
 } 
