@@ -10,21 +10,15 @@ import {
   faEye,
   faEyeSlash
 } from '@fortawesome/free-solid-svg-icons';
+import { getTeamThemeData } from '@/utils/team-theme';
+import { SubdomainThemeDto } from '@/types/team';
 
 interface TeamRegisterPageProps {
-  teamId: string;
-  teamName: string;
-  primaryColor: string;
-  secondaryColor: string;
-  logoUrl?: string;
+  teamSubdomain: string;
 }
 
 export default function TeamRegisterPage({ 
-  teamId, 
-  teamName, 
-  primaryColor, 
-  secondaryColor, 
-  logoUrl 
+  teamSubdomain
 }: TeamRegisterPageProps) {
   const [registrationForm, setRegistrationForm] = useState({
     parentName: '',
@@ -35,12 +29,36 @@ export default function TeamRegisterPage({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPasscode, setShowPasscode] = useState(false);
+  const [themeData, setThemeData] = useState<SubdomainThemeDto | null>(null);
   const router = useRouter();
 
-  // Set document title with team name
+  // Load theme data
   useEffect(() => {
-    document.title = `Join ${teamName} - Registration`;
-  }, [teamName]);
+    const loadTheme = async () => {
+      try {
+        const data = await getTeamThemeData(teamSubdomain);
+        setThemeData(data);
+        // Set document title with team name
+        document.title = `Join ${data.teamName || teamSubdomain} - Registration`;
+      } catch (error) {
+        console.error('Failed to load theme data:', error);
+        // Use default theme
+        setThemeData({
+          teamId: '',
+          teamName: teamSubdomain.charAt(0).toUpperCase() + teamSubdomain.slice(1),
+          subdomain: teamSubdomain,
+          primaryColor: '#10B981',
+          secondaryColor: '#F0FDF4',
+          logoUrl: undefined
+        });
+        document.title = `Join ${teamSubdomain} - Registration`;
+      }
+    };
+
+    if (teamSubdomain) {
+      loadTheme();
+    }
+  }, [teamSubdomain]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +67,7 @@ export default function TeamRegisterPage({
 
     try {
       // TODO: Implement team registration API call
-      console.log('Registration form data:', { ...registrationForm, teamId });
+      console.log('Registration form data:', { ...registrationForm, teamId: themeData?.teamId });
       
       // For now, just show success message
       alert('Registration request submitted! The team will review your request and contact you soon.');
@@ -74,11 +92,20 @@ export default function TeamRegisterPage({
     router.push('/');
   };
 
+  // Show loading state while theme data is loading
+  if (!themeData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   // Apply team theming
   const themeStyles = {
-    '--team-primary': primaryColor || '#10B981',
-    '--team-secondary': secondaryColor || '#D1FAE5',
-    '--team-primary-bg': secondaryColor || '#F0FDF4',
+    '--team-primary': themeData?.primaryColor || '#10B981',
+    '--team-secondary': themeData?.secondaryColor || '#D1FAE5',
+    '--team-primary-bg': themeData?.secondaryColor || '#F0FDF4',
   } as React.CSSProperties;
 
   return (
@@ -86,16 +113,16 @@ export default function TeamRegisterPage({
       className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8"
       style={{ 
         ...themeStyles,
-        background: `linear-gradient(to br, ${secondaryColor || '#F0FDF4'}, white, ${primaryColor ? `${primaryColor}10` : '#E5F7F0'})`
+        background: `linear-gradient(to br, ${themeData?.secondaryColor || '#F0FDF4'}, white, ${themeData?.primaryColor ? `${themeData.primaryColor}10` : '#E5F7F0'})`
       }}
     >
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-          {logoUrl ? (
+          {themeData?.logoUrl ? (
             <div className="w-16 h-16 rounded-xl flex items-center justify-center shadow-lg overflow-hidden bg-white">
               <Image 
-                src={logoUrl} 
-                alt={`${teamName} logo`} 
+                src={themeData.logoUrl} 
+                alt={`${themeData.teamName || themeData.subdomain} logo`} 
                 width={48}
                 height={48}
                 className="object-contain"
@@ -105,17 +132,17 @@ export default function TeamRegisterPage({
             <div 
               className="w-16 h-16 rounded-xl flex items-center justify-center shadow-lg"
               style={{ 
-                background: `linear-gradient(to right, ${primaryColor || '#10B981'}, ${secondaryColor || '#059669'})` 
+                background: `linear-gradient(to right, ${themeData?.primaryColor || '#10B981'}, ${themeData?.secondaryColor || '#059669'})` 
               }}
             >
               <span className="text-white font-bold text-2xl">
-                {teamName.charAt(0).toUpperCase()}
+                {themeData?.teamName?.charAt(0).toUpperCase() || themeData?.subdomain.charAt(0).toUpperCase()}
               </span>
             </div>
           )}
         </div>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Join {teamName}
+          Join {themeData?.teamName || themeData?.subdomain}
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
           Request access to become a team member
@@ -157,8 +184,8 @@ export default function TeamRegisterPage({
                 placeholder="Enter your full name"
                 className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-2 transition-colors"
                 style={{
-                  '--tw-ring-color': primaryColor || '#10B981',
-                  'focusBorderColor': primaryColor || '#10B981'
+                  '--tw-ring-color': themeData?.primaryColor || '#10B981',
+                  'focusBorderColor': themeData?.primaryColor || '#10B981'
                 } as React.CSSProperties}
                 disabled={isLoading}
               />
@@ -178,8 +205,8 @@ export default function TeamRegisterPage({
                 placeholder="Enter athlete's full name"
                 className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-2 transition-colors"
                 style={{
-                  '--tw-ring-color': primaryColor || '#10B981',
-                  'focusBorderColor': primaryColor || '#10B981'
+                  '--tw-ring-color': themeData?.primaryColor || '#10B981',
+                  'focusBorderColor': themeData?.primaryColor || '#10B981'
                 } as React.CSSProperties}
                 disabled={isLoading}
               />
@@ -199,8 +226,8 @@ export default function TeamRegisterPage({
                 placeholder="parent@example.com"
                 className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-2 transition-colors"
                 style={{
-                  '--tw-ring-color': primaryColor || '#10B981',
-                  'focusBorderColor': primaryColor || '#10B981'
+                  '--tw-ring-color': themeData?.primaryColor || '#10B981',
+                  'focusBorderColor': themeData?.primaryColor || '#10B981'
                 } as React.CSSProperties}
                 disabled={isLoading}
               />
@@ -221,8 +248,8 @@ export default function TeamRegisterPage({
                   placeholder="Enter team passcode"
                   className="w-full px-3 py-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-2 transition-colors"
                   style={{
-                    '--tw-ring-color': primaryColor || '#10B981',
-                    'focusBorderColor': primaryColor || '#10B981'
+                    '--tw-ring-color': themeData?.primaryColor || '#10B981',
+                    'focusBorderColor': themeData?.primaryColor || '#10B981'
                   } as React.CSSProperties}
                   disabled={isLoading}
                 />
@@ -245,7 +272,7 @@ export default function TeamRegisterPage({
               disabled={isLoading}
               className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02]"
               style={{
-                background: `linear-gradient(to right, ${primaryColor || '#10B981'}, ${primaryColor ? `${primaryColor}dd` : '#059669'})`,
+                background: `linear-gradient(to right, ${themeData?.primaryColor || '#10B981'}, ${themeData?.primaryColor ? `${themeData.primaryColor}dd` : '#059669'})`,
               }}
             >
               {isLoading ? (
@@ -254,7 +281,7 @@ export default function TeamRegisterPage({
                   Submitting Request...
                 </div>
               ) : (
-                `Request to Join ${teamName}`
+                `Request to Join ${themeData?.teamName || themeData?.subdomain}`
               )}
             </button>
           </form>
@@ -264,7 +291,7 @@ export default function TeamRegisterPage({
               onClick={handleBackToTeam}
               className="text-sm text-gray-600 hover:text-gray-800 font-medium transition-colors"
             >
-              ← Back to {teamName}
+              ← Back to {themeData?.teamName || themeData?.subdomain}
             </button>
           </div>
         </div>
@@ -275,7 +302,7 @@ export default function TeamRegisterPage({
             <a 
               href="/login" 
               className="font-medium hover:opacity-80 transition-opacity"
-              style={{ color: primaryColor || '#10B981' }}
+              style={{ color: themeData?.primaryColor || '#10B981' }}
             >
               Sign in here
             </a>

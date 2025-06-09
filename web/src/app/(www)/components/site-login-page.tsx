@@ -13,7 +13,7 @@ import {
   faMicrosoft, 
   faGoogle 
 } from '@fortawesome/free-brands-svg-icons';
-import { isTokenExpired, onLoginSuccess } from '../../../utils/auth';
+import { useAuth } from '@/contexts/auth-context';
 
 interface AuthResponse {
   token: string;
@@ -36,6 +36,7 @@ export default function SiteLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   
   const router = useRouter();
+  const { login, isAuthenticated } = useAuth();
 
   // Set document title
   useEffect(() => {
@@ -43,13 +44,12 @@ export default function SiteLoginPage() {
   }, []);
 
   useEffect(() => {
-    // Check if user is already logged in with a valid token
-    const token = localStorage.getItem('token');
-    if (token && !isTokenExpired(token)) {
+    // Check if user is already logged in
+    if (isAuthenticated) {
       // User is already authenticated, redirect to tenant switcher
       router.push('/tenant-switcher');
     }
-  }, [router]);
+  }, [isAuthenticated, router]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,12 +87,8 @@ export default function SiteLoginPage() {
 
       const authData: AuthResponse = await loginResponse.json();
 
-      // Store tokens
-      localStorage.setItem('token', authData.token);
-      localStorage.setItem('refreshToken', authData.refreshToken);
-
-      // Initialize session security
-      onLoginSuccess();
+      // Use centralized login function
+      login(authData.token, authData.refreshToken);
 
       // Site login always redirects to tenant switcher
       router.push('/tenant-switcher');

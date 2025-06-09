@@ -3,17 +3,20 @@
 import { useState, useEffect } from 'react';
 import TeamThemeProvider from './team-theme-provider';
 import UserContextMenu from '@/components/shared/user-context-menu';
-import { isTokenExpired, getTeamContextFromToken } from '@/utils/auth';
-import { useTokenRefresh } from '@/hooks/use-token-refresh';
+import { useAuthTokenRefresh } from '@/hooks/use-auth-token-refresh';
+import { useUser, useTenant } from '@/contexts/auth-context';
 
 export default function TeamHomePage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isTeamMember, setIsTeamMember] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
+  // Use centralized auth state
+  const { isAuthenticated } = useUser();
+  const { tenant, hasTeam } = useTenant();
+
   // Auto-refresh token when subdomain context changes
-  useTokenRefresh();
+  useAuthTokenRefresh();
 
   useEffect(() => {
     // Get team info from window location (middleware sets context)
@@ -32,40 +35,19 @@ export default function TeamHomePage() {
       }
     }
 
-    // Check authentication status
-    const checkAuth = () => {
-      const token = localStorage.getItem('token');
-      if (token && !isTokenExpired(token)) {
-        setIsAuthenticated(true);
-        
-                 // Check team context from token
-         const teamContext = getTeamContextFromToken();
-         const hasTeamAccess = teamContext?.hasTeam && teamContext?.teamSubdomain === subdomain;
-         setIsTeamMember(hasTeamAccess || false);
-        
-                 // Set team info from subdomain
-         setTeamName(subdomain.charAt(0).toUpperCase() + subdomain.slice(1)); // Capitalize subdomain as team name for now
-      } else {
-        setIsAuthenticated(false);
-        setIsTeamMember(false);
-        // Still show team name from subdomain for public view
-        setTeamName(subdomain.charAt(0).toUpperCase() + subdomain.slice(1));
-      }
+    // Check team membership using centralized auth state
+    const checkTeamMembership = () => {
+      // Check if current subdomain matches user's team context
+      const hasTeamAccess = hasTeam && tenant?.teamSubdomain === subdomain;
+      setIsTeamMember(hasTeamAccess || false);
+      
+      // Set team info from subdomain
+      setTeamName(subdomain.charAt(0).toUpperCase() + subdomain.slice(1));
       setIsLoading(false);
     };
 
-    checkAuth();
-
-    // Listen for storage changes
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'token') {
-        checkAuth();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+    checkTeamMembership();
+  }, [hasTeam, tenant]);
 
   if (isLoading) {
     return (

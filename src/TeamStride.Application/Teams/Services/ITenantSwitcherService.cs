@@ -11,8 +11,8 @@ public interface ITenantSwitcherService
     Task<IEnumerable<TenantDto>> GetUserTenantsAsync();
 
     /// <summary>
-    /// Gets all active tenants (teams) for public access - used by middleware for subdomain resolution.
+    /// Gets the theme information for a subdomain.
     /// </summary>
-    /// <returns>A collection of SubdomainDto objects representing all active team subdomains.</returns>
-    Task<IEnumerable<SubdomainDto>> GetAllTenantsAsync();
+    /// <returns>A SubdomainDto object with theme information for the team.</returns>
+    Task<SubdomainDto> GetThemeInfoByDomainAsync(string subdomain);
 } 

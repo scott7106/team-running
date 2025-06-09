@@ -57,20 +57,20 @@ public class TenantSwitcherController : BaseApiController
     /// Gets all active tenants (teams) for public access - used by middleware for subdomain resolution
     /// </summary>
     /// <returns>List of all active team subdomains</returns>
-    [HttpGet("tenants/all")]
+    [HttpGet("{subdomain:string}/theme/")]
     [AllowAnonymous]
-    [ProducesResponseType(typeof(IEnumerable<SubdomainDto>), 200)]
+    [ProducesResponseType(typeof(SubdomainDto), 200)]
     [ProducesResponseType(500)]
-    public async Task<IActionResult> GetTenants()
+    public async Task<IActionResult> GetThemeInfoBySubdomain(string subdomain)
     {
         try
         {
-            var tenants = await _tenantSwitcherService.GetAllTenantsAsync();
-            return Ok(tenants);
+            var data = await _tenantSwitcherService.GetThemeInfoByDomainAsync(subdomain);
+            return Ok(data);
         }
         catch (Exception ex)
         {
-            return HandleError(ex, "Failed to retrieve all tenants");
+            return HandleError(ex, "Failed to retrieve theme data for subdomain");
         }
     }
 

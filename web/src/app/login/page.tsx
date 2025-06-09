@@ -13,20 +13,12 @@ export default async function LoginPage() {
     case 'app':
       return <AdminLoginPage />;
     case 'team':
-      // Extract team data from headers for team login
-      const teamId = headersList.get('x-team-id') || '';
-      const teamName = headersList.get('x-team-name') || 'Team';
-      const primaryColor = headersList.get('x-team-primary-color') || '#10B981';
-      const secondaryColor = headersList.get('x-team-secondary-color') || '#D1FAE5';
-      const logoUrl = headersList.get('x-team-logo-url') || undefined;
+      // Team login will fetch theme data client-side
+      const teamSubdomain = headersList.get('x-team-subdomain') || '';
       
       return (
         <TeamLoginPage 
-          teamId={teamId}
-          teamName={teamName}
-          primaryColor={primaryColor}
-          secondaryColor={secondaryColor}
-          logoUrl={logoUrl}
+          teamSubdomain={teamSubdomain}
         />
       );
     case 'www':

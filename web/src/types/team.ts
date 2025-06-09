@@ -86,4 +86,13 @@ export interface TeamsApiParams {
   searchQuery?: string;
   status?: TeamStatus;
   tier?: TeamTier;
+}
+
+export interface SubdomainThemeDto {
+  teamId: string;
+  teamName: string;
+  subdomain: string;
+  primaryColor: string;
+  secondaryColor: string;
+  logoUrl?: string;
 } 

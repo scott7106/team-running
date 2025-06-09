@@ -11,77 +11,32 @@ import {
   faBars,
   faTimes
 } from '@fortawesome/free-solid-svg-icons';
-import { isTokenExpired, getTeamContextFromToken } from '@/utils/auth';
-import { useTokenRefresh } from '@/hooks/use-token-refresh';
+import { useAuthTokenRefresh } from '@/hooks/use-auth-token-refresh';
 import UserContextMenu from '@/components/shared/user-context-menu';
+import { useUser, useTenant } from '@/contexts/auth-context';
 import { dashboardApi, DashboardStatsDto, ApiError } from '@/utils/api';
 import HeroSection from '@/components/shared/hero-section';
 
 export default function AdminHomePage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStatsDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // Use centralized auth state
+  const { isAuthenticated } = useUser();
+  const { isGlobalAdmin } = useTenant();
+  
   // Auto-refresh token when subdomain context changes
-  useTokenRefresh();
+  useAuthTokenRefresh();
 
   // Set document title
   useEffect(() => {
     document.title = "TeamStride - Global Administration - Dashboard";
   }, []);
 
-  useEffect(() => {
-    // Check authentication status on component mount
-    const checkAuth = () => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          if (!isTokenExpired(token)) {
-            setIsAuthenticated(true);
-            
-            // Check if user is a global admin
-            const teamContext = getTeamContextFromToken();
-            setIsGlobalAdmin(teamContext?.isGlobalAdmin ?? false);
-          } else {
-            // Token is expired, clean up
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
-            setIsAuthenticated(false);
-            setIsGlobalAdmin(false);
-          }
-        } catch (error) {
-          console.error('Error validating token:', error);
-          // If validation fails, clean up potentially invalid tokens
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-          setIsAuthenticated(false);
-          setIsGlobalAdmin(false);
-        }
-      } else {
-        setIsAuthenticated(false);
-        setIsGlobalAdmin(false);
-      }
-    };
-
-    checkAuth();
-
-    // Listen for storage changes (e.g., when user logs out in another tab)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'token') {
-        checkAuth();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
+  // No longer need useEffect for auth - managed by AuthContext
 
   useEffect(() => {
     const loadDashboardStats = async () => {

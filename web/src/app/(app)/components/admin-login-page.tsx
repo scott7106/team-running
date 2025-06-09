@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -13,7 +13,7 @@ import {
   faMicrosoft, 
   faGoogle 
 } from '@fortawesome/free-brands-svg-icons';
-import { isTokenExpired, onLoginSuccess } from '../../../utils/auth';
+import { useAuth } from '@/contexts/auth-context';
 
 interface AuthResponse {
   token: string;
@@ -36,39 +36,17 @@ export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   
   const router = useRouter();
+  const { login, isAuthenticated } = useAuth();
 
-  const checkAdminStatusAndRedirect = useCallback(async (token: string) => {
-    try {
-      // Check if user is global admin
-      const adminResponse = await fetch('/api/admin/teams?pageSize=1', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
 
-      if (adminResponse.ok) {
-        // User is global admin, redirect to admin home
-        router.push('/');
-      } else {
-        // User is not global admin, redirect to tenant switcher
-        router.push('/tenant-switcher');
-      }
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-      // If error occurs, redirect to tenant switcher as fallback
-      router.push('/tenant-switcher');
-    }
-  }, [router]);
 
   useEffect(() => {
-    // Check if user is already logged in with a valid token
-    const token = localStorage.getItem('token');
-    if (token && !isTokenExpired(token)) {
-      // User is already authenticated, check admin status and redirect
-      checkAdminStatusAndRedirect(token);
+    // Check if user is already logged in
+    if (isAuthenticated) {
+      // User is already authenticated, navigate to admin dashboard
+      router.push('/');
     }
-  }, [router, checkAdminStatusAndRedirect]);
+  }, [isAuthenticated, router]);
 
   // Set document title
   useEffect(() => {
@@ -111,15 +89,11 @@ export default function AdminLoginPage() {
 
       const authData: AuthResponse = await loginResponse.json();
 
-      // Store tokens
-      localStorage.setItem('token', authData.token);
-      localStorage.setItem('refreshToken', authData.refreshToken);
+      // Use centralized login function
+      login(authData.token, authData.refreshToken);
 
-      // Initialize session security
-      onLoginSuccess();
-
-      // Check admin status and redirect accordingly
-      await checkAdminStatusAndRedirect(authData.token);
+      // Navigate to admin dashboard
+      router.push('/');
       
     } catch (error) {
       console.error('Login error:', error);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -9,28 +9,23 @@ import {
   faSignOutAlt,
   faArrowLeft
 } from '@fortawesome/free-solid-svg-icons';
+import { useUser, useAuth } from '@/contexts/auth-context';
 
 export default function NoTeamAccessPage() {
-  const [userEmail, setUserEmail] = useState<string>('');
   const router = useRouter();
+  const { user, isAuthenticated } = useUser();
+  const { logout } = useAuth();
 
   useEffect(() => {
     // Check if user is authenticated
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!isAuthenticated) {
       router.push('/');
       return;
     }
-
-    // TODO: Add API call to get user email
-    // For now, we'll get it from localStorage or decode from token
-    // This is a placeholder - in real implementation, decode from JWT or call API
-    setUserEmail('user@example.com');
-  }, [router]);
+  }, [isAuthenticated, router]);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
+    logout();
     router.push('/');
   };
 
@@ -39,8 +34,17 @@ export default function NoTeamAccessPage() {
   };
 
   const handleContactSupport = () => {
+    const userEmail = user?.email || 'unknown@example.com';
     window.location.href = 'mailto:support@teamstride.com?subject=Team Access Request&body=Hello, I need help accessing my team. My account email is: ' + userEmail;
   };
+
+  if (!isAuthenticated || !user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-lg text-gray-600">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -76,7 +80,7 @@ export default function NoTeamAccessPage() {
               <FontAwesomeIcon icon={faEnvelope} className="h-5 w-5 text-gray-400 mr-3" />
               <div>
                 <p className="text-sm font-medium text-gray-900">Your Account</p>
-                <p className="text-sm text-gray-600">{userEmail}</p>
+                <p className="text-sm text-gray-600">{user.email}</p>
               </div>
             </div>
           </div>
@@ -91,7 +95,7 @@ export default function NoTeamAccessPage() {
               </li>
               <li className="flex items-start">
                 <span className="font-bold text-blue-600 mr-2">2.</span>
-                <span>Ask them to add your email address ({userEmail}) to the team roster</span>
+                <span>Ask them to add your email address ({user.email}) to the team roster</span>
               </li>
               <li className="flex items-start">
                 <span className="font-bold text-blue-600 mr-2">3.</span>

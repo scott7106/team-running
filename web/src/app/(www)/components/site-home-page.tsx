@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+// No React hooks needed - using AuthContext
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -11,99 +11,22 @@ import {
   faTrophy, 
   faClock
 } from '@fortawesome/free-solid-svg-icons';
-import { getUserFromToken, isTokenExpired, getTeamContextFromToken } from '@/utils/auth';
 import UserContextMenu from '@/components/shared/user-context-menu';
 import HeroSection from '@/components/shared/hero-section';
-import { useTokenRefresh } from '@/hooks/use-token-refresh';
+import { useAuthTokenRefresh } from '@/hooks/use-auth-token-refresh';
+import { useUser, useTenant } from '@/contexts/auth-context';
 
 export default function SiteHomePage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userInfo, setUserInfo] = useState<{
-    firstName: string;
-    lastName: string;
-    email: string;
-  } | null>(null);
-  const [teamContext, setTeamContext] = useState<{
-    contextLabel: string;
-    isGlobalAdmin: boolean;
-    hasTeam: boolean;
-    teamId?: string;
-    teamRole?: string;
-  } | null>(null);
   const router = useRouter();
 
+  // Use centralized auth state
+  const { user, isAuthenticated } = useUser();
+  const { hasTeam, isGlobalAdmin } = useTenant();
+
   // Auto-refresh token when subdomain context changes
-  useTokenRefresh();
+  useAuthTokenRefresh();
 
-  useEffect(() => {
-    // Check authentication status 
-    const checkAuth = () => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          if (!isTokenExpired(token)) {
-            setIsAuthenticated(true);
-            const user = getUserFromToken();
-            const context = getTeamContextFromToken();
-            if (user) {
-              setUserInfo(user);
-            } else {
-              // Fallback if we can't decode user info from token
-              setUserInfo({
-                firstName: 'User',
-                lastName: '',
-                email: 'user@example.com'
-              });
-            }
-            setTeamContext(context);
-          } else {
-            // Token is expired, clean up
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
-            setIsAuthenticated(false);
-            setUserInfo(null);
-            setTeamContext(null);
-          }
-        } catch (error) {
-          console.error('Error validating token:', error);
-          // If validation fails, clean up potentially invalid tokens
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-          setIsAuthenticated(false);
-          setUserInfo(null);
-          setTeamContext(null);
-        }
-      } else {
-        setIsAuthenticated(false);
-        setUserInfo(null);
-        setTeamContext(null);
-      }
-    };
-
-    // Initial check with a small delay to allow token refresh to complete
-    const timeoutId = setTimeout(checkAuth, 100);
-
-    // Listen for storage changes (e.g., when user logs out in another tab or token refresh completes)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'token') {
-        checkAuth();
-      }
-    };
-
-    // Listen for focus events to refresh auth state
-    const handleFocus = () => {
-      checkAuth();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      clearTimeout(timeoutId);
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, []);
+  // No longer need useEffect for auth state - managed by AuthContext
 
   const handleLoginClick = () => {
     router.push('/login');
@@ -133,7 +56,7 @@ export default function SiteHomePage() {
             </div>
             
             {/* Authenticated User Menu or Login Button */}
-            {isAuthenticated && userInfo ? (
+            {isAuthenticated && user ? (
               <UserContextMenu />
             ) : (
               <button
@@ -152,9 +75,9 @@ export default function SiteHomePage() {
         onLoginClick={handleLoginClick}
         onPrimaryAction={isAuthenticated ? () => {
           // Navigate to appropriate dashboard based on user context
-          if (teamContext?.hasTeam) {
+          if (hasTeam) {
             router.push('/team');
-          } else if (teamContext?.isGlobalAdmin) {
+          } else if (isGlobalAdmin) {
             router.push('/admin');
           } else {
             router.push('/team'); // fallback

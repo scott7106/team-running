@@ -61,21 +61,19 @@ public class TenantSwitcherService : ITenantSwitcherService
         return tenantDtos;
     }
 
-    public async Task<IEnumerable<SubdomainDto>> GetAllTenantsAsync()
+    public async Task<SubdomainDto> GetThemeInfoByDomainAsync(string subdomain)
     {
-        var teams = await _context.Teams
-            .Where(t => !t.IsDeleted && t.Status == Domain.Entities.TeamStatus.Active)
-            .OrderBy(t => t.Subdomain)
-            .ToListAsync();
+        var team = await _context.Teams.FirstOrDefaultAsync(x => x.Subdomain == subdomain);
 
-        var subdomainDtos = teams.Select(team => new SubdomainDto
-        {
-            TeamId = team.Id,
-            Subdomain = team.Subdomain
-        }).ToList();
+        _logger.LogInformation("Retrieved theme data for {subdomain}", subdomain);
 
-        _logger.LogInformation("Retrieved {Count} active team subdomains", subdomainDtos.Count);
-
-        return subdomainDtos;
+        //this endpoint should never fail, so we return a default value if the team is not found
+        return new SubdomainDto {
+            TeamId = team?.Id ?? Guid.Empty,
+            TeamName = team?.Name ?? string.Empty,
+            Subdomain = team?.Subdomain ?? string.Empty,
+            PrimaryColor = team?.PrimaryColor ?? "#3B82F6",
+            SecondaryColor = team?.SecondaryColor ?? "#D1FAE5"
+        };
     }
 } 

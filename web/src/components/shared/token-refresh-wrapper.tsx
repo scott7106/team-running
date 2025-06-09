@@ -1,6 +1,6 @@
 'use client';
 
-import { useTokenRefreshFromHeaders } from '@/hooks/use-token-refresh';
+import { useAuthTokenRefreshFromHeaders } from '@/hooks/use-auth-token-refresh';
 
 interface TokenRefreshWrapperProps {
   needsRefresh?: string;
@@ -8,8 +8,8 @@ interface TokenRefreshWrapperProps {
 }
 
 export default function TokenRefreshWrapper({ needsRefresh, children }: TokenRefreshWrapperProps) {
-  // Handle token refresh based on middleware headers
-  useTokenRefreshFromHeaders(needsRefresh);
+  // Handle token refresh based on middleware headers using AuthContext
+  useAuthTokenRefreshFromHeaders(needsRefresh);
   
   return <>{children}</>;
 } 

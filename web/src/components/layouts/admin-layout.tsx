@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, ReactNode } from 'react';
+import { useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -9,7 +9,7 @@ import {
   faBars,
   faTimes
 } from '@fortawesome/free-solid-svg-icons';
-import { getUserFromToken } from '@/utils/auth';
+import { useUser } from '@/contexts/auth-context';
 import UserContextMenu from '../shared/user-context-menu';
 
 interface AdminLayoutProps {
@@ -20,33 +20,10 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ children, pageTitle, currentSection = 'dashboard' }: AdminLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [userInfo, setUserInfo] = useState<{
-    firstName: string;
-    lastName: string;
-    email: string;
-  } | null>(null);
   const router = useRouter();
-
-  useEffect(() => {
-    // Check if user is authenticated and get user info from token
-    const token = localStorage.getItem('token');
-    if (!token) {
-      router.push('/');
-      return;
-    }
-
-    const user = getUserFromToken();
-    if (user) {
-      setUserInfo(user);
-    } else {
-      // If we can't get user from token, fallback to placeholder
-      setUserInfo({
-        firstName: 'Admin',
-        lastName: 'User',
-        email: 'admin@teamstride.com'
-      });
-    }
-  }, [router]);
+  
+  // Use centralized auth state
+  const { user, isAuthenticated } = useUser();
 
   const handleManageTeams = () => {
     router.push('/teams');
@@ -58,7 +35,7 @@ export default function AdminLayout({ children, pageTitle, currentSection = 'das
     setIsSidebarOpen(false);
   };
 
-  if (!userInfo) {
+  if (!isAuthenticated || !user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-lg text-gray-600">Loading...</div>

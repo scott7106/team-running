@@ -9,21 +9,7 @@ import {
   faSignOutAlt, 
   faExchangeAlt
 } from '@fortawesome/free-solid-svg-icons';
-import { getUserFromToken, getTeamContextFromToken, logout } from '@/utils/auth';
-
-interface UserInfo {
-  firstName: string;
-  lastName: string;
-  email: string;
-}
-
-interface TeamContext {
-  contextLabel: string;
-  isGlobalAdmin: boolean;
-  hasTeam: boolean;
-  teamId?: string;
-  teamRole?: string;
-}
+import { useAuth, useUser, useTenant } from '@/contexts/auth-context';
 
 interface UserContextMenuProps {
   /** Optional custom styling class */
@@ -34,45 +20,15 @@ interface UserContextMenuProps {
 
 export default function UserContextMenu({ className = '', variant = 'button' }: UserContextMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [teamContext, setTeamContext] = useState<TeamContext | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  
+  // Use centralized auth state
+  const { logout } = useAuth();
+  const { user, isAuthenticated } = useUser();
+  const { tenant, hasTeam, isGlobalAdmin } = useTenant();
 
-  useEffect(() => {
-    // Load user info and team context
-    const loadUserData = () => {
-      const user = getUserFromToken();
-      const context = getTeamContextFromToken();
-      
-      setUserInfo(user);
-      setTeamContext(context);
-    };
-
-    // Load initially
-    loadUserData();
-
-    // Listen for token changes (from other tabs or context switches)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'token') {
-        loadUserData();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Also listen for focus events to refresh data
-    const handleFocus = () => {
-      loadUserData();
-    };
-    
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, []);
+  // No need for useEffect - auth state is managed by AuthContext
 
   useEffect(() => {
     // Close menu when clicking outside
@@ -105,18 +61,18 @@ export default function UserContextMenu({ className = '', variant = 'button' }: 
     logout();
   };
 
-  if (!userInfo) {
+  if (!isAuthenticated || !user) {
     return null; // Don't show if user is not authenticated
   }
 
   const getUserInitials = () => {
-    return `${userInfo.firstName.charAt(0)}${userInfo.lastName.charAt(0)}`.toUpperCase();
+    return `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
   };
 
   const getContextDisplay = () => {
-    if (teamContext?.hasTeam) {
-      return teamContext.contextLabel;
-    } else if (teamContext?.isGlobalAdmin) {
+    if (hasTeam && tenant) {
+      return tenant.contextLabel;
+    } else if (isGlobalAdmin) {
       return 'Global Admin';
     }
     return 'No Team';
@@ -162,7 +118,7 @@ export default function UserContextMenu({ className = '', variant = 'button' }: 
           <span className="text-white text-sm font-medium">{getUserInitials()}</span>
         </div>
         <div className="hidden sm:block text-left">
-          <div className="font-medium text-sm">{userInfo.firstName} {userInfo.lastName}</div>
+          <div className="font-medium text-sm">{user.firstName} {user.lastName}</div>
           <div className="text-xs text-gray-500">{getContextDisplay()}</div>
         </div>
         <FontAwesomeIcon icon={faChevronDown} className="w-4 h-4 text-gray-400" />

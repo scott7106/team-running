@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
-import { isTokenExpired, getTeamContextFromToken } from '../../utils/auth';
+import { useUser, useTenant } from '@/contexts/auth-context';
 
 interface TenantDto {
   teamId: string;
@@ -20,6 +20,10 @@ export default function TenantSwitcherPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAdminChoice, setShowAdminChoice] = useState(false);
+  
+  // Use centralized auth state
+  const { isAuthenticated } = useUser();
+  const { isGlobalAdmin } = useTenant();
 
   const routeToAdminPage = useCallback(async () => {
     try {
@@ -113,9 +117,8 @@ export default function TenantSwitcherPage() {
       setIsLoading(true);
       setError('');
 
-      // Check if user is global admin from token context
-      const teamContext = getTeamContextFromToken();
-      const isAdmin = teamContext?.isGlobalAdmin ?? false;
+      // Check if user is global admin from centralized auth context
+      const isAdmin = isGlobalAdmin;
 
       // Get user's teams
       const teamsResponse = await fetch('/api/tenant-switcher/tenants', {
@@ -156,17 +159,19 @@ export default function TenantSwitcherPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [routeToAdminPage, switchToTeamContext]);
+  }, [isGlobalAdmin, routeToAdminPage, switchToTeamContext]);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token || isTokenExpired(token)) {
+    if (!isAuthenticated) {
       router.push('/login');
       return;
     }
     
-    loadTeamsAndAdminStatus(token);
-  }, [router, loadTeamsAndAdminStatus]);
+    const token = localStorage.getItem('token');
+    if (token) {
+      loadTeamsAndAdminStatus(token);
+    }
+  }, [isAuthenticated, router, loadTeamsAndAdminStatus]);
 
   const handleAdminChoice = () => {
     routeToAdminPage();

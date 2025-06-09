@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -14,7 +14,9 @@ import {
   faMicrosoft, 
   faGoogle 
 } from '@fortawesome/free-brands-svg-icons';
-import { isTokenExpired, onLoginSuccess } from '../../../utils/auth';
+import { useAuth } from '@/contexts/auth-context';
+import { getTeamThemeData } from '@/utils/team-theme';
+import { SubdomainThemeDto } from '@/types/team';
 
 interface AuthResponse {
   token: string;
@@ -27,28 +29,12 @@ interface AuthResponse {
   requiresEmailConfirmation: boolean;
 }
 
-interface TenantDto {
-  teamId: string;
-  teamName: string;
-  subdomain: string;
-  primaryColor: string;
-  secondaryColor: string;
-}
-
 interface TeamLoginPageProps {
-  teamId: string;
-  teamName: string;
-  primaryColor: string;
-  secondaryColor: string;
-  logoUrl?: string;
+  teamSubdomain: string;
 }
 
-export default function TeamLoginPage({ 
-  teamId, 
-  teamName, 
-  primaryColor, 
-  secondaryColor, 
-  logoUrl 
+export default function TeamLoginPage({
+  teamSubdomain
 }: TeamLoginPageProps) {
   const [loginForm, setLoginForm] = useState({
     email: '',
@@ -57,56 +43,46 @@ export default function TeamLoginPage({
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [themeData, setThemeData] = useState<SubdomainThemeDto | null>(null);
   
   const router = useRouter();
+  const { login, isAuthenticated } = useAuth();
 
-  // Set document title with team name
+  // Load theme data
   useEffect(() => {
-    document.title = `${teamName} - Login`;
-  }, [teamName]);
-
-  const checkTeamMembershipAndRedirect = useCallback(async (token: string) => {
-    try {
-      // Get user's teams to check if they have access to this specific team
-      const teamsResponse = await fetch('/api/tenant-switcher/tenants', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (teamsResponse.ok) {
-        const userTeams: TenantDto[] = await teamsResponse.json();
-        
-        // Check if user has access to this specific team
-        const hasTeamAccess = userTeams.some(team => team.teamId === teamId);
-        
-        if (hasTeamAccess) {
-          // User has access to this team, redirect to team home
-          router.push('/');
-        } else {
-          // User does not have access to this team, but should still see public team page
-          router.push('/');
-        }
-      } else {
-        // Error getting teams, redirect to team home as fallback (will show public content)
-        router.push('/');
+    const loadTheme = async () => {
+      try {
+        const data = await getTeamThemeData(teamSubdomain);
+        setThemeData(data);
+        // Set document title with team name
+        document.title = `${data.teamName || teamSubdomain} - Login`;
+      } catch (error) {
+        console.error('Failed to load theme data:', error);
+        // Use default theme
+        setThemeData({
+          teamId: '',
+          teamName: teamSubdomain.charAt(0).toUpperCase() + teamSubdomain.slice(1),
+          subdomain: teamSubdomain,
+          primaryColor: '#3B82F6',
+          secondaryColor: '#F0FDF4',
+          logoUrl: undefined
+        });
+        document.title = `${teamSubdomain} - Login`;
       }
-    } catch (error) {
-      console.error('Error checking team membership:', error);
-      // If error occurs, redirect to team home as fallback (will show public content)
+    };
+
+    if (teamSubdomain) {
+      loadTheme();
+    }
+  }, [teamSubdomain]);
+
+  useEffect(() => {
+    // Check if user is already logged in
+    if (isAuthenticated) {
+      // User is already authenticated, redirect to team home
       router.push('/');
     }
-  }, [router, teamId]);
-
-  useEffect(() => {
-    // Check if user is already logged in with a valid token
-    const token = localStorage.getItem('token');
-    if (token && !isTokenExpired(token)) {
-      // User is already authenticated, check team membership and redirect
-      checkTeamMembershipAndRedirect(token);
-    }
-  }, [router, teamId, checkTeamMembershipAndRedirect]);
+  }, [isAuthenticated, router]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,15 +120,11 @@ export default function TeamLoginPage({
 
       const authData: AuthResponse = await loginResponse.json();
 
-      // Store tokens
-      localStorage.setItem('token', authData.token);
-      localStorage.setItem('refreshToken', authData.refreshToken);
+      // Use centralized login function
+      login(authData.token, authData.refreshToken);
 
-      // Initialize session security
-      onLoginSuccess();
-
-      // Check team membership and redirect accordingly
-      await checkTeamMembershipAndRedirect(authData.token);
+      // Navigate to team home
+      router.push('/');
       
     } catch (error) {
       console.error('Login error:', error);
@@ -168,10 +140,19 @@ export default function TeamLoginPage({
 
   // Apply team theming with CSS custom properties
   const themeStyles = {
-    '--team-primary': primaryColor || '#10B981',
-    '--team-secondary': secondaryColor || '#D1FAE5',
-    '--team-primary-hover': primaryColor ? `${primaryColor}dd` : '#059669',
+    '--team-primary': themeData?.primaryColor || '#10B981',
+    '--team-secondary': themeData?.secondaryColor || '#D1FAE5',
+    '--team-primary-hover': themeData?.primaryColor ? `${themeData.primaryColor}dd` : '#059669',
   } as React.CSSProperties;
+
+  // Show loading state while theme data is loading
+  if (!themeData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -182,25 +163,25 @@ export default function TeamLoginPage({
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div 
           className="absolute top-20 left-10 w-72 h-72 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"
-          style={{ backgroundColor: primaryColor || '#3B82F6' }}
+          style={{ backgroundColor: themeData?.primaryColor || '#3B82F6' }}
         ></div>
         <div 
           className="absolute top-40 right-10 w-72 h-72 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-2000"
-          style={{ backgroundColor: secondaryColor || '#8B5CF6' }}
+          style={{ backgroundColor: themeData?.secondaryColor || '#8B5CF6' }}
         ></div>
         <div 
           className="absolute -bottom-8 left-20 w-72 h-72 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-4000"
-          style={{ backgroundColor: primaryColor ? `${primaryColor}80` : '#6366F1' }}
+          style={{ backgroundColor: themeData?.primaryColor ? `${themeData.primaryColor}80` : '#6366F1' }}
         ></div>
       </div>
 
       <div className="relative sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-          {logoUrl ? (
+          {themeData?.logoUrl ? (
             <div className="w-16 h-16 rounded-xl flex items-center justify-center shadow-lg overflow-hidden bg-white">
               <Image 
-                src={logoUrl} 
-                alt={`${teamName} logo`} 
+                src={themeData.logoUrl} 
+                alt={`${themeData.teamName || teamSubdomain} logo`} 
                 width={48}
                 height={48}
                 className="object-contain"
@@ -210,17 +191,17 @@ export default function TeamLoginPage({
             <div 
               className="w-16 h-16 rounded-xl flex items-center justify-center shadow-lg"
               style={{ 
-                background: `linear-gradient(to right, ${primaryColor || '#3B82F6'}, ${secondaryColor || '#8B5CF6'})` 
+                background: `linear-gradient(to right, ${themeData?.primaryColor || '#3B82F6'}, ${themeData?.secondaryColor || '#8B5CF6'})` 
               }}
             >
               <span className="text-white font-bold text-2xl">
-                {teamName.charAt(0).toUpperCase()}
+                {themeData?.teamName?.charAt(0).toUpperCase()}
               </span>
             </div>
           )}
         </div>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          {teamName}
+          {themeData?.teamName || teamSubdomain}
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
           Sign in to access your team
@@ -263,8 +244,8 @@ export default function TeamLoginPage({
                 placeholder="athlete@example.com"
                 className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-2 transition-colors"
                 style={{
-                  '--tw-ring-color': primaryColor || '#3B82F6',
-                  'focusBorderColor': primaryColor || '#3B82F6'
+                  '--tw-ring-color': themeData?.primaryColor || '#3B82F6',
+                  'focusBorderColor': themeData?.primaryColor || '#3B82F6'
                 } as React.CSSProperties}
                 disabled={isLoading}
               />
@@ -286,8 +267,8 @@ export default function TeamLoginPage({
                   placeholder="••••••••"
                   className="w-full px-3 py-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-2 transition-colors"
                   style={{
-                    '--tw-ring-color': primaryColor || '#3B82F6',
-                    'focusBorderColor': primaryColor || '#3B82F6'
+                    '--tw-ring-color': themeData?.primaryColor || '#3B82F6',
+                    'focusBorderColor': themeData?.primaryColor || '#3B82F6'
                   } as React.CSSProperties}
                   disabled={isLoading}
                 />
@@ -307,7 +288,7 @@ export default function TeamLoginPage({
                 <a 
                   href="#" 
                   className="font-medium hover:opacity-80 transition-opacity"
-                  style={{ color: primaryColor || '#3B82F6' }}
+                  style={{ color: themeData?.primaryColor || '#3B82F6' }}
                 >
                   Forgot your password?
                 </a>
@@ -319,7 +300,7 @@ export default function TeamLoginPage({
               disabled={isLoading}
               className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02]"
               style={{
-                background: `linear-gradient(to right, ${primaryColor || '#3B82F6'}, ${primaryColor ? `${primaryColor}dd` : '#2563EB'})`,
+                background: `linear-gradient(to right, ${themeData?.primaryColor || '#3B82F6'}, ${themeData?.primaryColor ? `${themeData.primaryColor}dd` : '#2563EB'})`,
               }}
             >
               {isLoading ? (
@@ -368,18 +349,18 @@ export default function TeamLoginPage({
               onClick={handleBackToHome}
               className="text-sm text-gray-600 hover:text-gray-800 font-medium transition-colors"
             >
-              ← Back to {teamName}
+              ← Back to {themeData?.teamName || teamSubdomain}
             </button>
           </div>
         </div>
 
         <div className="mt-6 text-center">
           <p className="text-xs text-gray-500">
-            Not a member of {teamName}?{' '}
+            Not a member of {themeData?.teamName || teamSubdomain}?{' '}
             <a 
               href="/register" 
               className="font-medium hover:opacity-80 transition-opacity"
-              style={{ color: primaryColor || '#3B82F6' }}
+              style={{ color: themeData?.primaryColor || '#3B82F6' }}
             >
               Request to join
             </a>
