@@ -57,7 +57,7 @@ public class TenantSwitcherController : BaseApiController
     /// Gets all active tenants (teams) for public access - used by middleware for subdomain resolution
     /// </summary>
     /// <returns>List of all active team subdomains</returns>
-    [HttpGet("{subdomain:string}/theme/")]
+    [HttpGet("{subdomain}/theme/")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(SubdomainDto), 200)]
     [ProducesResponseType(500)]

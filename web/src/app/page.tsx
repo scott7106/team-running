@@ -10,9 +10,8 @@ import UrlThemeHandler from '@/components/shared/url-theme-handler';
 export default async function RootPage() {
   const headersList = await headers();
   const context = headersList.get('x-context');
-  const needsRefresh = headersList.get('x-needs-token-refresh');
   
-  console.log('[RootPage] Context detected:', context, 'Needs refresh:', needsRefresh);
+  console.log('[RootPage] Context detected:', context);
   
   const pageContent = (() => {
     switch(context) {
@@ -27,7 +26,7 @@ export default async function RootPage() {
   })();
 
   return (
-    <TokenRefreshWrapper needsRefresh={needsRefresh || undefined}>
+    <TokenRefreshWrapper>
       <Suspense fallback={null}>
         <UrlTokenHandler />
         <UrlThemeHandler />

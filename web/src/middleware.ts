@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { shouldRefreshTokenForSubdomain } from './utils/auth';
 
 /**
  * Extracts subdomain from hostname
@@ -38,18 +37,11 @@ export async function middleware(request: NextRequest) {
 
   console.log(`[Middleware] Processing request for hostname: ${hostname}, subdomain: ${subdomain}, path: ${url.pathname}`);
 
-  // Check if token needs refresh for the current subdomain
-  const needsRefresh = shouldRefreshTokenForSubdomain(subdomain);
-  if (needsRefresh) {
-    console.log(`[Middleware] Token needs refresh for subdomain: ${subdomain}`);
-  }
-
   // Handle www subdomain - marketing site
   if (subdomain === 'www' || subdomain === '' || subdomain === 'localhost') {
     // Set context for marketing site
     const response = NextResponse.next();
     response.headers.set('x-context', 'www');
-    response.headers.set('x-needs-token-refresh', needsRefresh.toString());
     console.log(`[Middleware] Setting www context for hostname: ${hostname}`);
     return response;
   }
@@ -59,7 +51,6 @@ export async function middleware(request: NextRequest) {
     // Set context for admin site
     const response = NextResponse.next();
     response.headers.set('x-context', 'app');
-    response.headers.set('x-needs-token-refresh', needsRefresh.toString());
     console.log(`[Middleware] Setting app context for hostname: ${hostname}`);
     return response;
   }
@@ -74,7 +65,6 @@ export async function middleware(request: NextRequest) {
     const response = NextResponse.next();
     response.headers.set('x-context', 'team');
     response.headers.set('x-team-subdomain', subdomain);
-    response.headers.set('x-needs-token-refresh', needsRefresh.toString());
     
     console.log(`[Middleware] Set team context for subdomain: ${subdomain}`);
     return response;

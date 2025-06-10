@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
-import { decodeToken, isTokenExpired, setSessionFingerprint, stopHeartbeat, disableFocusValidation } from '@/utils/auth';
+import { decodeToken, isTokenExpired, setSessionFingerprint, stopHeartbeat, disableFocusValidation, canAccessSubdomain, parseTeamMemberships, TeamMembershipInfo } from '@/utils/auth';
 
 // Types
 interface User {
@@ -10,6 +10,7 @@ interface User {
   firstName: string;
   lastName: string;
   isGlobalAdmin: boolean;
+  teamMemberships: TeamMembershipInfo[];
 }
 
 interface Tenant {
@@ -94,36 +95,78 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Helper functions
+function getCurrentSubdomain(): string {
+  if (typeof window === 'undefined') return 'www';
+  
+  const hostname = window.location.hostname;
+  let subdomain = '';
+  
+  if (hostname.includes('localhost')) {
+    const parts = hostname.split('.');
+    if (parts.length > 1) {
+      subdomain = parts[0];
+    } else {
+      subdomain = 'localhost';
+    }
+  } else {
+    const parts = hostname.split('.');
+    if (parts.length > 2) {
+      subdomain = parts[0];
+    }
+  }
+
+  // Normalize subdomain for context checking
+  if (subdomain === 'localhost' || subdomain === '') {
+    subdomain = 'www';
+  }
+  
+  return subdomain;
+}
+
 function parseTokenData(token: string): { user: User; tenant: Tenant } | null {
   const claims = decodeToken(token);
   if (!claims) return null;
 
+  const isGlobalAdmin = claims.is_global_admin === 'true';
+  const teamMemberships = parseTeamMemberships(claims);
+  
   const user: User = {
     id: claims.sub,
     email: claims.email,
     firstName: claims.first_name || '',
     lastName: claims.last_name || '',
-    isGlobalAdmin: claims.is_global_admin === 'true',
+    isGlobalAdmin,
+    teamMemberships,
   };
 
-  const hasTeam = !!claims.team_id;
-  const teamSubdomain = claims.team_subdomain;
+  // Determine current subdomain and team context
+  const currentSubdomain = getCurrentSubdomain();
+  
+  // Check if user can access current subdomain
+  if (!canAccessSubdomain(currentSubdomain)) {
+    throw new Error(`Access denied to subdomain: ${currentSubdomain}`);
+  }
+  
+  // Find current team membership based on subdomain
+  const currentMembership = currentSubdomain && currentSubdomain !== 'www' && currentSubdomain !== 'app' ? 
+    teamMemberships.find(m => m.teamSubdomain.toLowerCase() === currentSubdomain.toLowerCase()) : 
+    null;
 
   let contextLabel: string;
-  if (teamSubdomain === 'app' && user.isGlobalAdmin) {
+  if (currentSubdomain === 'app' && isGlobalAdmin) {
     contextLabel = 'Global Admin';
-  } else if (hasTeam && claims.team_id) {
-    contextLabel = teamSubdomain || 'Team Context';
-  } else if (user.isGlobalAdmin) {
+  } else if (currentMembership) {
+    contextLabel = currentMembership.teamSubdomain || 'Team Context';
+  } else if (isGlobalAdmin && currentSubdomain === 'www') {
     contextLabel = 'Global Admin';
   } else {
     contextLabel = 'No Team';
   }
 
   const tenant: Tenant = {
-    teamId: claims.team_id,
-    teamRole: claims.team_role,
-    teamSubdomain: claims.team_subdomain,
+    teamId: currentMembership?.teamId,
+    teamRole: currentMembership?.teamRole,
+    teamSubdomain: currentMembership?.teamSubdomain,
     contextLabel,
   };
 
@@ -155,7 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const tokenData = parseTokenData(token);
       if (!tokenData) {
-        // Invalid token
+        // Invalid token or access denied to current subdomain
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('sessionFingerprint');
@@ -180,7 +223,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const tokenData = parseTokenData(token);
       if (!tokenData) {
-        throw new Error('Invalid token data');
+        throw new Error('Invalid token data or access denied');
       }
 
       dispatch({ type: 'LOGIN_SUCCESS', payload: tokenData });
@@ -246,7 +289,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Parse new token and update state
       const tokenData = parseTokenData(authData.token);
       if (!tokenData) {
-        console.error('Failed to parse refreshed token');
+        console.error('Failed to parse refreshed token or access denied');
         return false;
       }
 
@@ -312,12 +355,13 @@ export function useUser() {
   return { user, isAuthenticated, isLoading };
 }
 
-// Hook to get tenant info
+// Hook to get tenant info  
 export function useTenant() {
   const { tenant, user } = useAuth();
   return { 
     tenant, 
-    hasTeam: !!tenant?.teamId,
     isGlobalAdmin: user?.isGlobalAdmin || false,
+    hasTeam: !!tenant?.teamId,
+    teamMemberships: user?.teamMemberships || []
   };
 } 

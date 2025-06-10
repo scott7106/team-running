@@ -14,7 +14,6 @@ export interface JwtClaims {
   last_name?: string;
   is_global_admin?: string;
   team_memberships?: string; // JSON array of team memberships
-  team_subdomain?: string; // Current context subdomain
   exp: number;
   iat: number;
   jti: string;
@@ -104,27 +103,50 @@ export function getTeamContextFromToken(): {
   if (!claims) return null;
   
   const isGlobalAdmin = claims.is_global_admin === 'true';
-  const teamSubdomain = claims.team_subdomain;
   const allMemberships = parseTeamMemberships(claims);
   
+  // Determine current subdomain context
+  const hostname = window.location.hostname;
+  let currentSubdomain = '';
+  
+  if (hostname.includes('localhost')) {
+    const parts = hostname.split('.');
+    if (parts.length > 1) {
+      currentSubdomain = parts[0];
+    } else {
+      currentSubdomain = 'localhost';
+    }
+  } else {
+    const parts = hostname.split('.');
+    if (parts.length > 2) {
+      currentSubdomain = parts[0];
+    }
+  }
+
+  // Normalize subdomain for context checking
+  if (currentSubdomain === 'localhost' || currentSubdomain === '') {
+    currentSubdomain = 'www';
+  }
+  
   // Find current team membership based on subdomain
-  const currentMembership = teamSubdomain ? 
-    allMemberships.find(m => m.teamSubdomain.toLowerCase() === teamSubdomain.toLowerCase()) : 
+  const currentMembership = currentSubdomain && currentSubdomain !== 'www' && currentSubdomain !== 'app' ? 
+    allMemberships.find(m => m.teamSubdomain.toLowerCase() === currentSubdomain.toLowerCase()) : 
     null;
   
   const hasTeam = !!currentMembership;
   const teamId = currentMembership?.teamId;
   const teamRole = currentMembership?.teamRole;
+  const teamSubdomain = currentMembership?.teamSubdomain;
   
   let contextLabel: string;
   
-  if (teamSubdomain === 'app' && isGlobalAdmin) {
+  if (currentSubdomain === 'app' && isGlobalAdmin) {
     // Global admin in app context
     contextLabel = 'Global Admin';
   } else if (hasTeam && teamId) {
     // Show the team subdomain (code) if available, otherwise fall back to generic label
     contextLabel = teamSubdomain || 'Team Context';
-  } else if (isGlobalAdmin) {
+  } else if (isGlobalAdmin && currentSubdomain === 'www') {
     contextLabel = 'Global Admin';
   } else {
     contextLabel = 'None';
@@ -141,7 +163,7 @@ export function getTeamContextFromToken(): {
   };
 }
 
-export function shouldRefreshTokenForSubdomain(currentSubdomain: string): boolean {
+export function canAccessSubdomain(subdomain: string): boolean {
   if (typeof window === 'undefined') return false;
   
   const token = localStorage.getItem('token');
@@ -150,25 +172,34 @@ export function shouldRefreshTokenForSubdomain(currentSubdomain: string): boolea
   const claims = decodeToken(token);
   if (!claims) return false;
   
-  const tokenSubdomain = claims.team_subdomain;
   const isGlobalAdmin = claims.is_global_admin === 'true';
   
-  // Handle global admin context
-  if (currentSubdomain === 'app') {
-    return !isGlobalAdmin || tokenSubdomain !== 'app';
+  // Global admins can access app subdomain
+  if (subdomain === 'app') {
+    return isGlobalAdmin;
   }
   
-  // Handle www/marketing context
-  if (currentSubdomain === 'www' || currentSubdomain === 'localhost') {
-    return !!tokenSubdomain; // Should have no team context for marketing
+  // Anyone can access www/marketing subdomain when authenticated
+  if (subdomain === 'www' || subdomain === 'localhost') {
+    return true;
   }
   
-  // Handle team subdomain context - check if user has membership for this subdomain
+  // For team subdomains, check if user has membership for this subdomain
   const memberships = parseTeamMemberships(claims);
-  const hasAccess = isGlobalAdmin || memberships.some(m => m.teamSubdomain.toLowerCase() === currentSubdomain.toLowerCase());
+  const hasTeamAccess = memberships.some(m => m.teamSubdomain.toLowerCase() === subdomain.toLowerCase());
   
-  // Refresh if no access or if token subdomain doesn't match current
-  return !hasAccess || tokenSubdomain !== currentSubdomain;
+  return isGlobalAdmin || hasTeamAccess;
+}
+
+export function shouldRefreshTokenForSubdomain(): boolean {
+  if (typeof window === 'undefined') return false;
+  
+  const token = localStorage.getItem('token');
+  if (!token || isTokenExpired(token)) return false;
+  
+  // Always return false - we don't auto-refresh tokens anymore
+  // Users must use tenant-switcher for context changes
+  return false;
 }
 
 export function isTokenExpired(token: string): boolean {

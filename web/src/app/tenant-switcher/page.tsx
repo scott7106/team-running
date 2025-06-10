@@ -6,23 +6,23 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 import { useUser, useTenant } from '@/contexts/auth-context';
 
-interface TenantDto {
+interface TeamOption {
   teamId: string;
   teamName: string;
   subdomain: string;
-  primaryColor: string;
-  secondaryColor: string;
+  teamRole: string;
+  memberType: string;
 }
 
 export default function TenantSwitcherPage() {
   const router = useRouter();
-  const [availableTeams, setAvailableTeams] = useState<TenantDto[]>([]);
+  const [availableTeams, setAvailableTeams] = useState<TeamOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAdminChoice, setShowAdminChoice] = useState(false);
   
   // Use centralized auth state
-  const { isAuthenticated } = useUser();
+  const { user, isAuthenticated } = useUser();
   const { isGlobalAdmin } = useTenant();
 
   const routeToAdminPage = useCallback(async () => {
@@ -64,17 +64,16 @@ export default function TenantSwitcherPage() {
     }
   }, []);
 
-
-
-  const switchToTeamContext = useCallback(async (team: TenantDto) => {
+  const switchToTeamContext = useCallback(async (team: TeamOption) => {
     try {
-      // Call the tenant switcher API to get a new JWT with team context
-      const response = await fetch(`/api/tenant-switcher/switch/${team.teamId}`, {
+      // Get a new JWT token for team context
+      const response = await fetch('/api/authentication/refresh-context', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ subdomain: team.subdomain }),
       });
 
       if (!response.ok) {
@@ -85,16 +84,14 @@ export default function TenantSwitcherPage() {
       const token = authData.token;
       const refreshToken = authData.refreshToken;
       
-      // Route to team subdomain with token and theme data as URL parameters
+      // Route to team subdomain with token as URL parameters
       const protocol = window.location.protocol;
       const hostname = window.location.hostname;
       const port = window.location.port ? `:${window.location.port}` : '';
       
       const urlParams = new URLSearchParams({
         token: token,
-        refreshToken: refreshToken,
-        primaryColor: team.primaryColor,
-        secondaryColor: team.secondaryColor
+        refreshToken: refreshToken
       });
       
       if (hostname.includes('localhost')) {
@@ -112,54 +109,52 @@ export default function TenantSwitcherPage() {
     }
   }, []);
 
-  const loadTeamsAndAdminStatus = useCallback(async (token: string) => {
+  const loadTeamsFromToken = useCallback(() => {
     try {
       setIsLoading(true);
       setError('');
 
-      // Check if user is global admin from centralized auth context
-      const isAdmin = isGlobalAdmin;
-
-      // Get user's teams
-      const teamsResponse = await fetch('/api/tenant-switcher/tenants', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!teamsResponse.ok) {
-        throw new Error('Failed to load teams');
+      if (!user) {
+        setError('User information not available');
+        return;
       }
 
-      const userTeams: TenantDto[] = await teamsResponse.json();
-      setAvailableTeams(userTeams);
+      // Convert team memberships to team options
+      const teamOptions: TeamOption[] = user.teamMemberships.map(membership => ({
+        teamId: membership.teamId,
+        teamName: membership.teamSubdomain, // We'll use subdomain as name for now since we don't have team name in membership
+        subdomain: membership.teamSubdomain,
+        teamRole: membership.teamRole,
+        memberType: membership.memberType
+      }));
+
+      setAvailableTeams(teamOptions);
 
       // Determine routing based on admin status and team count
-      if (isAdmin && userTeams.length > 0) {
+      if (isGlobalAdmin && teamOptions.length > 0) {
         // Global admin with teams - show choice between admin and teams
         setShowAdminChoice(true);
-      } else if (isAdmin && userTeams.length === 0) {
+      } else if (isGlobalAdmin && teamOptions.length === 0) {
         // Global admin with no teams - go directly to admin
         routeToAdminPage();
         return;
-      } else if (userTeams.length === 1) {
+      } else if (teamOptions.length === 1) {
         // Non-admin with single team - go directly to team
-        switchToTeamContext(userTeams[0]);
+        switchToTeamContext(teamOptions[0]);
         return;
-      } else if (userTeams.length === 0) {
+      } else if (teamOptions.length === 0) {
         // No admin, no teams - show error
         setError('You do not have access to any teams. Please contact your administrator.');
       }
       // If multiple teams and not admin, show team selection (handled by render)
 
     } catch (error) {
-      console.error('Error loading teams:', error);
+      console.error('Error loading teams from token:', error);
       setError('Failed to load team information. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  }, [isGlobalAdmin, routeToAdminPage, switchToTeamContext]);
+  }, [user, isGlobalAdmin, routeToAdminPage, switchToTeamContext]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -167,17 +162,16 @@ export default function TenantSwitcherPage() {
       return;
     }
     
-    const token = localStorage.getItem('token');
-    if (token) {
-      loadTeamsAndAdminStatus(token);
+    if (user) {
+      loadTeamsFromToken();
     }
-  }, [isAuthenticated, router, loadTeamsAndAdminStatus]);
+  }, [isAuthenticated, user, router, loadTeamsFromToken]);
 
   const handleAdminChoice = () => {
     routeToAdminPage();
   };
 
-  const handleTeamChoice = (team: TenantDto) => {
+  const handleTeamChoice = (team: TeamOption) => {
     switchToTeamContext(team);
   };
 
@@ -268,6 +262,7 @@ export default function TenantSwitcherPage() {
                 >
                   <div className="font-medium text-gray-900">{team.teamName}</div>
                   <div className="text-sm text-gray-500">{team.subdomain}.teamstride.net</div>
+                  <div className="text-xs text-gray-400 mt-1">Role: {team.teamRole} ({team.memberType})</div>
                 </button>
               ))}
             </div>
@@ -314,6 +309,7 @@ export default function TenantSwitcherPage() {
               >
                 <div className="font-medium text-gray-900">{team.teamName}</div>
                 <div className="text-sm text-gray-500">{team.subdomain}.teamstride.net</div>
+                <div className="text-xs text-gray-400 mt-1">Role: {team.teamRole} ({team.memberType})</div>
               </button>
             ))}
           </div>
