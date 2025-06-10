@@ -2,6 +2,8 @@ using TeamStride.Domain.Entities;
 
 namespace TeamStride.Domain.Interfaces;
 
+public record TeamMembershipInfo(Guid TeamId, string TeamSubdomain, TeamRole TeamRole, MemberType MemberType);
+
 public interface ICurrentTeamService
 {
     // Team Context Properties
@@ -9,9 +11,12 @@ public interface ICurrentTeamService
     string? GetSubdomain { get; }
     bool IsTeamSet { get; }
     
-    // User's Role in Current Team (from JWT claims)
-    TeamRole? TeamRole { get; }
-    MemberType? MemberType { get; }
+    // User's Role in Current Team (from team memberships in JWT claims)
+    TeamRole? CurrentTeamRole { get; }
+    MemberType? CurrentMemberType { get; }
+    
+    // Parse team memberships from JWT claims
+    List<TeamMembershipInfo> GetTeamMemberships();
     
     // Team Context Management
     void SetTeamId(Guid teamId);

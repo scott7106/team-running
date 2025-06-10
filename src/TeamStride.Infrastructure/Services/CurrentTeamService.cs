@@ -4,6 +4,7 @@ using System.Security.Claims;
 using TeamStride.Domain.Interfaces;
 using TeamStride.Domain.Entities;
 using TeamStride.Application.Teams.Services;
+using System.Text.Json;
 
 namespace TeamStride.Infrastructure.Services;
 
@@ -41,29 +42,90 @@ public class CurrentTeamService : ICurrentTeamService
 
     public bool IsTeamSet => _currentTeamId.HasValue;
 
-    // Team Role Properties from JWT Claims
-    public TeamRole? TeamRole
+    // Parse team memberships from JWT claims
+    public List<TeamMembershipInfo> GetTeamMemberships()
+    {
+        var memberships = new List<TeamMembershipInfo>();
+        
+        if (!IsAuthenticated)
+        {
+            return memberships;
+        }
+
+        try
+        {
+            var teamMembershipsJson = _httpContextAccessor.HttpContext?.User?.FindFirst("team_memberships")?.Value;
+            if (string.IsNullOrEmpty(teamMembershipsJson))
+            {
+                return memberships;
+            }
+
+            var teamMembershipDtos = JsonSerializer.Deserialize<List<dynamic>>(teamMembershipsJson);
+            if (teamMembershipDtos == null) return memberships;
+
+            foreach (var dto in teamMembershipDtos)
+            {
+                var jsonElement = (JsonElement)dto;
+                
+                if (jsonElement.TryGetProperty("TeamId", out var teamIdProp) &&
+                    jsonElement.TryGetProperty("TeamSubdomain", out var subdomainProp) &&
+                    jsonElement.TryGetProperty("TeamRole", out var roleProp) &&
+                    jsonElement.TryGetProperty("MemberType", out var memberTypeProp) &&
+                    Guid.TryParse(teamIdProp.GetString(), out var teamId) &&
+                    Enum.TryParse<TeamRole>(roleProp.GetString(), out var teamRole) &&
+                    Enum.TryParse<MemberType>(memberTypeProp.GetString(), out var memberType))
+                {
+                    memberships.Add(new TeamMembershipInfo(
+                        teamId,
+                        subdomainProp.GetString() ?? string.Empty,
+                        teamRole,
+                        memberType));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to parse team memberships from JWT claims");
+        }
+
+        return memberships;
+    }
+
+    // Get current team membership based on current subdomain
+    private TeamMembershipInfo? GetCurrentTeamMembership()
+    {
+        if (string.IsNullOrEmpty(_currentSubdomain))
+        {
+            return null;
+        }
+
+        var memberships = GetTeamMemberships();
+        return memberships.FirstOrDefault(m => m.TeamSubdomain.Equals(_currentSubdomain, StringComparison.OrdinalIgnoreCase));
+    }
+
+    // Team Role Properties from Current Team Membership
+    public TeamRole? CurrentTeamRole
     {
         get
         {
-            var claim = _httpContextAccessor.HttpContext?.User?.FindFirst("team_role");
-            return claim != null && Enum.TryParse<TeamRole>(claim.Value, out var role) ? role : null;
+            if (IsGlobalAdmin) return TeamRole.TeamOwner; // Global admins have full permissions
+            return GetCurrentTeamMembership()?.TeamRole;
         }
     }
 
-    public MemberType? MemberType
+    public MemberType? CurrentMemberType
     {
         get
         {
-            var claim = _httpContextAccessor.HttpContext?.User?.FindFirst("member_type");
-            return claim != null && Enum.TryParse<MemberType>(claim.Value, out var memberType) ? memberType : null;
+            if (IsGlobalAdmin) return MemberType.Coach; // Default for global admins
+            return GetCurrentTeamMembership()?.MemberType;
         }
     }
 
     // Helper Properties for Current Team
-    public bool IsTeamOwner => TeamRole == Domain.Entities.TeamRole.TeamOwner;
-    public bool IsTeamAdmin => TeamRole == Domain.Entities.TeamRole.TeamAdmin;
-    public bool IsTeamMember => TeamRole == Domain.Entities.TeamRole.TeamMember;
+    public bool IsTeamOwner => CurrentTeamRole == Domain.Entities.TeamRole.TeamOwner;
+    public bool IsTeamAdmin => CurrentTeamRole == Domain.Entities.TeamRole.TeamAdmin;
+    public bool IsTeamMember => CurrentTeamRole == Domain.Entities.TeamRole.TeamMember;
 
     // Team Context Management Methods
     public void SetTeamId(Guid teamId)
@@ -118,21 +180,27 @@ public class CurrentTeamService : ICurrentTeamService
                 return false;
             }
 
-            var teamIdFromClaims = GetTeamIdFromClaims();
-            if (!teamIdFromClaims.HasValue)
+            // For global admins, we don't set team from claims as they can access any team
+            if (IsGlobalAdmin)
             {
-                _logger.LogDebug("No team ID found in JWT claims");
-                return false;
-            }
-
-            if (IsGlobalAdmin || CanAccessTeam(teamIdFromClaims.Value))
-            {
-                _currentTeamId = teamIdFromClaims.Value;
-                _logger.LogInformation("Team context set from JWT claims to {TeamId}", teamIdFromClaims.Value);
+                _logger.LogDebug("Global admin user - team context determined by subdomain");
                 return true;
             }
 
-            _logger.LogWarning("User does not have access to team {TeamId} from JWT claims", teamIdFromClaims.Value);
+            // For regular users, the current team is determined by subdomain matching
+            // This method is now primarily used for validation
+            if (!string.IsNullOrEmpty(_currentSubdomain))
+            {
+                var currentMembership = GetCurrentTeamMembership();
+                if (currentMembership != null)
+                {
+                    _currentTeamId = currentMembership.TeamId;
+                    _logger.LogInformation("Team context validated from JWT claims for subdomain {Subdomain} to team {TeamId}", _currentSubdomain, currentMembership.TeamId);
+                    return true;
+                }
+            }
+
+            _logger.LogWarning("No matching team membership found for current subdomain {Subdomain}", _currentSubdomain);
             return false;
         }
         catch (Exception ex)
@@ -159,7 +227,7 @@ public class CurrentTeamService : ICurrentTeamService
     public bool HasMinimumTeamRole(TeamRole minimumRole)
     {
         if (IsGlobalAdmin) return true;
-        if (!TeamRole.HasValue) return false;
+        if (!CurrentTeamRole.HasValue) return false;
 
         var roleHierarchy = new Dictionary<TeamRole, int>
         {
@@ -168,15 +236,16 @@ public class CurrentTeamService : ICurrentTeamService
             { Domain.Entities.TeamRole.TeamMember, 3 }
         };
 
-        return roleHierarchy[TeamRole.Value] <= roleHierarchy[minimumRole];
+        return roleHierarchy[CurrentTeamRole.Value] <= roleHierarchy[minimumRole];
     }
 
     public bool CanAccessTeam(Guid teamId)
     {
         if (IsGlobalAdmin) return true;
 
-        var teamIdFromClaims = GetTeamIdFromClaims();
-        return teamIdFromClaims.HasValue && teamIdFromClaims.Value == teamId;
+        // Check if user has membership in the specified team
+        var memberships = GetTeamMemberships();
+        return memberships.Any(m => m.TeamId == teamId);
     }
 
     // Private Helper Methods
@@ -189,11 +258,5 @@ public class CurrentTeamService : ICurrentTeamService
             var claim = _httpContextAccessor.HttpContext?.User?.FindFirst("is_global_admin");
             return claim != null && bool.TryParse(claim.Value, out var isGlobalAdmin) && isGlobalAdmin;
         }
-    }
-
-    private Guid? GetTeamIdFromClaims()
-    {
-        var claim = _httpContextAccessor.HttpContext?.User?.FindFirst("team_id");
-        return claim != null && Guid.TryParse(claim.Value, out var teamId) ? teamId : null;
     }
 } 

@@ -45,41 +45,17 @@ public class CurrentUserService : ICurrentUserService
         }
     }
 
-    public Guid? TeamId
-    {
-        get
-        {
-            var claim = _httpContextAccessor.HttpContext?.User?.FindFirst("team_id");
-            return claim != null && Guid.TryParse(claim.Value, out var teamId) ? teamId : null;
-        }
-    }
+    // Current team context - delegate to CurrentTeamService
+    public Guid? CurrentTeamId => _currentTeamService.IsTeamSet ? _currentTeamService.TeamId : null;
 
-    public Guid? CurrentTeamId => _currentTeamService.TeamId;
+    // Current team role and member type - delegate to CurrentTeamService
+    public TeamRole? CurrentTeamRole => _currentTeamService.CurrentTeamRole;
+    public MemberType? CurrentMemberType => _currentTeamService.CurrentMemberType;
 
-    public TeamRole? TeamRole
-    {
-        get
-        {
-            var claim = _httpContextAccessor.HttpContext?.User?.FindFirst("team_role");
-            return claim != null && Enum.TryParse<TeamRole>(claim.Value, out var role) ? role : null;
-        }
-    }
-
-    public MemberType? MemberType
-    {
-        get
-        {
-            var claim = _httpContextAccessor.HttpContext?.User?.FindFirst("member_type");
-            return claim != null && Enum.TryParse<MemberType>(claim.Value, out var memberType) ? memberType : null;
-        }
-    }
-
-    // Helper Methods for Role Checking
-    public bool IsTeamOwner => TeamRole == Domain.Entities.TeamRole.TeamOwner;
-
-    public bool IsTeamAdmin => TeamRole == Domain.Entities.TeamRole.TeamAdmin;
-
-    public bool IsTeamMember => TeamRole == Domain.Entities.TeamRole.TeamMember;
+    // Helper Methods for Role Checking - delegate to CurrentTeamService
+    public bool IsTeamOwner => _currentTeamService.IsTeamOwner;
+    public bool IsTeamAdmin => _currentTeamService.IsTeamAdmin;
+    public bool IsTeamMember => _currentTeamService.IsTeamMember;
 
     // Delegate team-related queries to ICurrentTeamService
     public bool CanAccessTeam(Guid teamId) => _currentTeamService.CanAccessTeam(teamId);

@@ -1,15 +1,20 @@
 import { decodeJwt } from 'jose';
 
+export interface TeamMembershipInfo {
+  teamId: string;
+  teamSubdomain: string;
+  teamRole: string;
+  memberType: string;
+}
+
 export interface JwtClaims {
   sub: string; // user id
   email: string;
   first_name?: string;
   last_name?: string;
   is_global_admin?: string;
-  team_id?: string;
-  team_role?: string;
-  member_type?: string;
-  team_subdomain?: string;
+  team_memberships?: string; // JSON array of team memberships
+  team_subdomain?: string; // Current context subdomain
   exp: number;
   iat: number;
   jti: string;
@@ -22,6 +27,47 @@ export function decodeToken(token: string): JwtClaims | null {
     console.error('Failed to decode JWT token:', error);
     return null;
   }
+}
+
+export function parseTeamMemberships(claims: JwtClaims): TeamMembershipInfo[] {
+  if (!claims.team_memberships) {
+    return [];
+  }
+
+  try {
+    const memberships = JSON.parse(claims.team_memberships);
+    return Array.isArray(memberships) ? memberships.map((m: {
+      TeamId?: string;
+      teamId?: string;
+      TeamSubdomain?: string;
+      teamSubdomain?: string;
+      TeamRole?: string;
+      teamRole?: string;
+      MemberType?: string;
+      memberType?: string;
+    }) => ({
+      teamId: m.TeamId || m.teamId || '',
+      teamSubdomain: m.TeamSubdomain || m.teamSubdomain || '',
+      teamRole: m.TeamRole || m.teamRole || '',
+      memberType: m.MemberType || m.memberType || ''
+    })) : [];
+  } catch (error) {
+    console.error('Failed to parse team memberships:', error);
+    return [];
+  }
+}
+
+export function getCurrentTeamMembership(currentSubdomain: string): TeamMembershipInfo | null {
+  if (typeof window === 'undefined') return null;
+  
+  const token = localStorage.getItem('token');
+  if (!token) return null;
+  
+  const claims = decodeToken(token);
+  if (!claims) return null;
+  
+  const memberships = parseTeamMemberships(claims);
+  return memberships.find(m => m.teamSubdomain.toLowerCase() === currentSubdomain.toLowerCase()) || null;
 }
 
 export function getUserFromToken(): { firstName: string; lastName: string; email: string } | null {
@@ -47,6 +93,7 @@ export function getTeamContextFromToken(): {
   teamId?: string;
   teamRole?: string;
   teamSubdomain?: string;
+  allMemberships: TeamMembershipInfo[];
 } | null {
   if (typeof window === 'undefined') return null;
   
@@ -57,10 +104,17 @@ export function getTeamContextFromToken(): {
   if (!claims) return null;
   
   const isGlobalAdmin = claims.is_global_admin === 'true';
-  const hasTeam = !!claims.team_id;
-  const teamId = claims.team_id;
-  const teamRole = claims.team_role;
   const teamSubdomain = claims.team_subdomain;
+  const allMemberships = parseTeamMemberships(claims);
+  
+  // Find current team membership based on subdomain
+  const currentMembership = teamSubdomain ? 
+    allMemberships.find(m => m.teamSubdomain.toLowerCase() === teamSubdomain.toLowerCase()) : 
+    null;
+  
+  const hasTeam = !!currentMembership;
+  const teamId = currentMembership?.teamId;
+  const teamRole = currentMembership?.teamRole;
   
   let contextLabel: string;
   
@@ -82,7 +136,8 @@ export function getTeamContextFromToken(): {
     hasTeam,
     teamId,
     teamRole,
-    teamSubdomain
+    teamSubdomain,
+    allMemberships
   };
 }
 
@@ -108,8 +163,12 @@ export function shouldRefreshTokenForSubdomain(currentSubdomain: string): boolea
     return !!tokenSubdomain; // Should have no team context for marketing
   }
   
-  // Handle team subdomain context
-  return tokenSubdomain !== currentSubdomain;
+  // Handle team subdomain context - check if user has membership for this subdomain
+  const memberships = parseTeamMemberships(claims);
+  const hasAccess = isGlobalAdmin || memberships.some(m => m.teamSubdomain.toLowerCase() === currentSubdomain.toLowerCase());
+  
+  // Refresh if no access or if token subdomain doesn't match current
+  return !hasAccess || tokenSubdomain !== currentSubdomain;
 }
 
 export function isTokenExpired(token: string): boolean {

@@ -81,12 +81,14 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         // Get all active team memberships for the user
         var teams = new List<TeamMembershipDto>();
         var userTeams = await _context.UserTeams
+            .Include(ut => ut.Team)
             .Where(ut => ut.UserId == user.Id && ut.IsActive)
             .ToListAsync();
             
         teams = userTeams.Select(ut => new TeamMembershipDto
         {
             TeamId = ut.TeamId,
+            TeamSubdomain = ut.Team!.Subdomain,
             TeamRole = ut.Role,
             MemberType = ut.MemberType
         }).ToList();
@@ -177,6 +179,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
                 new()
                 {
                     TeamId = request.TeamId.Value,
+                    TeamSubdomain = team.Subdomain,
                     TeamRole = request.Role,
                     MemberType = userTeam?.MemberType ?? MemberType.Athlete
                 }
@@ -220,12 +223,14 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         // Get all active team memberships for the user
         var teams = new List<TeamMembershipDto>();
         var userTeams = await _context.UserTeams
+            .Include(ut => ut.Team)
             .Where(ut => ut.UserId == token.UserId && ut.IsActive)
             .ToListAsync();
             
         teams = userTeams.Select(ut => new TeamMembershipDto
         {
             TeamId = ut.TeamId,
+            TeamSubdomain = ut.Team!.Subdomain,
             TeamRole = ut.Role,
             MemberType = ut.MemberType
         }).ToList();
@@ -417,12 +422,14 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         // Get all active team memberships for the user
         var teams = new List<TeamMembershipDto>();
         var userTeams = await _context.UserTeams
+            .Include(ut => ut.Team)
             .Where(ut => ut.UserId == user!.Id && ut.IsActive)
             .ToListAsync();
             
         teams = userTeams.Select(ut => new TeamMembershipDto
         {
             TeamId = ut.TeamId,
+            TeamSubdomain = ut.Team!.Subdomain,
             TeamRole = ut.Role,
             MemberType = ut.MemberType
         }).ToList();
@@ -675,12 +682,14 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         if (!isGlobalAdmin)
         {
             var userTeams = await _context.UserTeams
+                .Include(ut => ut.Team)
                 .Where(ut => ut.UserId == userId && ut.IsActive)
                 .ToListAsync();
                 
             teams = userTeams.Select(ut => new TeamMembershipDto
             {
                 TeamId = ut.TeamId,
+                TeamSubdomain = ut.Team!.Subdomain,
                 TeamRole = ut.Role,
                 MemberType = ut.MemberType
             }).ToList();
@@ -814,12 +823,14 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             if (!isGlobalAdmin)
             {
                 var userTeams = await _context.UserTeams
+                    .Include(ut => ut.Team)
                     .Where(ut => ut.UserId == userId && ut.IsActive)
                     .ToListAsync();
                     
                 teams = userTeams.Select(ut => new TeamMembershipDto
                 {
                     TeamId = ut.TeamId,
+                    TeamSubdomain = ut.Team!.Subdomain,
                     TeamRole = ut.Role,
                     MemberType = ut.MemberType
                 }).ToList();

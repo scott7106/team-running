@@ -5,6 +5,7 @@ namespace TeamStride.Application.Authentication.Dtos;
 public class TeamMembershipDto
 {
     public required Guid TeamId { get; set; }
+    public required string TeamSubdomain { get; set; }
     public required TeamRole TeamRole { get; set; }
     public required MemberType MemberType { get; set; }
 }
