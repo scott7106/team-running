@@ -169,7 +169,8 @@ public class AuthenticationService : ITeamStrideAuthenticationService
 
         // Generate email confirmation token and send email
         var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-        var confirmationLink = $"https://teamstride.com/confirm-email?userId={user.Id}&token={Uri.EscapeDataString(token)}";
+        var baseUrl = _configuration["Authentication:BaseUrl"] ?? "https://teamstride.com";
+        var confirmationLink = $"{baseUrl}/confirm-email?userId={user.Id}&token={Uri.EscapeDataString(token)}";
         await _emailService.SendEmailConfirmationAsync(user.Email!, confirmationLink);
 
         // Generate tokens
@@ -279,7 +280,8 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             throw new AuthenticationException("User not found", AuthenticationException.ErrorCodes.UserNotFound);
 
         var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-        var resetLink = $"https://teamstride.com/reset-password?userId={user.Id}&token={Uri.EscapeDataString(token)}";
+        var baseUrl = _configuration["Authentication:BaseUrl"] ?? "https://teamstride.com";
+        var resetLink = $"{baseUrl}/reset-password?userId={user.Id}&token={Uri.EscapeDataString(token)}";
         await _emailService.SendPasswordResetAsync(email, resetLink);
 
         return true;
@@ -535,42 +537,42 @@ public class AuthenticationService : ITeamStrideAuthenticationService
 
     public async Task<bool> ValidateHeartbeatAsync(Guid userId, string fingerprint)
     {
-        Console.WriteLine($"🔍 ValidateHeartbeatAsync: Starting validation for user {userId}");
+        _logger.LogDebug("Starting heartbeat validation for user {UserId}", userId);
         
         var user = await _userManager.FindByIdAsync(userId.ToString());
         if (user == null)
         {
-            Console.WriteLine($"❌ ValidateHeartbeatAsync: User {userId} not found");
+            _logger.LogWarning("Heartbeat validation failed: User {UserId} not found", userId);
             return false;
         }
         
         if (!user.IsActive)
         {
-            Console.WriteLine($"❌ ValidateHeartbeatAsync: User {userId} is not active");
+            _logger.LogWarning("Heartbeat validation failed: User {UserId} is not active", userId);
             return false;
         }
         
-        Console.WriteLine($"🔍 ValidateHeartbeatAsync: User found and active. ForceLogoutAfter: {user.ForceLogoutAfter}");
+        _logger.LogDebug("User {UserId} found and active. ForceLogoutAfter: {ForceLogoutAfter}", userId, user.ForceLogoutAfter);
         
         // Check if user has been force-logged out
         if (user.ForceLogoutAfter.HasValue && user.ForceLogoutAfter < DateTime.UtcNow)
         {
-            Console.WriteLine($"❌ ValidateHeartbeatAsync: User {userId} was force-logged out at {user.ForceLogoutAfter}");
+            _logger.LogWarning("Heartbeat validation failed: User {UserId} was force-logged out at {ForceLogoutAfter}", userId, user.ForceLogoutAfter);
             return false;
         }
         
-        Console.WriteLine($"🔍 ValidateHeartbeatAsync: Updating last activity for user {userId}");
+        _logger.LogDebug("Updating last activity for user {UserId}", userId);
         
         // Update last activity
         user.LastActivityOn = DateTime.UtcNow;
         await _userManager.UpdateAsync(user);
         
-        Console.WriteLine($"🔍 ValidateHeartbeatAsync: Validating fingerprint for user {userId}");
+        _logger.LogDebug("Validating fingerprint for user {UserId}", userId);
         
         // Optional: Store/validate fingerprint
         await ValidateOrStoreFingerprint(userId, fingerprint);
         
-        Console.WriteLine($"✅ ValidateHeartbeatAsync: Success for user {userId}");
+        _logger.LogDebug("Heartbeat validation successful for user {UserId}", userId);
         return true;
     }
 

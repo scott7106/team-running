@@ -62,6 +62,7 @@ public class JwtTokenServiceTests
             new()
             {
                 TeamId = teamId,
+                TeamSubdomain = "test-team",
                 TeamRole = TeamRole.TeamOwner,
                 MemberType = MemberType.Coach
             }
@@ -102,6 +103,7 @@ public class JwtTokenServiceTests
             new()
             {
                 TeamId = teamId,
+                TeamSubdomain = "test-team",
                 TeamRole = TeamRole.TeamMember,
                 MemberType = MemberType.Athlete
             }
@@ -142,6 +144,7 @@ public class JwtTokenServiceTests
             new()
             {
                 TeamId = teamId,
+                TeamSubdomain = "test-team",
                 TeamRole = TeamRole.TeamMember,
                 MemberType = MemberType.Parent
             }
@@ -258,6 +261,7 @@ public class JwtTokenServiceTests
             new()
             {
                 TeamId = teamId,
+                TeamSubdomain = "test-team",
                 TeamRole = TeamRole.TeamAdmin,
                 MemberType = MemberType.Coach
             }
@@ -273,7 +277,7 @@ public class JwtTokenServiceTests
         var tokenHandler = new JwtSecurityTokenHandler();
         var jwtToken = tokenHandler.ReadJwtToken(token);
         
-        var teamsClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "teams");
+        var teamsClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "team_memberships");
         teamsClaim.ShouldNotBeNull();
 
         // Verify JSON structure
@@ -309,12 +313,14 @@ public class JwtTokenServiceTests
             new()
             {
                 TeamId = team1Id,
+                TeamSubdomain = "team1",
                 TeamRole = TeamRole.TeamOwner,
                 MemberType = MemberType.Coach
             },
             new()
             {
                 TeamId = team2Id,
+                TeamSubdomain = "team2",
                 TeamRole = TeamRole.TeamMember,
                 MemberType = MemberType.Parent
             }
@@ -330,7 +336,7 @@ public class JwtTokenServiceTests
         var tokenHandler = new JwtSecurityTokenHandler();
         var jwtToken = tokenHandler.ReadJwtToken(token);
         
-        var teamsClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "teams");
+        var teamsClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "team_memberships");
         teamsClaim.ShouldNotBeNull();
 
         var deserializedTeams = JsonSerializer.Deserialize<List<TeamMembershipDto>>(teamsClaim.Value, new JsonSerializerOptions 
@@ -378,7 +384,7 @@ public class JwtTokenServiceTests
         var tokenHandler = new JwtSecurityTokenHandler();
         var jwtToken = tokenHandler.ReadJwtToken(token);
         
-        var teamsClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "teams");
+        var teamsClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "team_memberships");
         teamsClaim.ShouldNotBeNull();
 
         var deserializedTeams = JsonSerializer.Deserialize<List<TeamMembershipDto>>(teamsClaim.Value, new JsonSerializerOptions 
@@ -407,6 +413,7 @@ public class JwtTokenServiceTests
             new()
             {
                 TeamId = Guid.NewGuid(),
+                TeamSubdomain = "test-team",
                 TeamRole = TeamRole.TeamMember,
                 MemberType = MemberType.Athlete
             }
@@ -422,18 +429,20 @@ public class JwtTokenServiceTests
         var tokenHandler = new JwtSecurityTokenHandler();
         var jwtToken = tokenHandler.ReadJwtToken(token);
         
-        var teamsClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "teams");
+        var teamsClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "team_memberships");
         teamsClaim.ShouldNotBeNull();
 
         // Verify camelCase naming in JSON
         var teamsJson = teamsClaim.Value;
         teamsJson.ShouldContain("teamId");
+        teamsJson.ShouldContain("teamSubdomain");
         teamsJson.ShouldContain("teamRole");
         teamsJson.ShouldContain("memberType");
         
         // Verify it contains camelCase JSON structure correctly
-        // The JSON should look like: [{"teamId":"...","teamRole":2,"memberType":1}]
+        // The JSON should look like: [{"teamId":"...","teamSubdomain":"...","teamRole":2,"memberType":1}]
         teamsJson.ShouldStartWith("[{\"teamId\":");
+        teamsJson.ShouldContain("\"teamSubdomain\":");
         teamsJson.ShouldContain("\"teamRole\":");
         teamsJson.ShouldContain("\"memberType\":");
     }

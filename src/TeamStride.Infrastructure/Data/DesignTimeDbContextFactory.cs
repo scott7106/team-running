@@ -31,10 +31,16 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<Applicatio
 internal class MockCurrentTeamService : ICurrentTeamService
 {
     public Guid TeamId => Guid.Empty;
-    public string GetSubdomain => "design-time";
+    public string? GetSubdomain => "design-time";
     public bool IsTeamSet => false;
-    public TeamRole? TeamRole => null;
-    public MemberType? MemberType => null;
+    
+    // New properties from the refactor
+    public TeamRole? CurrentTeamRole => null;
+    public MemberType? CurrentMemberType => null;
+    
+    // New method from the refactor
+    public List<TeamMembershipInfo> GetTeamMemberships() => new List<TeamMembershipInfo>();
+    
     public void SetTeamId(Guid teamId) { }
     public void SetTeamSubdomain(string subdomain) { }
     public Task<bool> SetTeamFromSubdomainAsync(string subdomain) => Task.FromResult(false);
@@ -59,8 +65,17 @@ internal class MockCurrentUserService : ICurrentUserService
     // Simplified Authorization Model Properties
     public bool IsGlobalAdmin => false;
     
+    // Current team context - new properties from the refactor
+    public Guid? CurrentTeamId => Guid.Empty;
+    public TeamRole? CurrentTeamRole => null;
+    public MemberType? CurrentMemberType => null;
+    
+    // Helper methods for role checking - new properties from the refactor
+    public bool IsTeamOwner => false;
+    public bool IsTeamAdmin => false;
+    public bool IsTeamMember => false;
+    
     // Helper Methods for Role Checking
     public bool CanAccessTeam(Guid teamId) => true; // Design-time mock allows access
     public bool HasMinimumTeamRole(TeamRole minimumRole) => true; // Design-time mock allows access
-    public Guid? CurrentTeamId => Guid.Empty;
 } 

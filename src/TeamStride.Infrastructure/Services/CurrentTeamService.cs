@@ -67,10 +67,10 @@ public class CurrentTeamService : ICurrentTeamService
             {
                 var jsonElement = (JsonElement)dto;
                 
-                if (jsonElement.TryGetProperty("TeamId", out var teamIdProp) &&
-                    jsonElement.TryGetProperty("TeamSubdomain", out var subdomainProp) &&
-                    jsonElement.TryGetProperty("TeamRole", out var roleProp) &&
-                    jsonElement.TryGetProperty("MemberType", out var memberTypeProp) &&
+                if (jsonElement.TryGetProperty("teamId", out var teamIdProp) &&
+                    jsonElement.TryGetProperty("teamSubdomain", out var subdomainProp) &&
+                    jsonElement.TryGetProperty("teamRole", out var roleProp) &&
+                    jsonElement.TryGetProperty("memberType", out var memberTypeProp) &&
                     Guid.TryParse(teamIdProp.GetString(), out var teamId) &&
                     Enum.TryParse<TeamRole>(roleProp.GetString(), out var teamRole) &&
                     Enum.TryParse<MemberType>(memberTypeProp.GetString(), out var memberType))

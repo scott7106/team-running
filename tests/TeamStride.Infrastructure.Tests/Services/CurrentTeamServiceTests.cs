@@ -8,6 +8,8 @@ using TeamStride.Application.Teams.Services;
 using TeamStride.Domain.Entities;
 using TeamStride.Domain.Interfaces;
 using TeamStride.Infrastructure.Services;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace TeamStride.Infrastructure.Tests.Services;
 
@@ -44,6 +46,53 @@ public class CurrentTeamServiceTests
 
         _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
         _mockHttpContext.Setup(x => x.User).Returns(user);
+    }
+
+    private void SetupHttpContextWithTeamMemberships(List<TeamMembershipInfo> memberships, string? currentSubdomain = null, bool isGlobalAdmin = false)
+    {
+        var claims = new List<Claim>();
+        
+        // Add authentication claim
+        claims.Add(new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()));
+        
+        // Add global admin claim if needed
+        if (isGlobalAdmin)
+        {
+            claims.Add(new Claim("is_global_admin", "true"));
+        }
+
+        // Add team memberships as JSON
+        if (memberships.Any())
+        {
+            var membershipDtos = memberships.Select(m => new 
+            {
+                TeamId = m.TeamId.ToString(),
+                TeamSubdomain = m.TeamSubdomain,
+                TeamRole = m.TeamRole.ToString(),
+                MemberType = m.MemberType.ToString()
+            }).ToList();
+
+            var membershipJson = JsonSerializer.Serialize(membershipDtos, new JsonSerializerOptions 
+            { 
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
+            });
+            
+            claims.Add(new Claim("team_memberships", membershipJson));
+        }
+
+        SetupHttpContext(claims);
+
+        // Set the current subdomain if provided
+        if (!string.IsNullOrEmpty(currentSubdomain))
+        {
+            _currentTeamService.SetTeamSubdomain(currentSubdomain);
+        }
+    }
+
+    private void SetupHttpContextWithSingleTeamMembership(Guid teamId, string teamSubdomain, TeamRole teamRole, MemberType memberType, bool isGlobalAdmin = false)
+    {
+        var membership = new TeamMembershipInfo(teamId, teamSubdomain, teamRole, memberType);
+        SetupHttpContextWithTeamMemberships(new List<TeamMembershipInfo> { membership }, teamSubdomain, isGlobalAdmin);
     }
 
     #region IsTeamSet Tests
@@ -315,88 +364,96 @@ public class CurrentTeamServiceTests
     #region TeamRole and MemberType Properties Tests
 
     [Fact]
-    public void TeamRole_WhenHttpContextIsNull_ReturnsNull()
+    public void CurrentTeamRole_WhenHttpContextIsNull_ReturnsNull()
     {
         // Arrange
         _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns((HttpContext?)null);
 
         // Act
-        var result = _currentTeamService.TeamRole;
+        var result = _currentTeamService.CurrentTeamRole;
 
         // Assert
         result.ShouldBeNull();
     }
 
     [Fact]
-    public void TeamRole_WhenClaimDoesNotExist_ReturnsNull()
+    public void CurrentTeamRole_WhenClaimDoesNotExist_ReturnsNull()
     {
         // Arrange
         SetupHttpContext();
 
         // Act
-        var result = _currentTeamService.TeamRole;
+        var result = _currentTeamService.CurrentTeamRole;
 
         // Assert
         result.ShouldBeNull();
     }
 
     [Theory]
-    [InlineData("TeamOwner", TeamRole.TeamOwner)]
-    [InlineData("TeamAdmin", TeamRole.TeamAdmin)]
-    [InlineData("TeamMember", TeamRole.TeamMember)]
-    public void TeamRole_WhenValidClaim_ReturnsCorrectRole(string claimValue, TeamRole expectedRole)
+    [InlineData(TeamRole.TeamOwner)]
+    [InlineData(TeamRole.TeamAdmin)]
+    [InlineData(TeamRole.TeamMember)]
+    public void CurrentTeamRole_WhenValidTeamMembership_ReturnsCorrectRole(TeamRole expectedRole)
     {
         // Arrange
-        var claims = new List<Claim> { new("team_role", claimValue) };
-        SetupHttpContext(claims);
+        var teamId = Guid.NewGuid();
+        var teamSubdomain = "test-team";
+        SetupHttpContextWithSingleTeamMembership(teamId, teamSubdomain, expectedRole, MemberType.Coach);
 
         // Act
-        var result = _currentTeamService.TeamRole;
+        var result = _currentTeamService.CurrentTeamRole;
 
         // Assert
         result.ShouldBe(expectedRole);
     }
 
     [Fact]
-    public void TeamRole_WhenInvalidClaim_ReturnsNull()
+    public void CurrentTeamRole_WhenNoMatchingSubdomain_ReturnsNull()
     {
         // Arrange
-        var claims = new List<Claim> { new("team_role", "InvalidRole") };
-        SetupHttpContext(claims);
+        var teamId = Guid.NewGuid();
+        var teamSubdomain = "test-team";
+        // Set up membership but different subdomain context
+        SetupHttpContextWithSingleTeamMembership(teamId, teamSubdomain, TeamRole.TeamOwner, MemberType.Coach);
+        _currentTeamService.SetTeamSubdomain("different-team");
 
         // Act
-        var result = _currentTeamService.TeamRole;
+        var result = _currentTeamService.CurrentTeamRole;
 
         // Assert
         result.ShouldBeNull();
     }
 
     [Theory]
-    [InlineData("Coach", MemberType.Coach)]
-    [InlineData("Athlete", MemberType.Athlete)]
-    [InlineData("Parent", MemberType.Parent)]
-    public void MemberType_WhenValidClaim_ReturnsCorrectType(string claimValue, MemberType expectedType)
+    [InlineData(MemberType.Coach)]
+    [InlineData(MemberType.Athlete)]
+    [InlineData(MemberType.Parent)]
+    public void CurrentMemberType_WhenValidTeamMembership_ReturnsCorrectType(MemberType expectedType)
     {
         // Arrange
-        var claims = new List<Claim> { new("member_type", claimValue) };
-        SetupHttpContext(claims);
+        var teamId = Guid.NewGuid();
+        var teamSubdomain = "test-team";
+        SetupHttpContextWithSingleTeamMembership(teamId, teamSubdomain, TeamRole.TeamMember, expectedType);
 
         // Act
-        var result = _currentTeamService.MemberType;
+        var result = _currentTeamService.CurrentMemberType;
 
         // Assert
         result.ShouldBe(expectedType);
     }
 
     [Fact]
-    public void MemberType_WhenInvalidClaim_ReturnsNull()
+    public void CurrentMemberType_WhenNoMatchingSubdomain_ReturnsNull()
     {
         // Arrange
-        var claims = new List<Claim> { new("member_type", "InvalidType") };
-        SetupHttpContext(claims);
+        var teamId = Guid.NewGuid();
+        var teamSubdomain = "test-team";
+        // Set up membership but different subdomain context
+        SetupHttpContextWithSingleTeamMembership(teamId, teamSubdomain, TeamRole.TeamMember, MemberType.Athlete);
+        _currentTeamService.SetTeamSubdomain("different-team");
 
         // Act
-        var result = _currentTeamService.MemberType;
+        var result = _currentTeamService.CurrentMemberType;
 
         // Assert
         result.ShouldBeNull();
@@ -407,14 +464,15 @@ public class CurrentTeamServiceTests
     #region Helper Properties Tests
 
     [Theory]
-    [InlineData("TeamOwner", true)]
-    [InlineData("TeamAdmin", false)]
-    [InlineData("TeamMember", false)]
-    public void IsTeamOwner_ReturnsCorrectValue(string roleValue, bool expected)
+    [InlineData(TeamRole.TeamOwner, true)]
+    [InlineData(TeamRole.TeamAdmin, false)]
+    [InlineData(TeamRole.TeamMember, false)]
+    public void IsTeamOwner_ReturnsCorrectValue(TeamRole userRole, bool expected)
     {
         // Arrange
-        var claims = new List<Claim> { new("team_role", roleValue) };
-        SetupHttpContext(claims);
+        var teamId = Guid.NewGuid();
+        var teamSubdomain = "test-team";
+        SetupHttpContextWithSingleTeamMembership(teamId, teamSubdomain, userRole, MemberType.Coach);
 
         // Act
         var result = _currentTeamService.IsTeamOwner;
@@ -424,14 +482,15 @@ public class CurrentTeamServiceTests
     }
 
     [Theory]
-    [InlineData("TeamOwner", false)]
-    [InlineData("TeamAdmin", true)]
-    [InlineData("TeamMember", false)]
-    public void IsTeamAdmin_ReturnsCorrectValue(string roleValue, bool expected)
+    [InlineData(TeamRole.TeamOwner, false)]
+    [InlineData(TeamRole.TeamAdmin, true)]
+    [InlineData(TeamRole.TeamMember, false)]
+    public void IsTeamAdmin_ReturnsCorrectValue(TeamRole userRole, bool expected)
     {
         // Arrange
-        var claims = new List<Claim> { new("team_role", roleValue) };
-        SetupHttpContext(claims);
+        var teamId = Guid.NewGuid();
+        var teamSubdomain = "test-team";
+        SetupHttpContextWithSingleTeamMembership(teamId, teamSubdomain, userRole, MemberType.Coach);
 
         // Act
         var result = _currentTeamService.IsTeamAdmin;
@@ -441,14 +500,15 @@ public class CurrentTeamServiceTests
     }
 
     [Theory]
-    [InlineData("TeamOwner", false)]
-    [InlineData("TeamAdmin", false)]
-    [InlineData("TeamMember", true)]
-    public void IsTeamMember_ReturnsCorrectValue(string roleValue, bool expected)
+    [InlineData(TeamRole.TeamOwner, false)]
+    [InlineData(TeamRole.TeamAdmin, false)]
+    [InlineData(TeamRole.TeamMember, true)]
+    public void IsTeamMember_ReturnsCorrectValue(TeamRole userRole, bool expected)
     {
         // Arrange
-        var claims = new List<Claim> { new("team_role", roleValue) };
-        SetupHttpContext(claims);
+        var teamId = Guid.NewGuid();
+        var teamSubdomain = "test-team";
+        SetupHttpContextWithSingleTeamMembership(teamId, teamSubdomain, userRole, MemberType.Coach);
 
         // Act
         var result = _currentTeamService.IsTeamMember;
@@ -572,26 +632,15 @@ public class CurrentTeamServiceTests
     public void SetTeamFromJwtClaims_WhenGlobalAdmin_ReturnsTrue()
     {
         // Arrange
-        var teamId = Guid.NewGuid();
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-            new("team_id", teamId.ToString()),
-            new("is_global_admin", "true")
-        };
-        var identity = new ClaimsIdentity(claims, "test");
-        var user = new ClaimsPrincipal(identity);
-
-        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
-        _mockHttpContext.Setup(x => x.User).Returns(user);
+        var teamSubdomain = "test-team";
+        SetupHttpContextWithTeamMemberships(new List<TeamMembershipInfo>(), teamSubdomain, isGlobalAdmin: true);
 
         // Act
         var result = _currentTeamService.SetTeamFromJwtClaims();
 
         // Assert
         result.ShouldBeTrue();
-        _currentTeamService.IsTeamSet.ShouldBeTrue();
-        _currentTeamService.TeamId.ShouldBe(teamId);
+        // Note: Global admins don't automatically set team from claims, team context is managed by subdomain
     }
 
     [Fact]
@@ -599,17 +648,8 @@ public class CurrentTeamServiceTests
     {
         // Arrange
         var teamId = Guid.NewGuid();
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-            new("team_id", teamId.ToString()),
-            new("team_role", "TeamMember")
-        };
-        var identity = new ClaimsIdentity(claims, "test");
-        var user = new ClaimsPrincipal(identity);
-
-        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
-        _mockHttpContext.Setup(x => x.User).Returns(user);
+        var teamSubdomain = "test-team";
+        SetupHttpContextWithSingleTeamMembership(teamId, teamSubdomain, TeamRole.TeamMember, MemberType.Athlete);
 
         // Act
         var result = _currentTeamService.SetTeamFromJwtClaims();
@@ -639,17 +679,8 @@ public class CurrentTeamServiceTests
     {
         // Arrange
         var teamId = Guid.NewGuid();
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-            new("team_id", teamId.ToString()),
-            new("is_global_admin", "true")
-        };
-        var identity = new ClaimsIdentity(claims, "test");
-        var user = new ClaimsPrincipal(identity);
-
-        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
-        _mockHttpContext.Setup(x => x.User).Returns(user);
+        var teamSubdomain = "test-team";
+        SetupHttpContextWithTeamMemberships(new List<TeamMembershipInfo>(), teamSubdomain, isGlobalAdmin: true);
         _currentTeamService.SetTeamId(teamId);
 
         // Act
@@ -672,16 +703,9 @@ public class CurrentTeamServiceTests
     public void HasMinimumTeamRole_WithRoleHierarchy_ReturnsCorrectValue(TeamRole userRole, TeamRole minimumRole, bool expected)
     {
         // Arrange
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-            new("team_role", userRole.ToString())
-        };
-        var identity = new ClaimsIdentity(claims, "test");
-        var user = new ClaimsPrincipal(identity);
-
-        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
-        _mockHttpContext.Setup(x => x.User).Returns(user);
+        var teamId = Guid.NewGuid();
+        var teamSubdomain = "test-team";
+        SetupHttpContextWithSingleTeamMembership(teamId, teamSubdomain, userRole, MemberType.Coach);
 
         // Act
         var result = _currentTeamService.HasMinimumTeamRole(minimumRole);
@@ -694,16 +718,7 @@ public class CurrentTeamServiceTests
     public void HasMinimumTeamRole_WhenGlobalAdmin_ReturnsTrue()
     {
         // Arrange
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-            new("is_global_admin", "true")
-        };
-        var identity = new ClaimsIdentity(claims, "test");
-        var user = new ClaimsPrincipal(identity);
-
-        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
-        _mockHttpContext.Setup(x => x.User).Returns(user);
+        SetupHttpContextWithTeamMemberships(new List<TeamMembershipInfo>(), null, isGlobalAdmin: true);
 
         // Act
         var result = _currentTeamService.HasMinimumTeamRole(TeamRole.TeamOwner);
@@ -717,17 +732,8 @@ public class CurrentTeamServiceTests
     {
         // Arrange
         var teamId = Guid.NewGuid();
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-            new("team_id", teamId.ToString()),
-            new("team_role", "TeamMember")
-        };
-        var identity = new ClaimsIdentity(claims, "test");
-        var user = new ClaimsPrincipal(identity);
-
-        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
-        _mockHttpContext.Setup(x => x.User).Returns(user);
+        var teamSubdomain = "test-team";
+        SetupHttpContextWithSingleTeamMembership(teamId, teamSubdomain, TeamRole.TeamMember, MemberType.Athlete);
 
         // Act
         var result = _currentTeamService.CanAccessTeam(teamId);
@@ -742,17 +748,8 @@ public class CurrentTeamServiceTests
         // Arrange
         var userTeamId = Guid.NewGuid();
         var requestedTeamId = Guid.NewGuid();
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-            new("team_id", userTeamId.ToString()),
-            new("team_role", "TeamMember")
-        };
-        var identity = new ClaimsIdentity(claims, "test");
-        var user = new ClaimsPrincipal(identity);
-
-        _mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(_mockHttpContext.Object);
-        _mockHttpContext.Setup(x => x.User).Returns(user);
+        var teamSubdomain = "user-team";
+        SetupHttpContextWithSingleTeamMembership(userTeamId, teamSubdomain, TeamRole.TeamMember, MemberType.Athlete);
 
         // Act
         var result = _currentTeamService.CanAccessTeam(requestedTeamId);

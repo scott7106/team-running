@@ -49,7 +49,7 @@ public class JwtTokenService : IJwtTokenService
 
         // Check if user has GlobalAdmin application role
         var userRoles = await _userManager.GetRolesAsync(user);
-        var isGlobalAdmin = userRoles.Contains("GlobalAdmin");
+        var isGlobalAdmin = userRoles.Contains(TeamStride.Domain.Common.ApplicationRoles.GlobalAdmin);
         claims.Add(new Claim("is_global_admin", isGlobalAdmin.ToString().ToLowerInvariant()));
 
         // Add teams as JSON array
@@ -57,7 +57,7 @@ public class JwtTokenService : IJwtTokenService
         { 
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
         });
-        claims.Add(new Claim("teams", teamsJson));
+        claims.Add(new Claim("team_memberships", teamsJson));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config.JwtSecret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

@@ -107,6 +107,11 @@ public class TestContextBuilder
         mockUserService.Setup(x => x.UserId).Returns(_userId);
         mockUserService.Setup(x => x.IsAuthenticated).Returns(_isAuthenticated);
         mockUserService.Setup(x => x.IsGlobalAdmin).Returns(_isGlobalAdmin);
+        mockUserService.Setup(x => x.CurrentTeamRole).Returns(_teamRole);
+        mockUserService.Setup(x => x.CurrentMemberType).Returns(_memberType);
+        mockUserService.Setup(x => x.IsTeamOwner).Returns(_teamRole == TeamRole.TeamOwner);
+        mockUserService.Setup(x => x.IsTeamAdmin).Returns(_teamRole == TeamRole.TeamAdmin);
+        mockUserService.Setup(x => x.IsTeamMember).Returns(_teamRole == TeamRole.TeamMember);
         
         // Delegate team operations to team service
         mockUserService.Setup(x => x.CanAccessTeam(It.IsAny<Guid>()))
@@ -127,8 +132,8 @@ public class TestContextBuilder
             mockTeamService.Setup(x => x.IsTeamSet).Returns(false);
         }
 
-        mockTeamService.Setup(x => x.TeamRole).Returns(_teamRole);
-        mockTeamService.Setup(x => x.MemberType).Returns(_memberType);
+        mockTeamService.Setup(x => x.CurrentTeamRole).Returns(_teamRole);
+        mockTeamService.Setup(x => x.CurrentMemberType).Returns(_memberType);
         mockTeamService.Setup(x => x.IsTeamOwner).Returns(_teamRole == TeamRole.TeamOwner);
         mockTeamService.Setup(x => x.IsTeamAdmin).Returns(_teamRole == TeamRole.TeamAdmin);
         mockTeamService.Setup(x => x.IsTeamMember).Returns(_teamRole == TeamRole.TeamMember);
