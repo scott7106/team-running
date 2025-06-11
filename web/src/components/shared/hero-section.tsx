@@ -27,24 +27,31 @@ export default function HeroSection({
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-32">
         <div className="text-center">
           {/* Main Headline */}
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-gray-900 mb-6 leading-tight">
-            <span className="block animate-slide-up">Running Team</span>
-            <span className="block bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent animate-slide-up animation-delay-200">
-              Management
-            </span>
-            <span className="block text-4xl sm:text-5xl lg:text-6xl mt-2 animate-slide-up animation-delay-400">
-              Made Simple
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-gray-900 mb-4 leading-tight animate-slide-up">
+            <span className="block mb-2">
+              Streamline Team Management with a{' '}
+              <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                Smarter Coaching Platform
+              </span>
             </span>
           </h1>
           
-          {/* Subtitle */}
-          <p className="text-xl sm:text-2xl text-gray-600 mb-10 max-w-4xl mx-auto leading-relaxed animate-fade-in animation-delay-600">
-            Empower coaches to efficiently manage rosters, schedules, training plans, 
-            communications, and more. Built mobile-first for coaches on the go.
+          {/* Tagline */}
+          <div className="text-lg sm:text-xl lg:text-2xl font-semibold text-gray-700 mb-8 animate-fade-in animation-delay-200">
+            <span className="inline-block mr-2 sm:mr-4">Built for Educators.</span>
+            <span className="inline-block">Designed for Coaches.</span>
+          </div>
+          
+          {/* Detailed Description */}
+          <p className="text-lg sm:text-xl text-gray-600 mb-10 max-w-5xl mx-auto leading-relaxed animate-fade-in animation-delay-800">
+            Manage every aspect of your cross country or track program—rosters, practice schedules, 
+            individualized workouts, meet calendars, race results, and team communication—in one 
+            organized, easy-to-use platform. Save time, stay organized, and support student-athletes 
+            with data-driven insights that complement your educational mission.
           </p>
           
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 animate-fade-in animation-delay-800">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 animate-fade-in animation-delay-1000">
             <button 
               onClick={onPrimaryAction || onLoginClick}
               className="group bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-10 py-5 rounded-xl text-lg font-bold hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 hover:shadow-xl"
@@ -71,8 +78,8 @@ export default function HeroSection({
             )}
           </div>
           
-          {/* Social Proof */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-8 text-sm text-gray-500 animate-fade-in animation-delay-1000">
+          {/* Social Proof - Updated for Academic Context */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-8 text-sm text-gray-500 animate-fade-in animation-delay-1200">
             <div className="flex items-center">
               <div className="flex -space-x-2 mr-3">
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full border-2 border-white"></div>
@@ -80,11 +87,11 @@ export default function HeroSection({
                 <div className="w-8 h-8 bg-gradient-to-r from-indigo-400 to-indigo-600 rounded-full border-2 border-white"></div>
                 <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-green-600 rounded-full border-2 border-white"></div>
               </div>
-              <span>Join 2,500+ coaches</span>
+              <span>Trusted by 2,500+ educators & coaches</span>
             </div>
             <div className="flex items-center">
               <span className="text-yellow-400 mr-1">★★★★★</span>
-              <span>4.9/5 from 200+ reviews</span>
+              <span>4.9/5 from 200+ schools</span>
             </div>
           </div>
         </div>
