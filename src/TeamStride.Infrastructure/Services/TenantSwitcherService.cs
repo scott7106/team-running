@@ -76,4 +76,32 @@ public class TenantSwitcherService : ITenantSwitcherService
             SecondaryColor = team?.SecondaryColor ?? "#D1FAE5"
         };
     }
+
+    public async Task<IEnumerable<SubdomainDto>> GetThemeInfoByIdsAsync(IEnumerable<Guid> teamIds)
+    {
+        var teamIdList = teamIds.ToList();
+        if (!teamIdList.Any())
+        {
+            return Enumerable.Empty<SubdomainDto>();
+        }
+
+        var teams = await _context.Teams
+            .Where(t => teamIdList.Contains(t.Id) && t.Status == Domain.Entities.TeamStatus.Active && !t.IsDeleted)
+            .OrderBy(t => t.Name)
+            .ToListAsync();
+
+        var result = teams.Select(team => new SubdomainDto
+        {
+            TeamId = team.Id,
+            TeamName = team.Name,
+            Subdomain = team.Subdomain,
+            PrimaryColor = team.PrimaryColor ?? "#3B82F6",
+            SecondaryColor = team.SecondaryColor ?? "#D1FAE5",
+            LogoUrl = team.LogoUrl ?? string.Empty
+        }).ToList();
+
+        _logger.LogInformation("Retrieved theme data for {Count} teams", result.Count);
+
+        return result;
+    }
 } 

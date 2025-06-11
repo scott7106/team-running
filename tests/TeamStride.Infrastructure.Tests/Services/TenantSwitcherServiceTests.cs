@@ -314,4 +314,137 @@ public class TenantSwitcherServiceTests : BaseSecuredTest
         result.ShouldNotBeNull();
         result.ShouldBeEmpty();
     }
+
+    [Fact]
+    public async Task GetThemeInfoByIdsAsync_WhenTeamsExist_ReturnsCorrectThemeData()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var team1Id = Guid.NewGuid();
+        var team2Id = Guid.NewGuid();
+
+        SetupStandardUserContext(team1Id, TeamRole.TeamMember, userId);
+        var service = CreateService();
+
+        var team1 = new Team
+        {
+            Id = team1Id,
+            Name = "Team Alpha",
+            Subdomain = "alpha",
+            PrimaryColor = "#FF0000",
+            SecondaryColor = "#FFFFFF",
+            Status = TeamStatus.Active,
+            IsDeleted = false,
+            OwnerId = userId
+        };
+        var team2 = new Team
+        {
+            Id = team2Id,
+            Name = "Team Beta",
+            Subdomain = "beta",
+            PrimaryColor = "#0000FF",
+            SecondaryColor = "#FFFF00",
+            LogoUrl = "https://example.com/logo.png",
+            Status = TeamStatus.Active,
+            IsDeleted = false,
+            OwnerId = userId
+        };
+
+        await DbContext.Teams.AddRangeAsync(team1, team2);
+        await DbContext.SaveChangesAsync();
+
+        // Act
+        var result = await service.GetThemeInfoByIdsAsync(new[] { team1Id, team2Id });
+
+        // Assert
+        result.ShouldNotBeNull();
+        var resultList = result.ToList();
+        resultList.Count.ShouldBe(2);
+
+        var alpha = resultList.First(r => r.Subdomain == "alpha");
+        alpha.TeamId.ShouldBe(team1Id);
+        alpha.TeamName.ShouldBe("Team Alpha");
+        alpha.PrimaryColor.ShouldBe("#FF0000");
+        alpha.SecondaryColor.ShouldBe("#FFFFFF");
+        alpha.LogoUrl.ShouldBe(string.Empty);
+
+        var beta = resultList.First(r => r.Subdomain == "beta");
+        beta.TeamId.ShouldBe(team2Id);
+        beta.TeamName.ShouldBe("Team Beta");
+        beta.PrimaryColor.ShouldBe("#0000FF");
+        beta.SecondaryColor.ShouldBe("#FFFF00");
+        beta.LogoUrl.ShouldBe("https://example.com/logo.png");
+    }
+
+    [Fact]
+    public async Task GetThemeInfoByIdsAsync_WhenNoTeamsExist_ReturnsEmptyList()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupStandardUserContext(Guid.NewGuid(), TeamRole.TeamMember, userId);
+        var service = CreateService();
+
+        var nonExistentIds = new[] { Guid.NewGuid(), Guid.NewGuid() };
+
+        // Act
+        var result = await service.GetThemeInfoByIdsAsync(nonExistentIds);
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetThemeInfoByIdsAsync_ExcludesInactiveAndDeletedTeams()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var activeTeamId = Guid.NewGuid();
+        var inactiveTeamId = Guid.NewGuid();
+        var deletedTeamId = Guid.NewGuid();
+
+        SetupStandardUserContext(activeTeamId, TeamRole.TeamMember, userId);
+        var service = CreateService();
+
+        var activeTeam = new Team
+        {
+            Id = activeTeamId,
+            Name = "Active Team",
+            Subdomain = "active",
+            Status = TeamStatus.Active,
+            IsDeleted = false,
+            OwnerId = userId
+        };
+        var inactiveTeam = new Team
+        {
+            Id = inactiveTeamId,
+            Name = "Inactive Team",
+            Subdomain = "inactive",
+            Status = TeamStatus.Suspended,
+            IsDeleted = false,
+            OwnerId = userId
+        };
+        var deletedTeam = new Team
+        {
+            Id = deletedTeamId,
+            Name = "Deleted Team",
+            Subdomain = "deleted",
+            Status = TeamStatus.Active,
+            IsDeleted = true,
+            OwnerId = userId
+        };
+
+        await DbContext.Teams.AddRangeAsync(activeTeam, inactiveTeam, deletedTeam);
+        await DbContext.SaveChangesAsync();
+
+        // Act
+        var result = await service.GetThemeInfoByIdsAsync(new[] { activeTeamId, inactiveTeamId, deletedTeamId });
+
+        // Assert
+        result.ShouldNotBeNull();
+        var resultList = result.ToList();
+        resultList.Count.ShouldBe(1);
+        resultList[0].TeamId.ShouldBe(activeTeamId);
+        resultList[0].TeamName.ShouldBe("Active Team");
+    }
 }

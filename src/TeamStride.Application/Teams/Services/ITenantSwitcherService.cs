@@ -15,4 +15,11 @@ public interface ITenantSwitcherService
     /// </summary>
     /// <returns>A SubdomainDto object with theme information for the team.</returns>
     Task<SubdomainDto> GetThemeInfoByDomainAsync(string subdomain);
+
+    /// <summary>
+    /// Gets theme information for multiple teams by their IDs.
+    /// </summary>
+    /// <param name="teamIds">List of team IDs to get theme information for</param>
+    /// <returns>A collection of SubdomainDto objects with theme information for the teams.</returns>
+    Task<IEnumerable<SubdomainDto>> GetThemeInfoByIdsAsync(IEnumerable<Guid> teamIds);
 } 

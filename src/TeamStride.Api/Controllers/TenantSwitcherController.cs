@@ -75,6 +75,46 @@ public class TenantSwitcherController : BaseApiController
     }
 
     /// <summary>
+    /// Gets theme information for multiple teams by their IDs - public endpoint for tenant switcher
+    /// </summary>
+    /// <param name="teamIds">Comma-separated list of team IDs</param>
+    /// <returns>List of theme data for the specified teams</returns>
+    [HttpGet("themes")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(IEnumerable<SubdomainDto>), 200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(500)]
+    public async Task<IActionResult> GetThemeInfoByIds([FromQuery] string teamIds)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(teamIds))
+            {
+                return BadRequest(new { message = "teamIds parameter is required", traceId = HttpContext.TraceIdentifier });
+            }
+
+            // Parse comma-separated team IDs
+            var teamIdList = teamIds.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(id => id.Trim())
+                .Where(id => Guid.TryParse(id, out _))
+                .Select(Guid.Parse)
+                .ToList();
+
+            if (!teamIdList.Any())
+            {
+                return BadRequest(new { message = "No valid team IDs provided", traceId = HttpContext.TraceIdentifier });
+            }
+
+            var themeData = await _tenantSwitcherService.GetThemeInfoByIdsAsync(teamIdList);
+            return Ok(themeData);
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex, "Failed to retrieve theme data for teams");
+        }
+    }
+
+    /// <summary>
     /// Switches to a specific tenant and generates a new JWT token with team context.
     /// Available for global admins and users with access to the specified team.
     /// </summary>

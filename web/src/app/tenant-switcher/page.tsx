@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { faExclamationTriangle, faCrown, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { useUser, useTenant } from '@/contexts/auth-context';
+import { SubdomainThemeDto } from '@/types/team';
 
 interface TeamOption {
   teamId: string;
@@ -12,6 +13,7 @@ interface TeamOption {
   subdomain: string;
   teamRole: string;
   memberType: string;
+  themeData?: SubdomainThemeDto;
 }
 
 export default function TenantSwitcherPage() {
@@ -155,7 +157,25 @@ export default function TenantSwitcherPage() {
     }
   }, [isSwitching]);
 
-  const loadTeamsFromToken = useCallback(() => {
+  const fetchTeamThemeData = useCallback(async (teamIds: string[]) => {
+    if (!teamIds.length) return [];
+    
+    try {
+      const response = await fetch(`/api/tenant-switcher/themes?teamIds=${teamIds.join(',')}`);
+      if (!response.ok) {
+        console.error('Failed to fetch theme data:', response.statusText);
+        return [];
+      }
+      
+      const themeData: SubdomainThemeDto[] = await response.json();
+      return themeData;
+    } catch (error) {
+      console.error('Error fetching theme data:', error);
+      return [];
+    }
+  }, []);
+
+  const loadTeamsFromToken = useCallback(async () => {
     try {
       setIsLoading(true);
       setError('');
@@ -168,27 +188,41 @@ export default function TenantSwitcherPage() {
       // Convert team memberships to team options
       const teamOptions: TeamOption[] = user.teamMemberships.map(membership => ({
         teamId: membership.teamId,
-        teamName: membership.teamSubdomain, // We'll use subdomain as name for now since we don't have team name in membership
+        teamName: membership.teamSubdomain, // Placeholder until we get theme data
         subdomain: membership.teamSubdomain,
         teamRole: membership.teamRole,
         memberType: membership.memberType
       }));
 
-      setAvailableTeams(teamOptions);
+      // Fetch theme data for all teams
+      const teamIds = teamOptions.map(team => team.teamId);
+      const themeDataArray = await fetchTeamThemeData(teamIds);
+      
+      // Merge theme data with team options
+      const teamsWithThemeData = teamOptions.map(team => {
+        const themeData = themeDataArray.find(theme => theme.teamId === team.teamId);
+        return {
+          ...team,
+          teamName: themeData?.teamName || team.teamName,
+          themeData
+        };
+      });
+
+      setAvailableTeams(teamsWithThemeData);
 
       // Determine routing based on admin status and team count
-      if (isGlobalAdmin && teamOptions.length > 0) {
+      if (isGlobalAdmin && teamsWithThemeData.length > 0) {
         // Global admin with teams - show choice between admin and teams
         setShowAdminChoice(true);
-      } else if (isGlobalAdmin && teamOptions.length === 0) {
+      } else if (isGlobalAdmin && teamsWithThemeData.length === 0) {
         // Global admin with no teams - go directly to admin
         routeToAdminPage();
         return;
-      } else if (teamOptions.length === 1) {
+      } else if (teamsWithThemeData.length === 1) {
         // Non-admin with single team - go directly to team
-        switchToTeamContext(teamOptions[0]);
+        switchToTeamContext(teamsWithThemeData[0]);
         return;
-      } else if (teamOptions.length === 0) {
+      } else if (teamsWithThemeData.length === 0) {
         // No admin, no teams - show error
         setError('You do not have access to any teams. Please contact your administrator.');
       }
@@ -200,7 +234,7 @@ export default function TenantSwitcherPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [user, isGlobalAdmin, routeToAdminPage, switchToTeamContext]);
+  }, [user, isGlobalAdmin, routeToAdminPage, switchToTeamContext, fetchTeamThemeData]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -225,9 +259,42 @@ export default function TenantSwitcherPage() {
     router.push('/');
   };
 
+  // Helper function to get team button style
+  const getTeamButtonStyle = (team: TeamOption) => {
+    if (!team.themeData) {
+      return {
+        backgroundColor: '#f8fafc',
+        borderColor: '#e2e8f0',
+        color: '#1f2937'
+      };
+    }
+
+    return {
+      backgroundColor: team.themeData.secondaryColor,
+      borderColor: team.themeData.primaryColor,
+      color: '#1f2937',
+      borderWidth: '2px'
+    };
+  };
+
+  const getTeamButtonHoverStyle = (team: TeamOption) => {
+    if (!team.themeData) {
+      return {
+        backgroundColor: '#f1f5f9',
+        borderColor: '#cbd5e1'
+      };
+    }
+
+    return {
+      backgroundColor: team.themeData.primaryColor + '10', // 10% opacity
+      borderColor: team.themeData.primaryColor,
+      transform: 'scale(1.02)'
+    };
+  };
+
   if (isLoading || isSwitching) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex flex-col pt-16 sm:pt-20 lg:pt-24 py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <div className="flex justify-center">
             <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -247,7 +314,7 @@ export default function TenantSwitcherPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex flex-col pt-16 sm:pt-20 lg:pt-24 py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <div className="flex justify-center">
             <div className="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center">
@@ -274,7 +341,7 @@ export default function TenantSwitcherPage() {
 
   if (showAdminChoice) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 pt-12 sm:pt-16 lg:pt-20 pb-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <div className="flex justify-center">
             <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -291,24 +358,59 @@ export default function TenantSwitcherPage() {
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-white py-8 px-4 shadow-xl sm:rounded-xl sm:px-10 border border-gray-100">
-            <div className="space-y-3 max-h-60 overflow-y-auto">
+            <div className="space-y-4">
+              {/* Global Admin Option */}
               <button
                 onClick={handleAdminChoice}
-                className="w-full text-left p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 hover:shadow-md"
+                className="w-full text-left p-4 rounded-lg transition-all duration-200 hover:shadow-lg transform hover:scale-[1.02] bg-gradient-to-r from-purple-500 to-indigo-600 text-white border-2 border-purple-500 hover:from-purple-600 hover:to-indigo-700"
               >
-                <div className="font-medium text-gray-900">Global Administration</div>
-                <div className="text-sm text-gray-500">app.teamstride.net</div>
+                <div className="flex items-center">
+                  <FontAwesomeIcon icon={faCrown} className="w-5 h-5 mr-3 text-yellow-300" />
+                  <div className="flex-1">
+                    <div className="font-semibold text-lg">Global Administration</div>
+                    <div className="text-sm text-purple-100">app.teamstride.net</div>
+                  </div>
+                </div>
               </button>
               
+              {/* Divider with "Or" */}
+              {availableTeams.length > 0 && (
+                <div className="relative py-4">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-200"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-3 bg-white text-gray-500 font-medium">Or</span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Team Options */}
               {availableTeams.map((team) => (
                 <button
                   key={team.teamId}
                   onClick={() => handleTeamChoice(team)}
-                  className="w-full text-left p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 hover:shadow-md"
+                  className="w-full text-left p-4 rounded-lg transition-all duration-200 hover:shadow-lg"
+                  style={getTeamButtonStyle(team)}
+                  onMouseEnter={(e) => {
+                    const hoverStyles = getTeamButtonHoverStyle(team);
+                    Object.assign(e.currentTarget.style, hoverStyles);
+                  }}
+                  onMouseLeave={(e) => {
+                    const normalStyles = getTeamButtonStyle(team);
+                    Object.assign(e.currentTarget.style, normalStyles);
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
                 >
-                  <div className="font-medium text-gray-900">{team.teamName}</div>
-                  <div className="text-sm text-gray-500">{team.subdomain}.teamstride.net</div>
-                  <div className="text-xs text-gray-400 mt-1">Role: {team.teamRole} ({team.memberType})</div>
+                  <div className="flex items-center">
+                    <FontAwesomeIcon icon={faUsers} className="w-5 h-5 mr-3 opacity-70" />
+                    <div className="flex-1">
+                      <div className="font-semibold text-lg">{team.teamName}</div>
+                      <div className="text-sm opacity-75 mt-1">
+                        {team.subdomain}.teamstride.net
+                      </div>
+                    </div>
+                  </div>
                 </button>
               ))}
             </div>
@@ -329,7 +431,7 @@ export default function TenantSwitcherPage() {
 
   // Show team selection for multiple teams
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 pt-12 sm:pt-16 lg:pt-20 pb-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -346,16 +448,32 @@ export default function TenantSwitcherPage() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow-xl sm:rounded-xl sm:px-10 border border-gray-100">
-          <div className="space-y-3 max-h-60 overflow-y-auto">
+          <div className="space-y-4">
             {availableTeams.map((team) => (
               <button
                 key={team.teamId}
                 onClick={() => handleTeamChoice(team)}
-                className="w-full text-left p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 hover:shadow-md"
+                className="w-full text-left p-4 rounded-lg transition-all duration-200 hover:shadow-lg"
+                style={getTeamButtonStyle(team)}
+                onMouseEnter={(e) => {
+                  const hoverStyles = getTeamButtonHoverStyle(team);
+                  Object.assign(e.currentTarget.style, hoverStyles);
+                }}
+                onMouseLeave={(e) => {
+                  const normalStyles = getTeamButtonStyle(team);
+                  Object.assign(e.currentTarget.style, normalStyles);
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
               >
-                <div className="font-medium text-gray-900">{team.teamName}</div>
-                <div className="text-sm text-gray-500">{team.subdomain}.teamstride.net</div>
-                <div className="text-xs text-gray-400 mt-1">Role: {team.teamRole} ({team.memberType})</div>
+                <div className="flex items-center">
+                  <FontAwesomeIcon icon={faUsers} className="w-5 h-5 mr-3 opacity-70" />
+                  <div className="flex-1">
+                    <div className="font-semibold text-lg">{team.teamName}</div>
+                    <div className="text-sm opacity-75 mt-1">
+                      {team.subdomain}.teamstride.net
+                    </div>
+                  </div>
+                </div>
               </button>
             ))}
           </div>
