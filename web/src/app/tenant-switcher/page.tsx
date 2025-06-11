@@ -20,27 +20,28 @@ export default function TenantSwitcherPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAdminChoice, setShowAdminChoice] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
   
   // Use centralized auth state
   const { user, isAuthenticated } = useUser();
   const { isGlobalAdmin } = useTenant();
 
   const routeToAdminPage = useCallback(async () => {
+    if (isSwitching) return;
+    
     try {
+      setIsSwitching(true);
+      setError('');
+      
       // Step 1: Get current token before clearing localStorage
       const currentToken = localStorage.getItem('token');
       if (!currentToken) {
         setError('No authentication token found. Please log in again.');
+        setIsSwitching(false);
         return;
       }
 
-      // Step 2: Silent logout from current subdomain - clear authentication state
-      console.log('[TenantSwitcher] Performing silent logout before switching to admin context');
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('sessionFingerprint');
-
-      // Step 3: Get a new JWT token for global admin context using the saved current token
+      // Step 2: Get a new JWT token for global admin context using the current token
       const response = await fetch('/api/authentication/refresh-context', {
         method: 'POST',
         headers: {
@@ -50,49 +51,61 @@ export default function TenantSwitcherPage() {
         body: JSON.stringify({ subdomain: 'app' }),
       });
 
-      if (response.ok) {
-        const authData = await response.json();
-        const token = authData.token;
-        const refreshToken = authData.refreshToken;
-        
-        // Step 4: Route to admin subdomain with token as URL parameter
-        const protocol = window.location.protocol;
-        const hostname = window.location.hostname;
-        const port = window.location.port ? `:${window.location.port}` : '';
-        
-        if (hostname.includes('localhost')) {
-          // For development
-          window.location.href = `${protocol}//app.localhost${port}/?token=${encodeURIComponent(token)}&refreshToken=${encodeURIComponent(refreshToken)}`;
-        } else {
-          // For production
-          const baseDomain = hostname.split('.').slice(-2).join('.');
-          window.location.href = `${protocol}//app.${baseDomain}${port}/?token=${encodeURIComponent(token)}&refreshToken=${encodeURIComponent(refreshToken)}`;
-        }
-      } else {
+      if (!response.ok) {
         throw new Error('Failed to refresh token for admin context');
+      }
+
+      const authData = await response.json();
+      const token = authData.token;
+      const refreshToken = authData.refreshToken;
+      
+      // Step 3: Clear old authentication state only after successful refresh
+      console.log('[TenantSwitcher] Clearing old tokens after successful refresh');
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('sessionFingerprint');
+      
+      // Step 4: Route to admin subdomain with token as URL parameter
+      const protocol = window.location.protocol;
+      const hostname = window.location.hostname;
+      const port = window.location.port ? `:${window.location.port}` : '';
+      
+      if (hostname.includes('localhost')) {
+        // For development
+        window.location.href = `${protocol}//app.localhost${port}/?token=${encodeURIComponent(token)}&refreshToken=${encodeURIComponent(refreshToken)}`;
+      } else {
+        // For production
+        const baseDomain = hostname.split('.').slice(-2).join('.');
+        window.location.href = `${protocol}//app.${baseDomain}${port}/?token=${encodeURIComponent(token)}&refreshToken=${encodeURIComponent(refreshToken)}`;
       }
     } catch (error) {
       console.error('Error refreshing token for admin context:', error);
       setError('Failed to access admin area. Please try again.');
+      setIsSwitching(false);
     }
-  }, []);
+  }, [isSwitching]);
 
   const switchToTeamContext = useCallback(async (team: TeamOption) => {
+    console.log('[TenantSwitcher] switchToTeamContext called for:', team.subdomain);
+    if (isSwitching) {
+      console.log('[TenantSwitcher] Already switching, ignoring call');
+      return;
+    }
+    
     try {
+      setIsSwitching(true);
+      setError('');
+      
       // Step 1: Get current token before clearing localStorage
       const currentToken = localStorage.getItem('token');
       if (!currentToken) {
         setError('No authentication token found. Please log in again.');
+        setIsSwitching(false);
         return;
       }
 
-      // Step 2: Silent logout from current subdomain - clear authentication state
-      console.log('[TenantSwitcher] Performing silent logout before switching to team context:', team.subdomain);
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('sessionFingerprint');
-
-      // Step 3: Get a new JWT token for team context using the saved current token
+      // Step 2: Get a new JWT token for team context using the current token
+      console.log('[TenantSwitcher] Getting new token for team context:', team.subdomain);
       const response = await fetch('/api/authentication/refresh-context', {
         method: 'POST',
         headers: {
@@ -109,6 +122,12 @@ export default function TenantSwitcherPage() {
       const authData = await response.json();
       const token = authData.token;
       const refreshToken = authData.refreshToken;
+      
+      // Step 3: Clear old authentication state only after successful refresh
+      console.log('[TenantSwitcher] Clearing old tokens after successful refresh');
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('sessionFingerprint');
       
       // Step 4: Route to team subdomain with token as URL parameters
       const protocol = window.location.protocol;
@@ -132,8 +151,9 @@ export default function TenantSwitcherPage() {
     } catch (error) {
       console.error('Error switching team context:', error);
       setError('Failed to switch to team context. Please try again.');
+      setIsSwitching(false);
     }
-  }, []);
+  }, [isSwitching]);
 
   const loadTeamsFromToken = useCallback(() => {
     try {
@@ -205,7 +225,7 @@ export default function TenantSwitcherPage() {
     router.push('/');
   };
 
-  if (isLoading) {
+  if (isLoading || isSwitching) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -215,10 +235,10 @@ export default function TenantSwitcherPage() {
             </div>
           </div>
           <h2 className="mt-4 text-center text-3xl font-extrabold text-gray-900">
-            Loading...
+            {isSwitching ? 'Switching...' : 'Loading...'}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Checking your team access
+            {isSwitching ? 'Switching to your selected context' : 'Checking your team access'}
           </p>
         </div>
       </div>

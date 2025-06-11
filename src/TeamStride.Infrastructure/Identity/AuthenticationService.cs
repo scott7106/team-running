@@ -79,19 +79,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         var isGlobalAdmin = userRoles.Contains("GlobalAdmin");
         
         // Get all active team memberships for the user
-        var teams = new List<TeamMembershipDto>();
-        var userTeams = await _context.UserTeams
-            .Include(ut => ut.Team)
-            .Where(ut => ut.UserId == user.Id && ut.IsActive)
-            .ToListAsync();
-            
-        teams = userTeams.Select(ut => new TeamMembershipDto
-        {
-            TeamId = ut.TeamId,
-            TeamSubdomain = ut.Team!.Subdomain,
-            TeamRole = ut.Role,
-            MemberType = ut.MemberType
-        }).ToList();
+        var teams = await GetAllUserTeamMemberships(user.Id);
 
         
         // Update last login
@@ -222,19 +210,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         var isGlobalAdmin = userRoles.Contains("GlobalAdmin");
         
         // Get all active team memberships for the user
-        var teams = new List<TeamMembershipDto>();
-        var userTeams = await _context.UserTeams
-            .Include(ut => ut.Team)
-            .Where(ut => ut.UserId == token.UserId && ut.IsActive)
-            .ToListAsync();
-            
-        teams = userTeams.Select(ut => new TeamMembershipDto
-        {
-            TeamId = ut.TeamId,
-            TeamSubdomain = ut.Team!.Subdomain,
-            TeamRole = ut.Role,
-            MemberType = ut.MemberType
-        }).ToList();
+        var teams = await GetAllUserTeamMemberships(token.UserId);
 
         // Generate new tokens
         var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(token.User!, teams);
@@ -535,6 +511,23 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         return refreshToken;
     }
 
+    private async Task<List<TeamMembershipDto>> GetAllUserTeamMemberships(Guid userId)
+    {
+        // Get user's actual team memberships regardless of context
+        var userTeams = await _context.UserTeams
+            .Include(ut => ut.Team)
+            .Where(ut => ut.UserId == userId && ut.IsActive)
+            .ToListAsync();
+            
+        return userTeams.Select(ut => new TeamMembershipDto
+        {
+            TeamId = ut.TeamId,
+            TeamSubdomain = ut.Team!.Subdomain,
+            TeamRole = ut.Role,
+            MemberType = ut.MemberType
+        }).ToList();
+    }
+
     public async Task<bool> ValidateHeartbeatAsync(Guid userId, string fingerprint)
     {
         _logger.LogDebug("Starting heartbeat validation for user {UserId}", userId);
@@ -680,22 +673,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         await _userManager.UpdateAsync(user);
 
         // Get all active team memberships for the user
-        var teams = new List<TeamMembershipDto>();
-        if (!isGlobalAdmin)
-        {
-            var userTeams = await _context.UserTeams
-                .Include(ut => ut.Team)
-                .Where(ut => ut.UserId == userId && ut.IsActive)
-                .ToListAsync();
-                
-            teams = userTeams.Select(ut => new TeamMembershipDto
-            {
-                TeamId = ut.TeamId,
-                TeamSubdomain = ut.Team!.Subdomain,
-                TeamRole = ut.Role,
-                MemberType = ut.MemberType
-            }).ToList();
-        }
+        var teams = await GetAllUserTeamMemberships(userId);
         
         // Generate tokens
         var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teams);
@@ -739,120 +717,53 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         var userRoles = await _userManager.GetRolesAsync(user);
         var isGlobalAdmin = userRoles.Contains("GlobalAdmin");
 
-        // Handle different subdomain contexts
-        if (subdomain == "app")
+        // Validate subdomain-specific access only when needed
+        if (subdomain == "app" && !isGlobalAdmin)
         {
-            // Global admin context - user must be a global admin
-            if (!isGlobalAdmin)
-            {
-                throw new UnauthorizedAccessException("Global admin privileges required for app subdomain");
-            }
-
-            // Generate tokens for global admin context (no specific team)
-            var teams = new List<TeamMembershipDto>();
-            var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teams);
-            var refreshToken = await CreateRefreshTokenAsync(user);
-
-            return new AuthResponseDto
-            {
-                Token = jwtToken,
-                RefreshToken = refreshToken.Token,
-                Email = user.Email ?? string.Empty,
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                IsGlobalAdmin = true,
-                Teams = teams,
-                RequiresEmailConfirmation = false
-            };
+            throw new UnauthorizedAccessException("Global admin privileges required for app subdomain");
         }
-        else if (subdomain == "www" || subdomain == "localhost")
+        
+        if (subdomain != "app" && subdomain != "www" && subdomain != "localhost")
         {
-            // Marketing site context - no team context needed
-            var teams = new List<TeamMembershipDto>();
-            var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teams);
-            var refreshToken = await CreateRefreshTokenAsync(user);
-
-            return new AuthResponseDto
-            {
-                Token = jwtToken,
-                RefreshToken = refreshToken.Token,
-                Email = user.Email ?? string.Empty,
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                IsGlobalAdmin = isGlobalAdmin,
-                Teams = teams,
-                RequiresEmailConfirmation = false
-            };
-        }
-        else
-        {
-            // Team subdomain context - resolve team and check access
+            // For team subdomains, validate team exists and user has access
             var team = await _context.Teams
                 .FirstOrDefaultAsync(t => t.Subdomain == subdomain && !t.IsDeleted) ??
                 throw new AuthenticationException($"Team with subdomain '{subdomain}' not found", AuthenticationException.ErrorCodes.TenantNotFound);
 
-            UserTeam? userTeam = null;
-
-            if (isGlobalAdmin)
-            {
-                // Global admins can access any team with full permissions
-                userTeam = new UserTeam
-                {
-                    UserId = userId,
-                    TeamId = team.Id,
-                    Role = TeamRole.TeamOwner,
-                    MemberType = MemberType.Coach,
-                    IsActive = true,
-                    IsDefault = false,
-                    JoinedOn = DateTime.UtcNow,
-                    CreatedOn = DateTime.UtcNow
-                };
-            }
-            else
-            {
-                // Regular users must have explicit team membership
-                userTeam = await _context.UserTeams
-                    .FirstOrDefaultAsync(ut => ut.UserId == userId && ut.TeamId == team.Id && ut.IsActive) ??
-                    throw new UnauthorizedAccessException($"Access denied to team with subdomain '{subdomain}'");
-            }
-
-            // Update last login
-            user.LastLoginOn = DateTime.UtcNow;
-            await _userManager.UpdateAsync(user);
-
-            // Get all active team memberships for the user
-            var teams = new List<TeamMembershipDto>();
             if (!isGlobalAdmin)
             {
-                var userTeams = await _context.UserTeams
-                    .Include(ut => ut.Team)
-                    .Where(ut => ut.UserId == userId && ut.IsActive)
-                    .ToListAsync();
+                // Regular users must have explicit team membership
+                var hasAccess = await _context.UserTeams
+                    .AnyAsync(ut => ut.UserId == userId && ut.TeamId == team.Id && ut.IsActive);
                     
-                teams = userTeams.Select(ut => new TeamMembershipDto
+                if (!hasAccess)
                 {
-                    TeamId = ut.TeamId,
-                    TeamSubdomain = ut.Team!.Subdomain,
-                    TeamRole = ut.Role,
-                    MemberType = ut.MemberType
-                }).ToList();
+                    throw new UnauthorizedAccessException($"Access denied to team with subdomain '{subdomain}'");
+                }
             }
-
-            // Generate tokens
-            var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teams);
-            var refreshToken = await CreateRefreshTokenAsync(user);
-
-            return new AuthResponseDto
-            {
-                Token = jwtToken,
-                RefreshToken = refreshToken.Token,
-                Email = user.Email ?? string.Empty,
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                IsGlobalAdmin = isGlobalAdmin,
-                Teams = teams,
-                RequiresEmailConfirmation = false
-            };
         }
+
+        // Update last login
+        user.LastLoginOn = DateTime.UtcNow;
+        await _userManager.UpdateAsync(user);
+
+        // Always get user's complete team memberships regardless of subdomain
+        var teams = await GetAllUserTeamMemberships(userId);
+
+        // Generate consistent tokens with all user data
+        var jwtToken = await _jwtTokenService.GenerateJwtTokenAsync(user, teams);
+        var refreshToken = await CreateRefreshTokenAsync(user);
+
+        return new AuthResponseDto
+        {
+            Token = jwtToken,
+            RefreshToken = refreshToken.Token,
+            Email = user.Email ?? string.Empty,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            IsGlobalAdmin = isGlobalAdmin,
+            Teams = teams, // Always the same regardless of subdomain
+            RequiresEmailConfirmation = false
+        };
     }
 } 
