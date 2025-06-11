@@ -27,11 +27,24 @@ export default function TenantSwitcherPage() {
 
   const routeToAdminPage = useCallback(async () => {
     try {
-      // Get a new JWT token for global admin context
+      // Step 1: Get current token before clearing localStorage
+      const currentToken = localStorage.getItem('token');
+      if (!currentToken) {
+        setError('No authentication token found. Please log in again.');
+        return;
+      }
+
+      // Step 2: Silent logout from current subdomain - clear authentication state
+      console.log('[TenantSwitcher] Performing silent logout before switching to admin context');
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('sessionFingerprint');
+
+      // Step 3: Get a new JWT token for global admin context using the saved current token
       const response = await fetch('/api/authentication/refresh-context', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${currentToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ subdomain: 'app' }),
@@ -42,7 +55,7 @@ export default function TenantSwitcherPage() {
         const token = authData.token;
         const refreshToken = authData.refreshToken;
         
-        // Route to admin subdomain with token as URL parameter
+        // Step 4: Route to admin subdomain with token as URL parameter
         const protocol = window.location.protocol;
         const hostname = window.location.hostname;
         const port = window.location.port ? `:${window.location.port}` : '';
@@ -66,11 +79,24 @@ export default function TenantSwitcherPage() {
 
   const switchToTeamContext = useCallback(async (team: TeamOption) => {
     try {
-      // Get a new JWT token for team context
+      // Step 1: Get current token before clearing localStorage
+      const currentToken = localStorage.getItem('token');
+      if (!currentToken) {
+        setError('No authentication token found. Please log in again.');
+        return;
+      }
+
+      // Step 2: Silent logout from current subdomain - clear authentication state
+      console.log('[TenantSwitcher] Performing silent logout before switching to team context:', team.subdomain);
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('sessionFingerprint');
+
+      // Step 3: Get a new JWT token for team context using the saved current token
       const response = await fetch('/api/authentication/refresh-context', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${currentToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ subdomain: team.subdomain }),
@@ -84,7 +110,7 @@ export default function TenantSwitcherPage() {
       const token = authData.token;
       const refreshToken = authData.refreshToken;
       
-      // Route to team subdomain with token as URL parameters
+      // Step 4: Route to team subdomain with token as URL parameters
       const protocol = window.location.protocol;
       const hostname = window.location.hostname;
       const port = window.location.port ? `:${window.location.port}` : '';
