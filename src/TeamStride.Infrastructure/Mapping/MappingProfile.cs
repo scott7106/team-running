@@ -1,7 +1,7 @@
 using AutoMapper;
+using TeamStride.Application.Teams.Dtos;
 using TeamStride.Domain.Entities;
 using TeamStride.Application.Users.Dtos;
-using TeamStride.Application.Teams.Dtos;
 using TeamStride.Domain.Identity;
 using TeamStride.Application.Athletes.Dtos;
 
@@ -85,5 +85,16 @@ public class MappingProfile : Profile
         CreateMap<CreateAthleteProfileDto, AthleteProfile>();
         CreateMap<UpdateAthleteProfileDto, AthleteProfile>()
             .ForAllMembers(opts => opts.Condition((src, dest, srcMember) => srcMember != null));
+
+        CreateMap<TeamRegistrationWindow, TeamRegistrationWindowDto>()
+            .ForMember(dest => dest.TeamName, opt => opt.MapFrom(src => src.Team.Name));
+        CreateMap<CreateRegistrationWindowDto, TeamRegistrationWindow>();
+        CreateMap<UpdateRegistrationWindowDto, TeamRegistrationWindow>();
+
+        CreateMap<TeamRegistration, TeamRegistrationDto>()
+            .ForMember(dest => dest.TeamName, opt => opt.MapFrom(src => src.Team.Name));
+        CreateMap<SubmitRegistrationDto, TeamRegistration>();
+        CreateMap<AthleteRegistration, AthleteRegistrationDto>();
+        CreateMap<AthleteRegistrationDto, AthleteRegistration>();
     }
 } 

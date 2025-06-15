@@ -95,4 +95,11 @@ export interface SubdomainThemeDto {
   primaryColor: string;
   secondaryColor: string;
   logoUrl?: string;
+}
+
+export interface PublicTeamCreationResultDto {
+  teamId: string;
+  teamName: string;
+  teamSubdomain: string;
+  redirectUrl: string;
 } 

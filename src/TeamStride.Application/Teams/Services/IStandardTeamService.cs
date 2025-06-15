@@ -17,10 +17,8 @@ public interface IStandardTeamService
     Task<TeamDto> GetTeamByIdAsync(Guid teamId);
     Task<TeamDto> GetTeamBySubdomainAsync(string subdomain);
 
-    // Team Creation & Basic Management
-    Task<TeamDto> CreateTeamAsync(CreateTeamDto dto);
+    // Team Management
     Task<TeamDto> UpdateTeamAsync(Guid teamId, UpdateTeamDto dto);
-    Task DeleteTeamAsync(Guid teamId);
 
     // Team Ownership Management
     Task<OwnershipTransferDto> InitiateOwnershipTransferAsync(Guid teamId, InitiateOwnershipTransferDto dto);

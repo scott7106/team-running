@@ -25,6 +25,7 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
     private readonly IMapper _mapper;
     private readonly ILogger<GlobalAdminTeamService> _logger;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ITeamManager _teamManager;
 
     public GlobalAdminTeamService(
         ApplicationDbContext context,
@@ -32,7 +33,8 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
         UserManager<ApplicationUser> userManager,
         IMapper mapper,
         ILogger<GlobalAdminTeamService> logger, 
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        ITeamManager teamManager)
     {
         _context = context;
         _authorizationService = authorizationService;
@@ -40,6 +42,7 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
         _mapper = mapper;
         _logger = logger;
         _currentUserService = currentUserService;
+        _teamManager = teamManager;
     }
 
     public async Task<PaginatedList<GlobalAdminTeamDto>> GetTeamsAsync(
@@ -236,186 +239,50 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
     {
         await _authorizationService.RequireGlobalAdminAsync();
 
-        // Validate subdomain availability
-        if (!await IsSubdomainAvailableAsync(dto.Subdomain))
+        // Convert DTO to domain request
+        var request = new CreateTeamWithNewOwnerRequest
         {
-            throw new InvalidOperationException($"Subdomain '{dto.Subdomain}' is already taken");
-        }
+            Name = dto.Name,
+            Subdomain = dto.Subdomain,
+            OwnerEmail = dto.OwnerEmail,
+            OwnerFirstName = dto.OwnerFirstName,
+            OwnerLastName = dto.OwnerLastName,
+            OwnerPassword = dto.OwnerPassword,
+            Tier = dto.Tier,
+            PrimaryColor = dto.PrimaryColor,
+            SecondaryColor = dto.SecondaryColor,
+            ExpiresOn = dto.ExpiresOn
+        };
 
-        // Check if user with email already exists
-        var existingUser = await _userManager.FindByEmailAsync(dto.OwnerEmail);
-        if (existingUser != null)
-        {
-            throw new InvalidOperationException($"User with email '{dto.OwnerEmail}' already exists");
-        }
+        // Use TeamManager to create team with new owner
+        var (user, team) = await _teamManager.CreateTeamWithNewOwnerAsync(request);
 
-        var strategy = _context.Database.CreateExecutionStrategy();
-        return await strategy.ExecuteAsync(async () =>
-        {
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try
-            {
-                // Create the new user
-                var newUser = new ApplicationUser
-                {
-                    UserName = dto.OwnerEmail,
-                    Email = dto.OwnerEmail,
-                    FirstName = dto.OwnerFirstName,
-                    LastName = dto.OwnerLastName,
-                    EmailConfirmed = true,
-                    IsActive = true,
-                    Status = UserStatus.Active,
-                    CreatedOn = DateTime.UtcNow
-                };
+        _logger.LogInformation("Created team {TeamId} with new owner {UserId} via global admin", team.Id, user.Id);
 
-                var userResult = await _userManager.CreateAsync(newUser, dto.OwnerPassword);
-                if (!userResult.Succeeded)
-                {
-                    var errors = string.Join(", ", userResult.Errors.Select(e => e.Description));
-                    throw new InvalidOperationException($"Failed to create user: {errors}");
-                }
-
-                // Create the team
-                var team = new Team
-                {
-                    Name = dto.Name,
-                    Subdomain = dto.Subdomain,
-                    PrimaryColor = dto.PrimaryColor,
-                    SecondaryColor = dto.SecondaryColor,
-                    Status = TeamStatus.Active,
-                    Tier = dto.Tier,
-                    ExpiresOn = dto.ExpiresOn,
-                    OwnerId = newUser.Id,
-                    CreatedOn = DateTime.UtcNow
-                };
-
-                _context.Teams.Add(team);
-                await _context.SaveChangesAsync();
-
-                // Create the owner relationship in UserTeam
-                var userTeam = new UserTeam
-                {
-                    UserId = newUser.Id,
-                    TeamId = team.Id,
-                    Role = TeamRole.TeamOwner,
-                    MemberType = MemberType.Coach, // Default for team owners
-                    IsActive = true,
-                    IsDefault = true,
-                    JoinedOn = DateTime.UtcNow,
-                    CreatedOn = DateTime.UtcNow
-                };
-
-                _context.UserTeams.Add(userTeam);
-
-                // Update user's default team
-                newUser.DefaultTeamId = team.Id;
-                await _userManager.UpdateAsync(newUser);
-
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                _logger.LogInformation("Created team {TeamId} with new owner {UserId}", team.Id, newUser.Id);
-
-                return await GetTeamByIdAsync(team.Id);
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
-        });
+        return await GetTeamByIdAsync(team.Id);
     }
 
     public async Task<GlobalAdminTeamDto> CreateTeamWithExistingOwnerAsync(CreateTeamWithExistingOwnerDto dto)
     {
         await _authorizationService.RequireGlobalAdminAsync();
 
-        // Validate subdomain availability
-        if (!await IsSubdomainAvailableAsync(dto.Subdomain))
+        var createTeamRequest = new CreateTeamRequest
         {
-            throw new InvalidOperationException($"Subdomain '{dto.Subdomain}' is already taken");
-        }
+            Name = dto.Name,
+            Subdomain = dto.Subdomain,
+            OwnerId = dto.OwnerId,
+            Tier = dto.Tier,
+            Status = TeamStatus.Active,
+            PrimaryColor = dto.PrimaryColor,
+            SecondaryColor = dto.SecondaryColor,
+            ExpiresOn = dto.ExpiresOn
+        };
 
-        // Validate that the user exists
-        var owner = await _userManager.FindByIdAsync(dto.OwnerId.ToString());
-        if (owner == null)
-        {
-            throw new InvalidOperationException($"User with ID {dto.OwnerId} not found");
-        }
+        var team = await _teamManager.CreateTeamAsync(createTeamRequest);
 
-        var strategy = _context.Database.CreateExecutionStrategy();
-        return await strategy.ExecuteAsync(async () =>
-        {
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try
-            {
-                // Create the team
-                var team = new Team
-                {
-                    Name = dto.Name,
-                    Subdomain = dto.Subdomain,
-                    PrimaryColor = dto.PrimaryColor,
-                    SecondaryColor = dto.SecondaryColor,
-                    Status = TeamStatus.Active,
-                    Tier = dto.Tier,
-                    ExpiresOn = dto.ExpiresOn,
-                    OwnerId = dto.OwnerId,
-                    CreatedOn = DateTime.UtcNow
-                };
+        _logger.LogInformation("Created team {TeamId} with existing owner {UserId} via global admin", team.Id, dto.OwnerId);
 
-                _context.Teams.Add(team);
-                await _context.SaveChangesAsync();
-
-                // Create or update the owner relationship in UserTeam
-                var existingUserTeam = await _context.UserTeams
-                    .FirstOrDefaultAsync(ut => ut.UserId == dto.OwnerId && ut.TeamId == team.Id);
-
-                if (existingUserTeam != null)
-                {
-                    // Update existing relationship
-                    existingUserTeam.Role = TeamRole.TeamOwner;
-                    existingUserTeam.MemberType = MemberType.Coach;
-                    existingUserTeam.IsActive = true;
-                    existingUserTeam.ModifiedOn = DateTime.UtcNow;
-                }
-                else
-                {
-                    // Create new relationship
-                    var userTeam = new UserTeam
-                    {
-                        UserId = dto.OwnerId,
-                        TeamId = team.Id,
-                        Role = TeamRole.TeamOwner,
-                        MemberType = MemberType.Coach,
-                        IsActive = true,
-                        IsDefault = owner.DefaultTeamId == null, // Set as default if user has no default team
-                        JoinedOn = DateTime.UtcNow,
-                        CreatedOn = DateTime.UtcNow
-                    };
-
-                    _context.UserTeams.Add(userTeam);
-                }
-
-                // Update user's default team if they don't have one
-                if (owner.DefaultTeamId == null)
-                {
-                    owner.DefaultTeamId = team.Id;
-                    await _userManager.UpdateAsync(owner);
-                }
-
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                _logger.LogInformation("Created team {TeamId} with existing owner {UserId}", team.Id, dto.OwnerId);
-
-                return await GetTeamByIdAsync(team.Id);
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
-        });
+        return await GetTeamByIdAsync(team.Id);
     }
 
     public async Task<GlobalAdminTeamDto> UpdateTeamAsync(Guid teamId, GlobalAdminUpdateTeamDto dto)
@@ -737,15 +604,7 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
 
     public async Task<bool> IsSubdomainAvailableAsync(string subdomain, Guid? excludeTeamId = null)
     {
-        var query = _context.Teams
-            .IgnoreQueryFilters()
-            .Where(t => !t.IsDeleted && t.Subdomain.ToLower() == subdomain.ToLower());
-
-        if (excludeTeamId.HasValue)
-        {
-            query = query.Where(t => t.Id != excludeTeamId.Value);
-        }
-
-        return !await query.AnyAsync();
+        await _authorizationService.RequireGlobalAdminAsync();
+        return await _teamManager.IsSubdomainAvailableAsync(subdomain, excludeTeamId);
     }
 } 

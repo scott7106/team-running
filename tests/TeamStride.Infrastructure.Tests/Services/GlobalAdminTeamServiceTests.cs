@@ -9,6 +9,7 @@ using TeamStride.Application.Common.Services;
 using TeamStride.Application.Teams.Dtos;
 using TeamStride.Domain.Entities;
 using TeamStride.Domain.Identity;
+using TeamStride.Domain.Interfaces;
 using TeamStride.Infrastructure.Mapping;
 using TeamStride.Infrastructure.Services;
 
@@ -18,6 +19,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
 {
     private readonly Mock<IAuthorizationService> _mockAuthorizationService;
     private readonly Mock<ILogger<GlobalAdminTeamService>> _mockLogger;
+    private readonly Mock<ITeamManager> _mockTeamManager;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IMapper _mapper;
 
@@ -25,10 +27,23 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
     {
         _mockAuthorizationService = new Mock<IAuthorizationService>();
         _mockLogger = new Mock<ILogger<GlobalAdminTeamService>>();
+        _mockTeamManager = new Mock<ITeamManager>();
         _userManager = ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         
         var config = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>());
         _mapper = config.CreateMapper();
+    }
+
+    private GlobalAdminTeamService CreateService()
+    {
+        return new GlobalAdminTeamService(
+            DbContext,
+            _mockAuthorizationService.Object,
+            _userManager,
+            _mapper,
+            _mockLogger.Object,
+            MockCurrentUserService.Object,
+            _mockTeamManager.Object);
     }
 
     [Fact]
@@ -40,13 +55,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner1 = await CreateTestUserAsync("owner1@test.com", "Owner1", "User");
         var owner2 = await CreateTestUserAsync("owner2@test.com", "Owner2", "User");
@@ -74,13 +83,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .ThrowsAsync(new UnauthorizedAccessException("Global admin privileges required"));
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         // Act & Assert
         await Should.ThrowAsync<UnauthorizedAccessException>(
@@ -96,13 +99,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner1 = await CreateTestUserAsync("owner1@test.com", "Owner1", "User");
         var owner2 = await CreateTestUserAsync("owner2@test.com", "Owner2", "User");
@@ -127,13 +124,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner");
         var team = await CreateTestTeamAsync("Test Team", "test-team", owner.Id);
@@ -157,13 +148,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var dto = new CreateTeamWithNewOwnerDto
         {
@@ -176,6 +161,55 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
             Tier = TeamTier.Free
         };
 
+        // Create the actual user and team entities that will be returned by the mock
+        var mockUser = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            Email = dto.OwnerEmail,
+            FirstName = dto.OwnerFirstName,
+            LastName = dto.OwnerLastName,
+            UserName = dto.OwnerEmail,
+            EmailConfirmed = true
+        };
+
+        var mockTeam = new Team
+        {
+            Id = Guid.NewGuid(),
+            Name = dto.Name,
+            Subdomain = dto.Subdomain,
+            Tier = dto.Tier,
+            Status = TeamStatus.Active,
+            OwnerId = mockUser.Id,
+            PrimaryColor = "#000000",
+            SecondaryColor = "#FFFFFF",
+            CreatedOn = DateTime.UtcNow
+        };
+
+        // Add the entities to the database so GetTeamByIdAsync can find them
+        DbContext.Users.Add(mockUser);
+        DbContext.Teams.Add(mockTeam);
+        
+        // Create the UserTeam relationship
+        var userTeam = new UserTeam
+        {
+            UserId = mockUser.Id,
+            TeamId = mockTeam.Id,
+            Role = TeamRole.TeamOwner,
+            MemberType = MemberType.Coach,
+            IsActive = true,
+            IsDefault = true,
+            JoinedOn = DateTime.UtcNow,
+            CreatedOn = DateTime.UtcNow,
+            User = mockUser,
+            Team = mockTeam
+        };
+        DbContext.UserTeams.Add(userTeam);
+        await DbContext.SaveChangesAsync();
+
+        // Setup TeamManager mock to return the created entities
+        _mockTeamManager.Setup(x => x.CreateTeamWithNewOwnerAsync(It.IsAny<CreateTeamWithNewOwnerRequest>()))
+            .ReturnsAsync((mockUser, mockTeam));
+
         // Act
         var result = await service.CreateTeamWithNewOwnerAsync(dto);
 
@@ -183,14 +217,12 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         result.ShouldNotBeNull();
         result.Name.ShouldBe("New Team");
         result.Subdomain.ShouldBe("new-team");
-        result.OwnerEmail.ShouldBe("newowner@test.com");
         result.Tier.ShouldBe(TeamTier.Free);
-
-        // Verify user was created
-        var createdUser = await _userManager.FindByEmailAsync("newowner@test.com");
-        createdUser.ShouldNotBeNull();
-        createdUser.FirstName.ShouldBe("New");
-        createdUser.LastName.ShouldBe("Owner");
+        result.OwnerEmail.ShouldBe("newowner@test.com");
+        result.OwnerFirstName.ShouldBe("New");
+        result.OwnerLastName.ShouldBe("Owner");
+        
+        _mockTeamManager.Verify(x => x.CreateTeamWithNewOwnerAsync(It.IsAny<CreateTeamWithNewOwnerRequest>()), Times.Once);
     }
 
     [Fact]
@@ -202,13 +234,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var existingOwner = await CreateTestUserAsync("existing@test.com", "Existing", "Owner");
 
@@ -222,6 +248,44 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
             SecondaryColor = "#00FF00"
         };
 
+        // Create the actual team entity that will be returned by the mock
+        var mockTeam = new Team
+        {
+            Id = Guid.NewGuid(),
+            Name = dto.Name,
+            Subdomain = dto.Subdomain,
+            Tier = dto.Tier,
+            Status = TeamStatus.Active,
+            OwnerId = existingOwner.Id,
+            PrimaryColor = dto.PrimaryColor,
+            SecondaryColor = dto.SecondaryColor,
+            CreatedOn = DateTime.UtcNow
+        };
+
+        // Add the team to the database so GetTeamByIdAsync can find it
+        DbContext.Teams.Add(mockTeam);
+        
+        // Create the UserTeam relationship
+        var userTeam = new UserTeam
+        {
+            UserId = existingOwner.Id,
+            TeamId = mockTeam.Id,
+            Role = TeamRole.TeamOwner,
+            MemberType = MemberType.Coach,
+            IsActive = true,
+            IsDefault = true,
+            JoinedOn = DateTime.UtcNow,
+            CreatedOn = DateTime.UtcNow,
+            User = existingOwner,
+            Team = mockTeam
+        };
+        DbContext.UserTeams.Add(userTeam);
+        await DbContext.SaveChangesAsync();
+
+        // Setup TeamManager mock to return the created team
+        _mockTeamManager.Setup(x => x.CreateTeamAsync(It.IsAny<CreateTeamRequest>()))
+            .ReturnsAsync(mockTeam);
+
         // Act
         var result = await service.CreateTeamWithExistingOwnerAsync(dto);
 
@@ -229,10 +293,14 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         result.ShouldNotBeNull();
         result.Name.ShouldBe("New Team");
         result.Subdomain.ShouldBe("new-team");
-        result.OwnerEmail.ShouldBe("existing@test.com");
         result.Tier.ShouldBe(TeamTier.Premium);
         result.PrimaryColor.ShouldBe("#FF0000");
         result.SecondaryColor.ShouldBe("#00FF00");
+        result.OwnerEmail.ShouldBe("existing@test.com");
+        result.OwnerFirstName.ShouldBe("Existing");
+        result.OwnerLastName.ShouldBe("Owner");
+        
+        _mockTeamManager.Verify(x => x.CreateTeamAsync(It.IsAny<CreateTeamRequest>()), Times.Once);
     }
 
     [Fact]
@@ -244,13 +312,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner");
         var team = await CreateTestTeamAsync("Original Team", "original-team", owner.Id);
@@ -264,6 +326,10 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
             PrimaryColor = "#123456",
             SecondaryColor = "#ABCDEF"
         };
+
+        // Setup mock for subdomain availability check
+        _mockTeamManager.Setup(x => x.IsSubdomainAvailableAsync("updated-team", team.Id))
+            .ReturnsAsync(true);
 
         // Act
         var result = await service.UpdateTeamAsync(team.Id, dto);
@@ -286,13 +352,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner");
         var team = await CreateTestTeamAsync("Team to Delete", "team-to-delete", owner.Id);
@@ -316,13 +376,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var oldOwner = await CreateTestUserAsync("oldowner@test.com", "Old", "Owner");
         var newOwner = await CreateTestUserAsync("newowner@test.com", "New", "Owner");
@@ -352,41 +406,37 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
     public async Task IsSubdomainAvailableAsync_WhenAvailable_ShouldReturnTrue()
     {
         // Arrange
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
+        
+        _mockTeamManager.Setup(x => x.IsSubdomainAvailableAsync("available-subdomain", null))
+            .ReturnsAsync(true);
 
         // Act
         var result = await service.IsSubdomainAvailableAsync("available-subdomain");
 
         // Assert
         result.ShouldBeTrue();
+        _mockTeamManager.Verify(x => x.IsSubdomainAvailableAsync("available-subdomain", null), Times.Once);
     }
 
     [Fact]
     public async Task IsSubdomainAvailableAsync_WhenTaken_ShouldReturnFalse()
     {
         // Arrange
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Owner", "User");
         await CreateTestTeamAsync("Test Team", "taken-subdomain", owner.Id);
+
+        _mockTeamManager.Setup(x => x.IsSubdomainAvailableAsync("taken-subdomain", null))
+            .ReturnsAsync(false);
 
         // Act
         var result = await service.IsSubdomainAvailableAsync("taken-subdomain");
 
         // Assert
         result.ShouldBeFalse();
+        _mockTeamManager.Verify(x => x.IsSubdomainAvailableAsync("taken-subdomain", null), Times.Once);
     }
 
     #region GetTeamsAsync Advanced Filtering Tests
@@ -400,13 +450,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Owner", "User");
         var activeTeam = await CreateTestTeamAsync("Active Team", "active-team", owner.Id);
@@ -433,13 +477,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Owner", "User");
         var freeTeam = await CreateTestTeamAsync("Free Team", "free-team", owner.Id);
@@ -466,13 +504,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Owner", "User");
         var team1 = await CreateTestTeamAsync("Team 1", "team-1", owner.Id);
@@ -505,13 +537,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Owner", "User");
         
@@ -544,13 +570,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var nonExistentTeamId = Guid.NewGuid();
 
@@ -571,13 +591,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .ThrowsAsync(new UnauthorizedAccessException("Global admin privileges required"));
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         // Act & Assert
         await Should.ThrowAsync<UnauthorizedAccessException>(
@@ -597,13 +611,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Owner", "User");
         var activeTeam = await CreateTestTeamAsync("Active Team", "active-team", owner.Id);
@@ -632,13 +640,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Owner", "User");
         var deletedTeam1 = await CreateTestTeamAsync("Alpha Deleted", "alpha-deleted", owner.Id);
@@ -669,13 +671,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .ThrowsAsync(new UnauthorizedAccessException("Global admin privileges required"));
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         // Act & Assert
         await Should.ThrowAsync<UnauthorizedAccessException>(
@@ -695,13 +691,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner");
         var team = await CreateTestTeamAsync("Team to Delete", "team-to-delete", owner.Id);
@@ -727,13 +717,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var nonExistentTeamId = Guid.NewGuid();
 
@@ -754,13 +738,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .ThrowsAsync(new UnauthorizedAccessException("Global admin privileges required"));
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         // Act & Assert
         await Should.ThrowAsync<UnauthorizedAccessException>(
@@ -780,13 +758,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner");
         var team = await CreateTestTeamAsync("Team to Recover", "team-to-recover", owner.Id);
@@ -800,6 +772,10 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         var userTeam = await DbContext.UserTeams.FirstAsync(ut => ut.TeamId == team.Id);
         userTeam.IsActive = false;
         await DbContext.SaveChangesAsync();
+
+        // Setup mock for subdomain availability check
+        _mockTeamManager.Setup(x => x.IsSubdomainAvailableAsync("team-to-recover", team.Id))
+            .ReturnsAsync(true);
 
         // Act
         var result = await service.RecoverTeamAsync(team.Id);
@@ -829,13 +805,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var nonExistentTeamId = Guid.NewGuid();
 
@@ -855,13 +825,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner");
         var team = await CreateTestTeamAsync("Active Team", "active-team", owner.Id);
@@ -882,13 +846,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner");
         var deletedTeam = await CreateTestTeamAsync("Deleted Team", "conflicting-subdomain", owner.Id);
@@ -922,13 +880,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         // Create existing team with subdomain
         var existingOwner = await CreateTestUserAsync("existing@test.com", "Existing", "Owner");
@@ -944,6 +896,10 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
             OwnerPassword = "Password123!",
             Tier = TeamTier.Free
         };
+
+        // Setup TeamManager mock to throw exception for taken subdomain
+        _mockTeamManager.Setup(x => x.CreateTeamWithNewOwnerAsync(It.IsAny<CreateTeamWithNewOwnerRequest>()))
+            .ThrowsAsync(new InvalidOperationException($"Subdomain 'taken-subdomain' is already taken"));
 
         // Act & Assert
         var exception = await Should.ThrowAsync<InvalidOperationException>(
@@ -961,13 +917,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var dto = new CreateTeamWithExistingOwnerDto
         {
@@ -977,11 +927,15 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
             Tier = TeamTier.Free
         };
 
+        // Setup TeamManager mock to throw exception for non-existent user
+        _mockTeamManager.Setup(x => x.CreateTeamAsync(It.IsAny<CreateTeamRequest>()))
+            .ThrowsAsync(new InvalidOperationException($"Owner with ID '{dto.OwnerId}' not found"));
+
         // Act & Assert
         var exception = await Should.ThrowAsync<InvalidOperationException>(
             () => service.CreateTeamWithExistingOwnerAsync(dto));
         
-        exception.Message.ShouldContain($"User with ID {dto.OwnerId} not found");
+        exception.Message.ShouldContain($"Owner with ID '{dto.OwnerId}' not found");
     }
 
     [Fact]
@@ -993,13 +947,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var nonExistentTeamId = Guid.NewGuid();
         var dto = new GlobalAdminUpdateTeamDto
@@ -1023,13 +971,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Owner", "User");
         var team1 = await CreateTestTeamAsync("Team 1", "team-1", owner.Id);
@@ -1056,13 +998,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var nonExistentTeamId = Guid.NewGuid();
 
@@ -1082,13 +1018,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner");
         var team = await CreateTestTeamAsync("Team", "team", owner.Id);
@@ -1114,13 +1044,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Owner", "User");
         var team = await CreateTestTeamAsync("Team", "team", owner.Id);
@@ -1147,13 +1071,7 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
             .Returns(Task.CompletedTask);
 
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Owner", "User");
         var team = await CreateTestTeamAsync("Team", "team", owner.Id);
@@ -1175,22 +1093,20 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
     public async Task IsSubdomainAvailableAsync_WhenExcludingTeam_ShouldReturnTrueForSameTeam()
     {
         // Arrange
-        var service = new GlobalAdminTeamService(
-            DbContext,
-            _mockAuthorizationService.Object,
-            _userManager,
-            _mapper,
-            _mockLogger.Object,
-            MockCurrentUserService.Object);
+        var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Owner", "User");
         var team = await CreateTestTeamAsync("Test Team", "test-subdomain", owner.Id);
+
+        _mockTeamManager.Setup(x => x.IsSubdomainAvailableAsync("test-subdomain", team.Id))
+            .ReturnsAsync(true);
 
         // Act
         var result = await service.IsSubdomainAvailableAsync("test-subdomain", team.Id);
 
         // Assert
         result.ShouldBeTrue();
+        _mockTeamManager.Verify(x => x.IsSubdomainAvailableAsync("test-subdomain", team.Id), Times.Once);
     }
 
     #endregion
@@ -1254,3 +1170,4 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         return team;
     }
 } 
+

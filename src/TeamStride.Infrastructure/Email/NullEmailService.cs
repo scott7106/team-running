@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
+using TeamStride.Application.Common.Services;
+using TeamStride.Application.Teams.Dtos;
 
 namespace TeamStride.Infrastructure.Email;
 
@@ -16,22 +18,10 @@ public class NullEmailService : IEmailService
         _logger = logger;
     }
 
-    public Task SendEmailAsync(string to, string subject, string htmlContent)
-    {
-        _logger.LogInformation(
-            """
-            [DEV ONLY] Email would have been sent:
-            To: {To}
-            Subject: {Subject}
-            Content:
-            {Content}
-            """,
-            to, subject, htmlContent);
+    public Task SendEmailAsync(string to, string subject, string body, string? from = null, bool isHtml = true, params (string Email, string Name)[] recipients)
+        => Task.CompletedTask;
 
-        return Task.CompletedTask;
-    }
-
-    public Task SendEmailConfirmationAsync(string email, string confirmationLink)
+    public Task SendEmailConfirmationAsync(string to, string confirmationLink)
     {
         _logger.LogInformation(
             """
@@ -39,12 +29,12 @@ public class NullEmailService : IEmailService
             To: {Email}
             Confirmation Link: {Link}
             """,
-            email, confirmationLink);
+            to, confirmationLink);
 
         return Task.CompletedTask;
     }
 
-    public Task SendPasswordResetAsync(string email, string resetLink)
+    public Task SendPasswordResetAsync(string to, string resetLink)
     {
         _logger.LogInformation(
             """
@@ -52,23 +42,65 @@ public class NullEmailService : IEmailService
             To: {Email}
             Reset Link: {Link}
             """,
-            email, resetLink);
+            to, resetLink);
 
         return Task.CompletedTask;
     }
 
-    public Task SendOwnershipTransferAsync(string email, string teamName, string initiatedByName, string transferLink, string? message = null)
+    public Task SendOwnershipTransferAsync(string to, string teamName, string transferLink)
     {
         _logger.LogInformation(
             """
             [DEV ONLY] Ownership transfer email would have been sent:
             To: {Email}
             Team: {TeamName}
-            Initiated By: {InitiatedBy}
             Transfer Link: {Link}
-            Message: {Message}
             """,
-            email, teamName, initiatedByName, transferLink, message ?? "None");
+            to, teamName, transferLink);
+
+        return Task.CompletedTask;
+    }
+
+    public Task SendRegistrationConfirmationAsync(TeamRegistrationDto registration)
+    {
+        _logger.LogInformation(
+            """
+            [DEV ONLY] Registration confirmation email would have been sent:
+            To: {Email}
+            Name: {FirstName} {LastName}
+            Emergency Contact: {EmergencyContactName} ({EmergencyContactPhone})
+            Athletes:
+            {Athletes}
+            """,
+            registration.Email,
+            registration.FirstName,
+            registration.LastName,
+            registration.EmergencyContactName,
+            registration.EmergencyContactPhone,
+            string.Join("\n", registration.Athletes.Select(a => $"- {a.FirstName} {a.LastName} (Grade: {a.GradeLevel})")));
+
+        return Task.CompletedTask;
+    }
+
+    public Task SendRegistrationStatusUpdateAsync(TeamRegistrationDto registration)
+    {
+        _logger.LogInformation(
+            """
+            [DEV ONLY] Registration status update email would have been sent:
+            To: {Email}
+            Name: {FirstName} {LastName}
+            Status: {Status}
+            Emergency Contact: {EmergencyContactName} ({EmergencyContactPhone})
+            Athletes:
+            {Athletes}
+            """,
+            registration.Email,
+            registration.FirstName,
+            registration.LastName,
+            registration.Status,
+            registration.EmergencyContactName,
+            registration.EmergencyContactPhone,
+            string.Join("\n", registration.Athletes.Select(a => $"- {a.FirstName} {a.LastName} (Grade: {a.GradeLevel})")));
 
         return Task.CompletedTask;
     }

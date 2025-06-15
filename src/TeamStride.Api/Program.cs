@@ -16,6 +16,12 @@ using Microsoft.AspNetCore.Routing;
 using TeamStride.Api.Infrastructure;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
 using TeamStride.Domain.Identity;
+using TeamStride.Infrastructure.Configuration;
+using TeamStride.Infrastructure.Middleware;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using TeamStride.Application.Common.Services;
+using TeamStride.Application.Teams.Services;
 
 namespace TeamStride.Api;
 
@@ -27,8 +33,7 @@ public class Program
 
         // Configure Serilog
         Log.Logger = new LoggerConfiguration()
-            .WriteTo.Console()
-            .WriteTo.File("logs/teamstride-.txt", rollingInterval: RollingInterval.Day)
+            .ReadFrom.Configuration(builder.Configuration)
             .CreateLogger();
 
         builder.Host.UseSerilog();
@@ -62,10 +67,13 @@ public class Program
         // Register application services
         builder.Services.AddScoped<ICurrentTeamService, CurrentTeamService>();
         builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
-        builder.Services.AddScoped<TeamStride.Application.Common.Services.IAuthorizationService, TeamStride.Infrastructure.Services.AuthorizationService>();
+        builder.Services.AddScoped<IAuthorizationService, TeamStride.Infrastructure.Services.AuthorizationService>();
         builder.Services
             .AddInfrastructureServices()
             .AddApplicationServices();
+
+        // Register services
+        builder.Services.AddScoped<ITeamRegistrationService, TeamStride.Infrastructure.Services.TeamRegistrationService>();
 
         // Configure DbContext
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? 
@@ -85,7 +93,7 @@ public class Program
                             errorNumbersToAdd: null);
                     }))
             .AddTeamStrideIdentity(builder.Configuration)
-            .AddEmailService(builder.Configuration, isDevelopment)
+            .AddEmailServices(builder.Configuration)
             .AddGlobalAdminSeeder(builder.Configuration)
             .AddApplicationRoleSeeder()
             .AddDevelopmentTestDataSeeder(builder.Configuration);
@@ -113,6 +121,10 @@ public class Program
                     Encoding.UTF8.GetBytes(config.JwtSecret))
             };
         });
+
+        // Configure rate limiting
+        builder.Services.Configure<TeamStride.Infrastructure.Configuration.RateLimitingOptions>(
+            builder.Configuration.GetSection(TeamStride.Infrastructure.Configuration.RateLimitingOptions.SectionName));
 
         var app = builder.Build();
 
@@ -148,6 +160,9 @@ public class Program
         app.UseApiTeamContext();
         
         app.UseAuthorization();
+
+        // Add middleware
+        app.UseMiddleware<RateLimitingMiddleware>();
 
         app.MapControllers();
 

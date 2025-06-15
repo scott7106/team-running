@@ -83,6 +83,46 @@ public interface IAuthorizationService
     /// <param name="minimumRole">The minimum role required to access the resource</param>
     /// <returns>True if user can access the resource, false otherwise</returns>
     Task<bool> CanAccessResourceAsync<T>(T resource, TeamRole minimumRole = TeamRole.TeamMember) where T : ITeamResource;
+
+    /// <summary>
+    /// Checks if a user can manage a team (TeamOwner or TeamAdmin role).
+    /// </summary>
+    /// <param name="teamId">The team ID to check</param>
+    /// <param name="userId">The user ID to check</param>
+    /// <returns>True if user can manage the team, false otherwise</returns>
+    Task<bool> CanManageTeamAsync(Guid teamId, Guid userId);
+
+    /// <summary>
+    /// Checks if a user can manage registration windows for a team.
+    /// </summary>
+    /// <param name="teamId">The team ID to check</param>
+    /// <param name="userId">The user ID to check</param>
+    /// <returns>True if user can manage registration windows, false otherwise</returns>
+    Task<bool> CanManageRegistrationWindowAsync(Guid teamId, Guid userId);
+
+    /// <summary>
+    /// Checks if a user can manage registrations for a team.
+    /// </summary>
+    /// <param name="teamId">The team ID to check</param>
+    /// <param name="userId">The user ID to check</param>
+    /// <returns>True if user can manage registrations, false otherwise</returns>
+    Task<bool> CanManageRegistrationAsync(Guid teamId, Guid userId);
+
+    /// <summary>
+    /// Checks if a user is a team member.
+    /// </summary>
+    /// <param name="teamId">The team ID to check</param>
+    /// <param name="userId">The user ID to check</param>
+    /// <returns>True if user is a team member, false otherwise</returns>
+    Task<bool> IsTeamMemberAsync(Guid teamId, Guid userId);
+
+    /// <summary>
+    /// Gets a user's role in a team.
+    /// </summary>
+    /// <param name="teamId">The team ID to check</param>
+    /// <param name="userId">The user ID to check</param>
+    /// <returns>The user's team role</returns>
+    Task<TeamRole> GetUserTeamRoleAsync(Guid teamId, Guid userId);
 }
 
 /// <summary>

@@ -130,42 +130,7 @@ public class TeamsController : BaseApiController
         }
     }
 
-    /// <summary>
-    /// Creates a new team
-    /// </summary>
-    /// <param name="dto">Team creation data</param>
-    /// <returns>Created team details</returns>
-    [HttpPost]
-    [RequireTeamAccess(TeamRole.TeamMember, requireTeamIdFromRoute: false)]
-    [ProducesResponseType(typeof(TeamDto), 201)]
-    [ProducesResponseType(400)]
-    [ProducesResponseType(401)]
-    [ProducesResponseType(403)]
-    public async Task<IActionResult> CreateTeam([FromBody] CreateTeamDto dto)
-    {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
 
-        try
-        {
-            var team = await _standardTeamService.CreateTeamAsync(dto);
-            return CreatedAtAction(nameof(GetTeamById), new { teamId = team.Id }, team);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return Forbid(ex.Message);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            return HandleError(ex, "Failed to create team");
-        }
-    }
 
     /// <summary>
     /// Updates a team's basic properties
@@ -210,70 +175,9 @@ public class TeamsController : BaseApiController
         }
     }
 
-    /// <summary>
-    /// Deletes a team (soft delete)
-    /// </summary>
-    /// <param name="teamId">Team ID</param>
-    /// <returns>No content</returns>
-    [HttpDelete("{teamId:guid}")]
-    [RequireTeamAccess(TeamRole.TeamOwner)]
-    [ProducesResponseType(204)]
-    [ProducesResponseType(401)]
-    [ProducesResponseType(403)]
-    [ProducesResponseType(404)]
-    public async Task<IActionResult> DeleteTeam(Guid teamId)
-    {
-        try
-        {
-            await _standardTeamService.DeleteTeamAsync(teamId);
-            return NoContent();
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return Forbid(ex.Message);
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
-        {
-            return NotFound(ex.Message);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            return HandleError(ex, $"Failed to delete team {teamId}");
-        }
-    }
 
-    /// <summary>
-    /// Checks if a subdomain is available
-    /// </summary>
-    /// <param name="subdomain">Subdomain to check</param>
-    /// <returns>Availability status</returns>
-    [HttpGet("subdomain/{subdomain}/availability")]
-    [RequireTeamAccess(TeamRole.TeamAdmin, requireTeamIdFromRoute: false)]
-    [ProducesResponseType(typeof(bool), 200)]
-    [ProducesResponseType(400)]
-    [ProducesResponseType(401)]
-    [ProducesResponseType(403)]
-    public async Task<IActionResult> CheckSubdomainAvailability(string subdomain)
-    {
-        if (string.IsNullOrWhiteSpace(subdomain))
-        {
-            return BadRequest("Subdomain is required");
-        }
 
-        try
-        {
-            var isAvailable = await _standardTeamService.IsSubdomainAvailableAsync(subdomain);
-            return Ok(isAvailable);
-        }
-        catch (Exception ex)
-        {
-            return HandleError(ex, "Failed to check subdomain availability");
-        }
-    }
+
 
     /// <summary>
     /// Updates a team's subdomain

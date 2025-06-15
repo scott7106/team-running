@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 using Shouldly;
 using TeamStride.Application.Authentication.Dtos;
@@ -10,6 +11,7 @@ using TeamStride.Domain.Entities;
 using TeamStride.Domain.Identity;
 using TeamStride.Infrastructure.Email;
 using TeamStride.Infrastructure.Identity;
+using TeamStride.Application.Common.Services;
 
 namespace TeamStride.Infrastructure.Tests.Services;
 

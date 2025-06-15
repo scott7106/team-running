@@ -62,9 +62,18 @@ This document summarizes the API controllers that have been implemented for the 
 - `DELETE /api/admin/teams/{teamId}/permanent` - Permanently delete team
 - `POST /api/admin/teams/{teamId}/recover` - Recover soft-deleted team
 - `POST /api/admin/teams/{teamId}/transfer-ownership` - Immediate ownership transfer
-- `GET /api/admin/teams/subdomain-availability` - Check subdomain availability
 
-### 6. AuthenticationController (`/api/Authentication`)
+### 6. PublicTeamsController (`/api/public/teams`)
+**Purpose**: Handles public team operations that don't require authentication (primarily for team registration).
+
+**Endpoints**:
+- `GET /api/public/teams/subdomain-availability` - Check if subdomain is available for new team registration
+
+**Authorization**:
+- All endpoints are public (no authentication required)
+- Designed for anonymous users during team registration process
+
+### 7. AuthenticationController (`/api/Authentication`)
 **Purpose**: User authentication and account management operations.
 
 **Endpoints**:
@@ -85,7 +94,7 @@ This document summarizes the API controllers that have been implemented for the 
 - `change-password` and `logout` require authentication
 - Email confirmation and password reset support anonymous access via tokens
 
-### 7. TenantSwitcherController (`/api/tenant-switcher`)
+### 8. TenantSwitcherController (`/api/tenant-switcher`)
 **Purpose**: Multi-tenant operations for users with access to multiple teams.
 
 **Endpoints**:
@@ -95,7 +104,7 @@ This document summarizes the API controllers that have been implemented for the 
 - All endpoints require authentication
 - Returns teams the current user can switch between
 
-### 8. HealthController (`/api/Health`)
+### 9. HealthController (`/api/Health`)
 **Purpose**: API health monitoring and status checks.
 
 **Endpoints**:

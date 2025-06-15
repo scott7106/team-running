@@ -5,10 +5,11 @@ using TeamStride.Application.Common.Services;
 using TeamStride.Domain.Entities;
 using TeamStride.Domain.Interfaces;
 using TeamStride.Infrastructure.Services;
+using TeamStride.Infrastructure.Data;
 
 namespace TeamStride.Infrastructure.Tests.Services;
 
-public class AuthorizationServiceTests
+public class AuthorizationServiceTests : BaseIntegrationTest
 {
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
     private readonly Mock<ILogger<AuthorizationService>> _mockLogger;
@@ -18,7 +19,7 @@ public class AuthorizationServiceTests
     {
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockLogger = new Mock<ILogger<AuthorizationService>>();
-        _authorizationService = new AuthorizationService(_mockCurrentUserService.Object, _mockLogger.Object);
+        _authorizationService = new AuthorizationService(_mockCurrentUserService.Object, _mockLogger.Object, DbContext);
     }
 
     #region RequireGlobalAdminAsync Tests

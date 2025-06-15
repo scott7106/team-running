@@ -339,34 +339,5 @@ public class GlobalAdminTeamsController : BaseApiController
         }
     }
 
-    /// <summary>
-    /// Validates that a subdomain is available for use.
-    /// </summary>
-    /// <param name="subdomain">Subdomain to check</param>
-    /// <param name="excludeTeamId">Team ID to exclude from the check (for updates)</param>
-    /// <returns>Availability status</returns>
-    [HttpGet("subdomain-availability")]
-    [ProducesResponseType(typeof(bool), 200)]
-    [ProducesResponseType(400)]
-    [ProducesResponseType(401)]
-    [ProducesResponseType(403)]
-    public async Task<IActionResult> CheckSubdomainAvailability(
-        [FromQuery] string subdomain,
-        [FromQuery] Guid? excludeTeamId = null)
-    {
-        if (string.IsNullOrWhiteSpace(subdomain))
-        {
-            return BadRequest("Subdomain is required");
-        }
 
-        try
-        {
-            var isAvailable = await _globalAdminTeamService.IsSubdomainAvailableAsync(subdomain, excludeTeamId);
-            return Ok(isAvailable);
-        }
-        catch (Exception ex)
-        {
-            return HandleError(ex, "Failed to check subdomain availability");
-        }
-    }
 } 

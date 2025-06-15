@@ -32,15 +32,21 @@ export default function SiteHomePage() {
     router.push('/login');
   };
 
-  const handlePlanSelect = () => {
+  const handlePlanSelect = (tier?: string) => {
     if (isAuthenticated) {
       // Navigate to team dashboard/settings for plan management
       router.push('/team');
     } else {
-      // Navigate to login for non-authenticated users
-      router.push('/login');
+      // Navigate to registration for non-authenticated users with tier parameter
+      const tierParam = tier ? `?tier=${tier}` : '';
+      router.push(`/register${tierParam}`);
     }
   };
+
+  const handleFreePlanClick = () => handlePlanSelect('free');
+  const handleStandardPlanClick = () => handlePlanSelect('standard');
+  const handlePremiumPlanClick = () => handlePlanSelect('premium');
+  const handleCreateNewTeamClick = () => handlePlanSelect('standard');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -82,14 +88,90 @@ export default function SiteHomePage() {
           } else {
             router.push('/team'); // fallback
           }
-        } : handleLoginClick}
+        } : handleFreePlanClick}
         primaryButtonText={isAuthenticated ? "Go to Dashboard" : "Start Your Free Team"}
-        showSecondaryButton={true}
+        showSecondaryButton={!isAuthenticated}
         onSecondaryAction={() => {
-          // Watch demo action - could navigate to a demo page or open a modal
-          console.log('Watch demo clicked');
+          router.push('/join-team');
         }}
+        secondaryButtonText="Join Existing Team"
       />
+
+      {/* Quick Start Guide for New Users */}
+      {!isAuthenticated && (
+        <section className="py-12 bg-white">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Get Started in 2 Easy Ways
+              </h2>
+              <p className="text-gray-600">
+                Choose the option that best fits your situation
+              </p>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-8">
+              {/* Create Team Option */}
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200 flex flex-col">
+                <div className="flex items-center mb-4">
+                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 ml-3">
+                    I&apos;m a Coach/Administrator
+                  </h3>
+                </div>
+                <p className="text-gray-600 mb-4 flex-grow">
+                  Create a new team, select your plan, and invite athletes to join your program.
+                </p>
+                <button
+                  onClick={handleCreateNewTeamClick}
+                  className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors mt-auto"
+                >
+                  Create New Team
+                </button>
+              </div>
+
+              {/* Join Team Option */}
+              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6 border border-green-200 flex flex-col">
+                <div className="flex items-center mb-4">
+                  <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 ml-3">
+                    I&apos;m an Athlete/Parent
+                  </h3>
+                </div>
+                <p className="text-gray-600 mb-4 flex-grow">
+                  Find your team and register for the current season. You&apos;ll need your team&apos;s registration code.
+                </p>
+                <button
+                  onClick={() => router.push('/join-team')}
+                  className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors mt-auto"
+                >
+                  Join Existing Team
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-8 text-center">
+              <p className="text-sm text-gray-500">
+                Already have an account?{' '}
+                <button
+                  onClick={handleLoginClick}
+                  className="text-blue-600 hover:text-blue-500 font-medium"
+                >
+                  Sign in here
+                </button>
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Features Section */}
       <section className="bg-white py-16">
@@ -202,7 +284,7 @@ export default function SiteHomePage() {
               </ul>
               
               <button 
-                onClick={handlePlanSelect}
+                onClick={handleFreePlanClick}
                 className="w-full bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors mt-auto"
               >
                 {isAuthenticated ? 'Manage Plan' : 'Get Started Free'}
@@ -244,7 +326,7 @@ export default function SiteHomePage() {
               </ul>
               
               <button 
-                onClick={handlePlanSelect}
+                onClick={handleStandardPlanClick}
                 className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors mt-auto"
               >
                 {isAuthenticated ? 'Upgrade to Standard' : 'Start Standard Plan'}
@@ -283,7 +365,7 @@ export default function SiteHomePage() {
               </ul>
               
               <button 
-                onClick={handlePlanSelect}
+                onClick={handlePremiumPlanClick}
                 className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors mt-auto"
               >
                 {isAuthenticated ? 'Upgrade to Pro' : 'Start Pro Plan'}

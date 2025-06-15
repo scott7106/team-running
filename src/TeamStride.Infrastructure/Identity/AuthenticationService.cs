@@ -12,6 +12,12 @@ using TeamStride.Domain.Identity;
 using TeamStride.Domain.Entities;
 using TeamStride.Infrastructure.Email;
 using TeamStride.Infrastructure.Data;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.IdentityModel.Tokens;
+using TeamStride.Application.Teams.Dtos;
+using TeamStride.Application.Common.Services;
 
 namespace TeamStride.Infrastructure.Identity;
 

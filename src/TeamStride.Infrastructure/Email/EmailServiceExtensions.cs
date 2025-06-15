@@ -1,39 +1,37 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using SendGrid;
+using TeamStride.Application.Common.Services;
 
 namespace TeamStride.Infrastructure.Email;
 
 public static class EmailServiceExtensions
 {
-    public static IServiceCollection AddEmailService(
-        this IServiceCollection services,
-        IConfiguration configuration,
-        bool isDevelopment)
+    public static IServiceCollection AddEmailServices(this IServiceCollection services, IConfiguration configuration)
     {
-        if (isDevelopment)
+        var emailSettings = configuration.GetSection("Email").Get<EmailSettings>();
+        if (emailSettings == null)
         {
             services.AddScoped<IEmailService, NullEmailService>();
+            return services;
         }
-        else
+
+        services.AddSingleton<ISendGridClient>(new SendGridClient(emailSettings.SendGridApiKey));
+        services.AddScoped<IEmailService>(sp =>
         {
-            var sendGridConfig = configuration.GetSection("SendGrid").Get<SendGridConfiguration>();
-            if (sendGridConfig == null)
-            {
-                throw new InvalidOperationException("SendGrid configuration is missing");
-            }
-            services.AddScoped<IEmailService>(sp => new SendGridEmailService(
-                sendGridConfig.ApiKey,
-                sendGridConfig.FromEmail,
-                sendGridConfig.FromName));
-        }
+            var client = sp.GetRequiredService<ISendGridClient>();
+            var logger = sp.GetRequiredService<ILogger<SendGridEmailService>>();
+            return new SendGridEmailService(client, logger, emailSettings.FromEmail, emailSettings.FromName);
+        });
 
         return services;
     }
 }
 
-public class SendGridConfiguration
+public class EmailSettings
 {
-    public required string ApiKey { get; set; }
-    public required string FromEmail { get; set; }
-    public required string FromName { get; set; }
+    public string SendGridApiKey { get; set; } = null!;
+    public string FromEmail { get; set; } = null!;
+    public string FromName { get; set; } = null!;
 } 

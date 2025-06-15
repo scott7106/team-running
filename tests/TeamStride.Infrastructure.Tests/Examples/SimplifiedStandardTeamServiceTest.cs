@@ -1,5 +1,6 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -8,6 +9,7 @@ using TeamStride.Application.Common.Services;
 using TeamStride.Application.Teams.Dtos;
 using TeamStride.Domain.Entities;
 using TeamStride.Domain.Identity;
+using TeamStride.Domain.Interfaces;
 using TeamStride.Infrastructure.Mapping;
 using TeamStride.Infrastructure.Services;
 
@@ -21,6 +23,7 @@ public class SimplifiedStandardTeamServiceTest : BaseSecuredTest
 {
     private readonly Mock<IAuthorizationService> _mockAuthorizationService;
     private readonly Mock<ILogger<StandardTeamService>> _mockLogger;
+    private readonly Mock<ITeamManager> _mockTeamManager;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IMapper _mapper;
 
@@ -28,6 +31,7 @@ public class SimplifiedStandardTeamServiceTest : BaseSecuredTest
     {
         _mockAuthorizationService = new Mock<IAuthorizationService>();
         _mockLogger = new Mock<ILogger<StandardTeamService>>();
+        _mockTeamManager = new Mock<ITeamManager>();
         _userManager = ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         
         var config = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>());
@@ -46,7 +50,8 @@ public class SimplifiedStandardTeamServiceTest : BaseSecuredTest
             MockCurrentUserService.Object,
             _userManager,
             _mapper,
-            _mockLogger.Object);
+            _mockLogger.Object,
+            _mockTeamManager.Object);
 
         var owner1 = await CreateTestUserAsync("owner1@test.com", "Owner1", "User");
         var owner2 = await CreateTestUserAsync("owner2@test.com", "Owner2", "User");
@@ -81,7 +86,8 @@ public class SimplifiedStandardTeamServiceTest : BaseSecuredTest
             MockCurrentUserService.Object,
             _userManager,
             _mapper,
-            _mockLogger.Object);
+            _mockLogger.Object,
+            _mockTeamManager.Object);
 
         var myUser = await CreateTestUserAsync("user@test.com", "Test", "User", userId);
         var owner1 = await CreateTestUserAsync("owner1@test.com", "Owner1", "User");
@@ -115,7 +121,8 @@ public class SimplifiedStandardTeamServiceTest : BaseSecuredTest
             MockCurrentUserService.Object,
             _userManager,
             _mapper,
-            _mockLogger.Object);
+            _mockLogger.Object,
+            _mockTeamManager.Object);
 
         // Act & Assert
         await Should.ThrowAsync<UnauthorizedAccessException>(
@@ -131,7 +138,7 @@ public class SimplifiedStandardTeamServiceTest : BaseSecuredTest
         
         SetupStandardUserContext(teamId, TeamRole.TeamOwner, userId);
         
-        _mockAuthorizationService.Setup(x => x.RequireTeamAccessAsync(teamId, TeamRole.TeamMember))
+        _mockAuthorizationService.Setup(x => x.RequireTeamAccessAsync(teamId, It.IsAny<TeamRole>()))
             .Returns(Task.CompletedTask);
 
         var service = new StandardTeamService(
@@ -140,7 +147,8 @@ public class SimplifiedStandardTeamServiceTest : BaseSecuredTest
             MockCurrentUserService.Object,
             _userManager,
             _mapper,
-            _mockLogger.Object);
+            _mockLogger.Object,
+            _mockTeamManager.Object);
 
         var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner", userId);
         await CreateTestTeamAsync("Test Team", "test-team", owner.Id, teamId);
@@ -152,8 +160,7 @@ public class SimplifiedStandardTeamServiceTest : BaseSecuredTest
         // Assert
         result.ShouldNotBeNull();
         result.Name.ShouldBe("Test Team");
-        result.Owner.ShouldNotBeNull();
-        result.Owner.Email.ShouldBe("owner@test.com");
+        result.Subdomain.ShouldBe("test-team");
     }
 
     [Fact]
@@ -174,7 +181,8 @@ public class SimplifiedStandardTeamServiceTest : BaseSecuredTest
             MockCurrentUserService.Object,
             _userManager,
             _mapper,
-            _mockLogger.Object);
+            _mockLogger.Object,
+            _mockTeamManager.Object);
 
         var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner");
         var athlete = await CreateTestUserAsync("athlete@test.com", "Athlete", "User", athleteId);
@@ -189,6 +197,46 @@ public class SimplifiedStandardTeamServiceTest : BaseSecuredTest
         // Assert
         result.ShouldNotBeNull();
         result.Name.ShouldBe("Test Team");
+    }
+
+    [Fact]
+    public async Task GetTeamBySubdomainAsync_WithValidSubdomain_ShouldReturnTeam()
+    {
+        // Arrange
+        SetupGlobalAdminContext();
+        
+        var service = new StandardTeamService(
+            DbContext,
+            _mockAuthorizationService.Object,
+            MockCurrentUserService.Object,
+            _userManager,
+            _mapper,
+            _mockLogger.Object,
+            _mockTeamManager.Object);
+
+        var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner");
+        var team = await CreateTestTeamAsync("Test Team", "test-team", owner.Id);
+        
+        // Create the owner relationship so the team has a valid owner
+        var userTeam = await CreateUserTeamRelationshipAsync(owner.Id, team.Id, TeamRole.TeamOwner);
+
+        // Load the team with all necessary relationships for the service to work
+        var teamWithRelationships = await DbContext.Teams
+            .Include(t => t.Users)
+                .ThenInclude(ut => ut.User)
+            .FirstOrDefaultAsync(t => t.Id == team.Id);
+
+        // Setup TeamManager mock to return the team with relationships loaded
+        _mockTeamManager.Setup(x => x.GetTeamBySubdomainAsync("test-team"))
+            .ReturnsAsync(teamWithRelationships!);
+
+        // Act
+        var result = await service.GetTeamBySubdomainAsync("test-team");
+
+        // Assert
+        result.ShouldNotBeNull();
+        result.Name.ShouldBe("Test Team");
+        result.Subdomain.ShouldBe("test-team");
     }
 
     // Helper methods

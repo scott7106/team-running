@@ -249,7 +249,23 @@ export default function SiteLoginPage() {
             </div>
           </div>
 
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-3">
+            <p className="text-sm text-gray-600">
+              Don&apos;t have an account?{' '}
+              <a 
+                href="/register" 
+                className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+              >
+                Create a new team
+              </a>
+              {' '}or{' '}
+              <a 
+                href="/join-team" 
+                className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+              >
+                join an existing team
+              </a>
+            </p>
             <button
               onClick={handleBackToHome}
               className="text-sm text-gray-600 hover:text-gray-800 font-medium transition-colors"

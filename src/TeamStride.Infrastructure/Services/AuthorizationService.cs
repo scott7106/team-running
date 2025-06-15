@@ -2,6 +2,8 @@ using Microsoft.Extensions.Logging;
 using TeamStride.Application.Common.Services;
 using TeamStride.Domain.Entities;
 using TeamStride.Domain.Interfaces;
+using Microsoft.EntityFrameworkCore;
+using TeamStride.Infrastructure.Data;
 
 namespace TeamStride.Infrastructure.Services;
 
@@ -13,13 +15,16 @@ public class AuthorizationService : IAuthorizationService
 {
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<AuthorizationService> _logger;
+    private readonly ApplicationDbContext _context;
 
     public AuthorizationService(
         ICurrentUserService currentUserService,
-        ILogger<AuthorizationService> logger)
+        ILogger<AuthorizationService> logger,
+        ApplicationDbContext context)
     {
         _currentUserService = currentUserService;
         _logger = logger;
+        _context = context;
     }
 
     public Task RequireGlobalAdminAsync()
@@ -167,5 +172,67 @@ public class AuthorizationService : IAuthorizationService
     public Task<bool> CanAccessResourceAsync<T>(T resource, TeamRole minimumRole = TeamRole.TeamMember) where T : ITeamResource
     {
         return resource == null ? Task.FromResult(false) : CanAccessTeamAsync(resource.TeamId, minimumRole);
+    }
+
+    public async Task<bool> CanManageTeamAsync(Guid teamId, Guid userId)
+    {
+        var userTeam = await _context.UserTeams
+            .FirstOrDefaultAsync(ut => ut.TeamId == teamId && ut.UserId == userId);
+
+        return userTeam != null && 
+               (userTeam.Role == TeamRole.TeamOwner || 
+                userTeam.Role == TeamRole.TeamAdmin);
+    }
+
+    public async Task<bool> CanManageRegistrationWindowAsync(Guid teamId, Guid userId)
+    {
+        var userTeam = await _context.UserTeams
+            .FirstOrDefaultAsync(ut => ut.TeamId == teamId && ut.UserId == userId);
+
+        return userTeam != null && 
+               (userTeam.Role == TeamRole.TeamOwner || 
+                userTeam.Role == TeamRole.TeamAdmin);
+    }
+
+    public async Task<bool> CanManageRegistrationAsync(Guid teamId, Guid userId)
+    {
+        var userTeam = await _context.UserTeams
+            .FirstOrDefaultAsync(ut => ut.TeamId == teamId && ut.UserId == userId);
+
+        return userTeam != null && 
+               (userTeam.Role == TeamRole.TeamOwner || 
+                userTeam.Role == TeamRole.TeamAdmin);
+    }
+
+    public async Task<bool> IsTeamOwnerAsync(Guid teamId, Guid userId)
+    {
+        var userTeam = await _context.UserTeams
+            .FirstOrDefaultAsync(ut => ut.TeamId == teamId && ut.UserId == userId);
+
+        return userTeam != null && userTeam.Role == TeamRole.TeamOwner;
+    }
+
+    public async Task<bool> IsTeamAdminAsync(Guid teamId, Guid userId)
+    {
+        var userTeam = await _context.UserTeams
+            .FirstOrDefaultAsync(ut => ut.TeamId == teamId && ut.UserId == userId);
+
+        return userTeam != null && userTeam.Role == TeamRole.TeamAdmin;
+    }
+
+    public async Task<bool> IsTeamMemberAsync(Guid teamId, Guid userId)
+    {
+        var userTeam = await _context.UserTeams
+            .FirstOrDefaultAsync(ut => ut.TeamId == teamId && ut.UserId == userId);
+
+        return userTeam != null && userTeam.Role == TeamRole.TeamMember;
+    }
+
+    public async Task<TeamRole> GetUserTeamRoleAsync(Guid teamId, Guid userId)
+    {
+        var userTeam = await _context.UserTeams
+            .FirstOrDefaultAsync(ut => ut.TeamId == teamId && ut.UserId == userId);
+
+        return userTeam?.Role ?? TeamRole.TeamMember;
     }
 } 

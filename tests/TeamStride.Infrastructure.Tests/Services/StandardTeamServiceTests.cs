@@ -8,6 +8,7 @@ using TeamStride.Application.Common.Services;
 using TeamStride.Application.Teams.Dtos;
 using TeamStride.Domain.Entities;
 using TeamStride.Domain.Identity;
+using TeamStride.Domain.Interfaces;
 using TeamStride.Infrastructure.Mapping;
 using TeamStride.Infrastructure.Services;
 
@@ -17,6 +18,7 @@ public class StandardTeamServiceTests : BaseSecuredTest
 {
     private readonly Mock<IAuthorizationService> _mockAuthorizationService;
     private readonly Mock<ILogger<StandardTeamService>> _mockLogger;
+    private readonly Mock<ITeamManager> _mockTeamManager;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IMapper _mapper;
 
@@ -24,6 +26,7 @@ public class StandardTeamServiceTests : BaseSecuredTest
     {
         _mockAuthorizationService = new Mock<IAuthorizationService>();
         _mockLogger = new Mock<ILogger<StandardTeamService>>();
+        _mockTeamManager = new Mock<ITeamManager>();
         _userManager = ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         
         var config = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>());
@@ -282,7 +285,10 @@ public class StandardTeamServiceTests : BaseSecuredTest
         var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner");
-        await CreateTestTeamAsync("Test Team", "test-team", owner.Id);
+        var team = await CreateTestTeamAsync("Test Team", "test-team", owner.Id);
+
+        _mockTeamManager.Setup(x => x.GetTeamBySubdomainAsync("test-team"))
+            .ReturnsAsync(team);
 
         // Act
         var result = await service.GetTeamBySubdomainAsync("test-team");
@@ -291,6 +297,7 @@ public class StandardTeamServiceTests : BaseSecuredTest
         result.ShouldNotBeNull();
         result.Name.ShouldBe("Test Team");
         result.Subdomain.ShouldBe("test-team");
+        _mockTeamManager.Verify(x => x.GetTeamBySubdomainAsync("test-team"), Times.Once);
     }
 
     [Fact]
@@ -301,7 +308,10 @@ public class StandardTeamServiceTests : BaseSecuredTest
         var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner");
-        await CreateTestTeamAsync("Public Team", "public-team", owner.Id);
+        var team = await CreateTestTeamAsync("Public Team", "public-team", owner.Id);
+
+        _mockTeamManager.Setup(x => x.GetTeamBySubdomainAsync("public-team"))
+            .ReturnsAsync(team);
 
         // Act
         var result = await service.GetTeamBySubdomainAsync("public-team");
@@ -309,6 +319,7 @@ public class StandardTeamServiceTests : BaseSecuredTest
         // Assert
         result.ShouldNotBeNull();
         result.Name.ShouldBe("Public Team");
+        _mockTeamManager.Verify(x => x.GetTeamBySubdomainAsync("public-team"), Times.Once);
     }
 
     [Fact]
@@ -322,7 +333,11 @@ public class StandardTeamServiceTests : BaseSecuredTest
         var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner");
-        await CreateTestTeamAsync("Restricted Team", "restricted-team", owner.Id);
+        var restrictedTeam = await CreateTestTeamAsync("Restricted Team", "restricted-team", owner.Id);
+
+        // Mock TeamManager to return the team
+        _mockTeamManager.Setup(x => x.GetTeamBySubdomainAsync("restricted-team"))
+            .ReturnsAsync(restrictedTeam);
 
         // Act & Assert
         await Should.ThrowAsync<UnauthorizedAccessException>(
@@ -346,6 +361,9 @@ public class StandardTeamServiceTests : BaseSecuredTest
         // Arrange
         var service = CreateService();
 
+        _mockTeamManager.Setup(x => x.GetTeamBySubdomainAsync("non-existent"))
+            .ThrowsAsync(new InvalidOperationException("Team not found"));
+
         // Act & Assert
         await Should.ThrowAsync<InvalidOperationException>(
             () => service.GetTeamBySubdomainAsync("non-existent"));
@@ -353,130 +371,7 @@ public class StandardTeamServiceTests : BaseSecuredTest
 
     #endregion
 
-    #region CreateTeamAsync Tests
 
-    [Fact]
-    public async Task CreateTeamAsync_AsGlobalAdmin_WithValidData_ShouldCreateTeam()
-    {
-        // Arrange
-        SetupGlobalAdminContext();
-        
-        _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
-            .Returns(Task.CompletedTask);
-
-        var service = CreateService();
-
-        var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner");
-        var dto = new CreateTeamDto
-        {
-            Name = "New Team",
-            Subdomain = "new-team",
-            OwnerEmail = "owner@test.com",
-            Tier = TeamTier.Standard,
-            PrimaryColor = "#FF0000",
-            SecondaryColor = "#0000FF"
-        };
-
-        // Act
-        var result = await service.CreateTeamAsync(dto);
-
-        // Assert
-        result.ShouldNotBeNull();
-        result.Name.ShouldBe("New Team");
-        result.Subdomain.ShouldBe("new-team");
-        result.Tier.ShouldBe(TeamTier.Standard);
-    }
-
-    [Fact]
-    public async Task CreateTeamAsync_AsStandardUser_ShouldCallAuthorizationService()
-    {
-        // Arrange
-        var teamId = Guid.NewGuid();
-        SetupStandardUserContext(teamId, TeamRole.TeamOwner);
-        
-        _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
-            .ThrowsAsync(new UnauthorizedAccessException());
-
-        var service = CreateService();
-
-        var dto = new CreateTeamDto
-        {
-            Name = "New Team",
-            Subdomain = "new-team",
-            OwnerEmail = "owner@test.com",
-            Tier = TeamTier.Free
-        };
-
-        // Act & Assert
-        await Should.ThrowAsync<UnauthorizedAccessException>(
-            () => service.CreateTeamAsync(dto));
-
-        _mockAuthorizationService.Verify(x => x.RequireGlobalAdminAsync(), Times.Once);
-    }
-
-    [Fact]
-    public async Task CreateTeamAsync_WithTakenSubdomain_ShouldThrowInvalidOperationException()
-    {
-        // Arrange
-        SetupGlobalAdminContext();
-        
-        _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
-            .Returns(Task.CompletedTask);
-
-        var service = CreateService();
-
-        var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner");
-        await CreateTestTeamAsync("Existing Team", "existing-team", owner.Id);
-
-        var dto = new CreateTeamDto
-        {
-            Name = "New Team",
-            Subdomain = "existing-team",
-            OwnerEmail = "owner@test.com",
-            Tier = TeamTier.Free
-        };
-
-        // Act & Assert
-        await Should.ThrowAsync<InvalidOperationException>(
-            () => service.CreateTeamAsync(dto));
-    }
-
-    [Fact]
-    public async Task CreateTeamAsync_WithNonExistentOwner_ShouldThrowInvalidOperationException()
-    {
-        // Arrange
-        SetupGlobalAdminContext();
-        
-        _mockAuthorizationService.Setup(x => x.RequireGlobalAdminAsync())
-            .Returns(Task.CompletedTask);
-
-        var service = CreateService();
-
-        var dto = new CreateTeamDto
-        {
-            Name = "New Team",
-            Subdomain = "new-team",
-            OwnerEmail = "nonexistent@test.com",
-            Tier = TeamTier.Free
-        };
-
-        // Act & Assert
-        await Should.ThrowAsync<InvalidOperationException>(
-            () => service.CreateTeamAsync(dto));
-    }
-
-    [Fact]
-    public async Task CreateTeamAsync_WithNullDto_ShouldThrowArgumentNullException()
-    {
-        // Arrange
-        var service = CreateService();
-
-        // Act & Assert
-        await Should.ThrowAsync<ArgumentNullException>(
-            () => service.CreateTeamAsync(null!));
-    }
-
-    #endregion
 
     #region UpdateTeamAsync Tests
 
@@ -536,53 +431,7 @@ public class StandardTeamServiceTests : BaseSecuredTest
 
     #endregion
 
-    #region DeleteTeamAsync Tests
 
-    [Fact]
-    public async Task DeleteTeamAsync_AsTeamOwner_ShouldSoftDeleteTeam()
-    {
-        // Arrange
-        var teamId = Guid.NewGuid();
-        var userId = Guid.NewGuid();
-        SetupStandardUserContext(teamId, TeamRole.TeamOwner, userId);
-        
-        _mockAuthorizationService.Setup(x => x.RequireTeamOwnershipAsync(teamId))
-            .Returns(Task.CompletedTask);
-
-        var service = CreateService();
-
-        var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner", userId);
-        var team = await CreateTestTeamAsync("Team to Delete", "team-to-delete", owner.Id, teamId);
-
-        // Act
-        await service.DeleteTeamAsync(teamId);
-
-        // Assert
-        var deletedTeam = await DbContext.Teams.FindAsync(teamId);
-        deletedTeam!.IsDeleted.ShouldBeTrue();
-        deletedTeam.ModifiedOn.ShouldNotBeNull();
-    }
-
-    [Fact]
-    public async Task DeleteTeamAsync_AsNonOwner_ShouldCallAuthorizationService()
-    {
-        // Arrange
-        var teamId = Guid.NewGuid();
-        SetupStandardUserContext(teamId, TeamRole.TeamMember);
-        
-        _mockAuthorizationService.Setup(x => x.RequireTeamOwnershipAsync(teamId))
-            .ThrowsAsync(new UnauthorizedAccessException());
-
-        var service = CreateService();
-
-        // Act & Assert
-        await Should.ThrowAsync<UnauthorizedAccessException>(
-            () => service.DeleteTeamAsync(teamId));
-
-        _mockAuthorizationService.Verify(x => x.RequireTeamOwnershipAsync(teamId), Times.Once);
-    }
-
-    #endregion
 
     #region IsSubdomainAvailableAsync Tests
 
@@ -592,11 +441,15 @@ public class StandardTeamServiceTests : BaseSecuredTest
         // Arrange
         var service = CreateService();
 
+        _mockTeamManager.Setup(x => x.IsSubdomainAvailableAsync("available-subdomain", null))
+            .ReturnsAsync(true);
+
         // Act
         var result = await service.IsSubdomainAvailableAsync("available-subdomain");
 
         // Assert
         result.ShouldBeTrue();
+        _mockTeamManager.Verify(x => x.IsSubdomainAvailableAsync("available-subdomain", null), Times.Once);
     }
 
     [Fact]
@@ -605,14 +458,15 @@ public class StandardTeamServiceTests : BaseSecuredTest
         // Arrange
         var service = CreateService();
 
-        var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner");
-        await CreateTestTeamAsync("Existing Team", "taken-subdomain", owner.Id);
+        _mockTeamManager.Setup(x => x.IsSubdomainAvailableAsync("taken-subdomain", null))
+            .ReturnsAsync(false);
 
         // Act
         var result = await service.IsSubdomainAvailableAsync("taken-subdomain");
 
         // Assert
         result.ShouldBeFalse();
+        _mockTeamManager.Verify(x => x.IsSubdomainAvailableAsync("taken-subdomain", null), Times.Once);
     }
 
     [Fact]
@@ -621,18 +475,15 @@ public class StandardTeamServiceTests : BaseSecuredTest
         // Arrange
         var service = CreateService();
 
-        var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner");
-        var team = await CreateTestTeamAsync("Deleted Team", "deleted-subdomain", owner.Id);
-        
-        // Soft delete the team
-        team.IsDeleted = true;
-        await DbContext.SaveChangesAsync();
+        _mockTeamManager.Setup(x => x.IsSubdomainAvailableAsync("deleted-subdomain", null))
+            .ReturnsAsync(true);
 
         // Act
         var result = await service.IsSubdomainAvailableAsync("deleted-subdomain");
 
         // Assert
         result.ShouldBeTrue();
+        _mockTeamManager.Verify(x => x.IsSubdomainAvailableAsync("deleted-subdomain", null), Times.Once);
     }
 
     [Fact]
@@ -640,6 +491,9 @@ public class StandardTeamServiceTests : BaseSecuredTest
     {
         // Arrange
         var service = CreateService();
+
+        _mockTeamManager.Setup(x => x.IsSubdomainAvailableAsync("", null))
+            .ThrowsAsync(new ArgumentException("Subdomain cannot be empty"));
 
         // Act & Assert
         await Should.ThrowAsync<ArgumentException>(
@@ -661,10 +515,17 @@ public class StandardTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireTeamOwnershipAsync(teamId))
             .Returns(Task.CompletedTask);
 
+        // Mock TeamManager subdomain normalization and availability check
+        _mockTeamManager.Setup(x => x.NormalizeSubdomain("new-subdomain"))
+            .Returns("new-subdomain");
+        _mockTeamManager.Setup(x => x.IsSubdomainAvailableAsync("new-subdomain", teamId))
+            .ReturnsAsync(true);
+
         var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner", userId);
         await CreateTestTeamAsync("Test Team", "old-subdomain", owner.Id, teamId);
+        await CreateUserTeamRelationshipAsync(userId, teamId, TeamRole.TeamOwner);
 
         // Act
         var result = await service.UpdateSubdomainAsync(teamId, "new-subdomain");
@@ -672,6 +533,7 @@ public class StandardTeamServiceTests : BaseSecuredTest
         // Assert
         result.ShouldNotBeNull();
         result.Subdomain.ShouldBe("new-subdomain");
+        _mockTeamManager.Verify(x => x.IsSubdomainAvailableAsync("new-subdomain", teamId), Times.Once);
     }
 
     [Fact]
@@ -685,15 +547,23 @@ public class StandardTeamServiceTests : BaseSecuredTest
         _mockAuthorizationService.Setup(x => x.RequireTeamOwnershipAsync(teamId))
             .Returns(Task.CompletedTask);
 
+        // Mock TeamManager subdomain normalization and availability check
+        _mockTeamManager.Setup(x => x.NormalizeSubdomain("taken-subdomain"))
+            .Returns("taken-subdomain");
+        _mockTeamManager.Setup(x => x.IsSubdomainAvailableAsync("taken-subdomain", teamId))
+            .ReturnsAsync(false);
+
         var service = CreateService();
 
         var owner = await CreateTestUserAsync("owner@test.com", "Team", "Owner", userId);
         await CreateTestTeamAsync("Team 1", "team-1", owner.Id, teamId);
-        await CreateTestTeamAsync("Team 2", "taken-subdomain", owner.Id);
+        await CreateUserTeamRelationshipAsync(userId, teamId, TeamRole.TeamOwner);
 
         // Act & Assert
         await Should.ThrowAsync<InvalidOperationException>(
             () => service.UpdateSubdomainAsync(teamId, "taken-subdomain"));
+        
+        _mockTeamManager.Verify(x => x.IsSubdomainAvailableAsync("taken-subdomain", teamId), Times.Once);
     }
 
     #endregion
@@ -1566,7 +1436,8 @@ public class StandardTeamServiceTests : BaseSecuredTest
             MockCurrentUserService.Object,
             _userManager,
             _mapper,
-            _mockLogger.Object);
+            _mockLogger.Object,
+            _mockTeamManager.Object);
     }
 
     private async Task<ApplicationUser> CreateTestUserAsync(string email, string firstName, string lastName, Guid? id = null)

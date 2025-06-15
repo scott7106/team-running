@@ -1,10 +1,27 @@
 import { TeamsApiParams, TeamsApiResponse, CreateTeamWithNewOwnerDto, CreateTeamWithExistingOwnerDto, GlobalAdminTeamDto, GlobalAdminUpdateTeamDto } from '@/types/team';
 import { UsersApiParams, UsersApiResponse, GlobalAdminUserDto, UserStatus, GlobalAdminResetPasswordDto, PasswordResetResultDto } from '@/types/user';
+import { 
+  TeamRegistrationDto, 
+  SubmitRegistrationDto, 
+  UpdateRegistrationStatusDto, 
+  TeamRegistrationWindowDto, 
+  CreateRegistrationWindowDto, 
+  UpdateRegistrationWindowDto,
+  UserRegistrationDto,
+  TeamCreationDto
+} from '@/types/registration';
 
 export interface DashboardStatsDto {
   activeTeamsCount: number;
   totalUsersCount: number;
   globalAdminsCount: number;
+}
+
+export interface PublicTeamCreationResultDto {
+  teamId: string;
+  teamName: string;
+  teamSubdomain: string;
+  redirectUrl: string;
 }
 
 class ApiError extends Error {
@@ -102,8 +119,8 @@ export const teamsApi = {
     return apiRequest<TeamsApiResponse>(`/api/admin/teams${queryString}`);
   },
   
-  createTeamWithNewOwner: async (dto: CreateTeamWithNewOwnerDto): Promise<GlobalAdminTeamDto> => {
-    return apiRequest<GlobalAdminTeamDto>('/api/admin/teams/with-new-owner', {
+  createTeamWithNewOwner: async (dto: CreateTeamWithNewOwnerDto): Promise<PublicTeamCreationResultDto> => {
+    return apiRequest<PublicTeamCreationResultDto>('/api/public/teams/with-new-owner', {
       method: 'POST',
       body: JSON.stringify(dto),
     });
@@ -123,13 +140,10 @@ export const teamsApi = {
     });
   },
 
-  checkSubdomainAvailability: async (subdomain: string, excludeTeamId?: string): Promise<boolean> => {
+  checkSubdomainAvailability: async (subdomain: string): Promise<boolean> => {
     const params: Record<string, string> = { subdomain };
-    if (excludeTeamId) {
-      params.excludeTeamId = excludeTeamId;
-    }
     const queryString = buildQueryString(params);
-    return apiRequest<boolean>(`/api/admin/teams/subdomain-availability${queryString}`);
+    return apiRequest<boolean>(`/api/public/teams/subdomain-availability${queryString}`);
   },
 
   deleteTeam: async (teamId: string): Promise<void> => {
@@ -235,6 +249,77 @@ export const usersApi = {
 export const dashboardApi = {
   getStats: async (): Promise<DashboardStatsDto> => {
     return apiRequest<DashboardStatsDto>('/api/admin/dashboard/stats');
+  },
+};
+
+export const registrationApi = {
+  // Team registration window management
+  createRegistrationWindow: async (teamId: string, dto: CreateRegistrationWindowDto): Promise<TeamRegistrationWindowDto> => {
+    return apiRequest<TeamRegistrationWindowDto>(`/api/teams/${teamId}/registration/windows`, {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  updateRegistrationWindow: async (teamId: string, windowId: string, dto: UpdateRegistrationWindowDto): Promise<TeamRegistrationWindowDto> => {
+    return apiRequest<TeamRegistrationWindowDto>(`/api/teams/${teamId}/registration/windows/${windowId}`, {
+      method: 'PUT',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  getRegistrationWindows: async (teamId: string): Promise<TeamRegistrationWindowDto[]> => {
+    return apiRequest<TeamRegistrationWindowDto[]>(`/api/teams/${teamId}/registration/windows`);
+  },
+
+  getActiveRegistrationWindow: async (teamId: string): Promise<TeamRegistrationWindowDto | null> => {
+    try {
+      return await apiRequest<TeamRegistrationWindowDto>(`/api/teams/${teamId}/registration/windows/active`);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  // Team registration submissions
+  submitRegistration: async (teamId: string, dto: SubmitRegistrationDto): Promise<TeamRegistrationDto> => {
+    return apiRequest<TeamRegistrationDto>(`/api/teams/${teamId}/registration`, {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  updateRegistrationStatus: async (teamId: string, registrationId: string, dto: UpdateRegistrationStatusDto): Promise<TeamRegistrationDto> => {
+    return apiRequest<TeamRegistrationDto>(`/api/teams/${teamId}/registration/${registrationId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  getRegistrations: async (teamId: string): Promise<TeamRegistrationDto[]> => {
+    return apiRequest<TeamRegistrationDto[]>(`/api/teams/${teamId}/registration`);
+  },
+
+  getWaitlist: async (teamId: string): Promise<TeamRegistrationDto[]> => {
+    return apiRequest<TeamRegistrationDto[]>(`/api/teams/${teamId}/registration/waitlist`);
+  },
+
+  // User account registration
+  registerUser: async (dto: UserRegistrationDto): Promise<void> => {
+    return apiRequest<void>('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  // Team creation registration
+  createTeam: async (dto: TeamCreationDto): Promise<GlobalAdminTeamDto> => {
+    return apiRequest<GlobalAdminTeamDto>('/api/auth/create-team', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
   },
 };
 

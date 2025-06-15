@@ -28,6 +28,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<Athlete> Athletes => Set<Athlete>();
     public DbSet<AthleteProfile> AthleteProfiles => Set<AthleteProfile>();
     public DbSet<OwnershipTransfer> OwnershipTransfers => Set<OwnershipTransfer>();
+    public DbSet<TeamRegistrationWindow> TeamRegistrationWindows { get; set; }
+    public DbSet<TeamRegistration> TeamRegistrations { get; set; }
+    public DbSet<AthleteRegistration> AthleteRegistrations { get; set; }
 
     // Identity entities
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -109,6 +112,21 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
             .WithMany(u => u.Sessions)
             .HasForeignKey(us => us.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Configure TeamRegistration and TeamRegistrationWindow relationships
+        builder.Entity<TeamRegistration>()
+            .HasOne(r => r.Team)
+            .WithMany()
+            .HasForeignKey(r => r.TeamId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
+
+        builder.Entity<TeamRegistrationWindow>()
+            .HasOne(w => w.Team)
+            .WithMany()
+            .HasForeignKey(w => w.TeamId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
     }
 
     private void ConfigureGlobalQueryFilters(ModelBuilder builder)

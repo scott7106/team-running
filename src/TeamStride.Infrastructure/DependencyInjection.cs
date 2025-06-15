@@ -3,6 +3,8 @@ using TeamStride.Application.Athletes.Services;
 using TeamStride.Application.Common.Services;
 using TeamStride.Application.Teams.Services;
 using TeamStride.Application.Users.Services;
+using TeamStride.Domain.Interfaces;
+using TeamStride.Infrastructure.Managers;
 using TeamStride.Infrastructure.Mapping;
 using TeamStride.Infrastructure.Services;
 
@@ -21,9 +23,13 @@ public static class DependencyInjection
             });
         });
 
+        // Register domain managers
+        services.AddScoped<ITeamManager, TeamManager>();
+
         // Register team services
         services.AddScoped<IStandardTeamService, StandardTeamService>();
         services.AddScoped<IGlobalAdminTeamService, GlobalAdminTeamService>();
+        services.AddScoped<ISiteRegistrationService, SiteRegistrationService>();
         services.AddScoped<ITenantSwitcherService, TenantSwitcherService>();
 
         // Register user services

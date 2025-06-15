@@ -354,7 +354,7 @@ export default function TeamLoginPage({
           </div>
         </div>
 
-        <div className="mt-6 text-center">
+        <div className="mt-6 text-center space-y-2">
           <p className="text-xs text-gray-500">
             Not a member of {themeData?.teamName || teamSubdomain}?{' '}
             <a 
@@ -362,7 +362,17 @@ export default function TeamLoginPage({
               className="font-medium hover:opacity-80 transition-opacity"
               style={{ color: themeData?.primaryColor || '#3B82F6' }}
             >
-              Request to join
+              Register to join
+            </a>
+          </p>
+          <p className="text-xs text-gray-500">
+            Looking for a different team?{' '}
+            <a 
+              href="/join-team" 
+              className="font-medium hover:opacity-80 transition-opacity"
+              style={{ color: themeData?.primaryColor || '#3B82F6' }}
+            >
+              Find your team
             </a>
           </p>
         </div>
