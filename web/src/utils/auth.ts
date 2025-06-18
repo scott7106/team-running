@@ -188,7 +188,7 @@ export function canAccessSubdomain(subdomain: string): boolean {
   const memberships = parseTeamMemberships(claims);
   const hasTeamAccess = memberships.some(m => m.teamSubdomain.toLowerCase() === subdomain.toLowerCase());
   
-  return isGlobalAdmin || hasTeamAccess;
+  return hasTeamAccess;
 }
 
 export function shouldRefreshTokenForSubdomain(): boolean {

@@ -25,7 +25,7 @@ export default function AdminHomePage() {
   const [error, setError] = useState<string | null>(null);
   
   // Use centralized auth state
-  const { isAuthenticated } = useUser();
+  const { isAuthenticated, subdomainAccessDenied } = useUser();
   const { isGlobalAdmin } = useTenant();
   
   // Auto-refresh token when subdomain context changes
@@ -57,11 +57,11 @@ export default function AdminHomePage() {
       }
     };
 
-    // Only load dashboard stats if user is authenticated and is a global admin
-    if (isAuthenticated && isGlobalAdmin) {
+    // Only load dashboard stats if user is authenticated, has subdomain access, and is a global admin
+    if (isAuthenticated && !subdomainAccessDenied && isGlobalAdmin) {
       loadDashboardStats();
     }
-  }, [isAuthenticated, isGlobalAdmin]);
+  }, [isAuthenticated, subdomainAccessDenied, isGlobalAdmin]);
 
   const handleManageTeams = () => {
     router.push('/teams');
@@ -79,6 +79,10 @@ export default function AdminHomePage() {
 
   const handleVisitMainSite = () => {
     router.push('/');
+  };
+
+  const handleGoToTenantSwitcher = () => {
+    router.push('/tenant-switcher');
   };
 
   // If not authenticated, show simple login interface
@@ -120,8 +124,8 @@ export default function AdminHomePage() {
     );
   }
 
-  // If authenticated but not a global admin, show access denied
-  if (isAuthenticated && !isGlobalAdmin) {
+  // If authenticated but has subdomain access denied, show access denied
+  if (isAuthenticated && subdomainAccessDenied) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         {/* Header for authenticated non-admin users */}
@@ -155,7 +159,17 @@ export default function AdminHomePage() {
                 </h3>
                 <div className="mt-2 text-sm text-yellow-700">
                   <p>
-                    You need to be logged in as an administrator to access this area. 
+                    You do not have access to the admin site. 
+                    <a 
+                      href="#" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleGoToTenantSwitcher();
+                      }}
+                      className="font-medium underline text-yellow-800 hover:text-yellow-900 ml-1"
+                    >
+                      Go to tenant switcher
+                    </a> to access your teams or visit our 
                     <a 
                       href="#" 
                       onClick={(e) => {
@@ -164,8 +178,85 @@ export default function AdminHomePage() {
                       }}
                       className="font-medium underline text-yellow-800 hover:text-yellow-900 ml-1"
                     >
-                      Visit our main site
-                    </a> to learn more about TeamStride.
+                      main site
+                    </a>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Hero Section */}
+        <HeroSection
+          onLoginClick={handleLoginClick}
+          primaryButtonText="Get Started"
+          showSecondaryButton={true}
+          onSecondaryAction={() => {
+            // Watch demo action - could navigate to a demo page or open a modal
+            console.log('Watch demo clicked');
+          }}
+        />
+      </div>
+    );
+  }
+
+  // If authenticated but not a global admin, show access denied
+  if (isAuthenticated && !subdomainAccessDenied && !isGlobalAdmin) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        {/* Header for authenticated non-admin users */}
+        <header className="bg-white shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <div className="flex items-center">
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-lg">T</span>
+                </div>
+                <span className="ml-2 text-xl font-bold text-gray-900">TeamStride</span>
+              </div>
+              
+              <UserContextMenu />
+            </div>
+          </div>
+        </header>
+
+        {/* Admin Access Alert */}
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-yellow-800">
+                  Admin Access Required
+                </h3>
+                <div className="mt-2 text-sm text-yellow-700">
+                  <p>
+                    You do not have access to the admin site. 
+                    <a 
+                      href="#" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleGoToTenantSwitcher();
+                      }}
+                      className="font-medium underline text-yellow-800 hover:text-yellow-900 ml-1"
+                    >
+                      Go to tenant switcher
+                    </a> to access your teams or visit our 
+                    <a 
+                      href="#" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleVisitMainSite();
+                      }}
+                      className="font-medium underline text-yellow-800 hover:text-yellow-900 ml-1"
+                    >
+                      main site
+                    </a>.
                   </p>
                 </div>
               </div>

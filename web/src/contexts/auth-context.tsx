@@ -26,6 +26,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  subdomainAccessDenied: boolean;
 }
 
 type AuthAction =
@@ -34,7 +35,8 @@ type AuthAction =
   | { type: 'LOGIN_SUCCESS'; payload: { user: User; tenant: Tenant } }
   | { type: 'UPDATE_TENANT'; payload: Tenant }
   | { type: 'LOGOUT' }
-  | { type: 'CLEAR_TENANT' };
+  | { type: 'CLEAR_TENANT' }
+  | { type: 'SUBDOMAIN_ACCESS_DENIED'; payload: { user: User } };
 
 interface AuthContextType extends AuthState {
   login: (token: string, refreshToken: string) => void;
@@ -51,6 +53,7 @@ const initialState: AuthState = {
   isAuthenticated: false,
   isLoading: true,
   error: null,
+  subdomainAccessDenied: false,
 };
 
 // Reducer
@@ -68,11 +71,13 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         isAuthenticated: true,
         isLoading: false,
         error: null,
+        subdomainAccessDenied: false,
       };
     case 'UPDATE_TENANT':
       return {
         ...state,
         tenant: action.payload,
+        subdomainAccessDenied: false,
       };
     case 'CLEAR_TENANT':
       return {
@@ -80,6 +85,17 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         tenant: {
           contextLabel: state.user?.isGlobalAdmin ? 'Global Admin' : 'No Team',
         },
+        subdomainAccessDenied: false,
+      };
+    case 'SUBDOMAIN_ACCESS_DENIED':
+      return {
+        ...state,
+        user: action.payload.user,
+        tenant: null,
+        isAuthenticated: true,
+        isLoading: false,
+        error: null,
+        subdomainAccessDenied: true,
       };
     case 'LOGOUT':
       return {
@@ -123,14 +139,14 @@ function getCurrentSubdomain(): string {
   return subdomain;
 }
 
-function parseTokenData(token: string): { user: User; tenant: Tenant } | null {
+function parseUserFromToken(token: string): User | null {
   const claims = decodeToken(token);
   if (!claims) return null;
 
   const isGlobalAdmin = claims.is_global_admin === 'true';
   const teamMemberships = parseTeamMemberships(claims);
   
-  const user: User = {
+  return {
     id: claims.sub,
     email: claims.email,
     firstName: claims.first_name || '',
@@ -138,26 +154,38 @@ function parseTokenData(token: string): { user: User; tenant: Tenant } | null {
     isGlobalAdmin,
     teamMemberships,
   };
+}
+
+function parseTokenDataWithSubdomainCheck(token: string): { 
+  user: User; 
+  tenant: Tenant | null; 
+  hasSubdomainAccess: boolean;
+  currentSubdomain: string;
+} | null {
+  const user = parseUserFromToken(token);
+  if (!user) return null;
 
   // Determine current subdomain and team context
   const currentSubdomain = getCurrentSubdomain();
   
   // Check if user can access current subdomain
-  if (!canAccessSubdomain(currentSubdomain)) {
-    throw new Error(`Access denied to subdomain: ${currentSubdomain}`);
+  const hasSubdomainAccess = canAccessSubdomain(currentSubdomain);
+  
+  if (!hasSubdomainAccess) {
+    return { user, tenant: null, hasSubdomainAccess: false, currentSubdomain };
   }
   
   // Find current team membership based on subdomain
   const currentMembership = currentSubdomain && currentSubdomain !== 'www' && currentSubdomain !== 'app' ? 
-    teamMemberships.find(m => m.teamSubdomain.toLowerCase() === currentSubdomain.toLowerCase()) : 
+    user.teamMemberships.find(m => m.teamSubdomain.toLowerCase() === currentSubdomain.toLowerCase()) : 
     null;
 
   let contextLabel: string;
-  if (currentSubdomain === 'app' && isGlobalAdmin) {
+  if (currentSubdomain === 'app' && user.isGlobalAdmin) {
     contextLabel = 'Global Admin';
   } else if (currentMembership) {
     contextLabel = currentMembership.teamSubdomain || 'Team Context';
-  } else if (isGlobalAdmin && currentSubdomain === 'www') {
+  } else if (user.isGlobalAdmin && currentSubdomain === 'www') {
     contextLabel = 'Global Admin';
   } else {
     contextLabel = 'No Team';
@@ -170,8 +198,10 @@ function parseTokenData(token: string): { user: User; tenant: Tenant } | null {
     contextLabel,
   };
 
-  return { user, tenant };
+  return { user, tenant, hasSubdomainAccess: true, currentSubdomain };
 }
+
+
 
 // Auth Provider Component
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -196,9 +226,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const tokenData = parseTokenData(token);
+      const tokenData = parseTokenDataWithSubdomainCheck(token);
       if (!tokenData) {
-        // Invalid token or access denied to current subdomain
+        // Invalid token
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('sessionFingerprint');
@@ -206,7 +236,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      dispatch({ type: 'LOGIN_SUCCESS', payload: tokenData });
+      if (!tokenData.hasSubdomainAccess) {
+        // User is authenticated but doesn't have access to current subdomain
+        // Keep token for tenant switcher access
+        dispatch({ type: 'SUBDOMAIN_ACCESS_DENIED', payload: { user: tokenData.user } });
+        return;
+      }
+
+      dispatch({ type: 'LOGIN_SUCCESS', payload: { user: tokenData.user, tenant: tokenData.tenant! } });
     } catch (error) {
       console.error('Error loading auth state:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to load authentication state' });
@@ -221,12 +258,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('refreshToken', refreshToken);
       setSessionFingerprint();
 
-      const tokenData = parseTokenData(token);
+      const tokenData = parseTokenDataWithSubdomainCheck(token);
       if (!tokenData) {
-        throw new Error('Invalid token data or access denied');
+        throw new Error('Invalid token data');
       }
 
-      dispatch({ type: 'LOGIN_SUCCESS', payload: tokenData });
+      if (!tokenData.hasSubdomainAccess) {
+        // User is authenticated but doesn't have access to current subdomain
+        dispatch({ type: 'SUBDOMAIN_ACCESS_DENIED', payload: { user: tokenData.user } });
+        console.log('[AuthContext] Login successful but subdomain access denied:', tokenData.user.email, 'subdomain:', tokenData.currentSubdomain);
+        return;
+      }
+
+      dispatch({ type: 'LOGIN_SUCCESS', payload: { user: tokenData.user, tenant: tokenData.tenant! } });
       
       console.log('[AuthContext] Login successful:', tokenData.user.email);
     } catch (error) {
@@ -287,13 +331,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('refreshToken', authData.refreshToken);
 
       // Parse new token and update state
-      const tokenData = parseTokenData(authData.token);
+      const tokenData = parseTokenDataWithSubdomainCheck(authData.token);
       if (!tokenData) {
-        console.error('Failed to parse refreshed token or access denied');
+        console.error('Failed to parse refreshed token');
         return false;
       }
 
-      dispatch({ type: 'LOGIN_SUCCESS', payload: tokenData });
+      if (!tokenData.hasSubdomainAccess) {
+        // User is authenticated but doesn't have access to subdomain after refresh
+        dispatch({ type: 'SUBDOMAIN_ACCESS_DENIED', payload: { user: tokenData.user } });
+        console.log('[AuthContext] Context refreshed but subdomain access denied:', authData.email, 'subdomain:', subdomain);
+        return false;
+      }
+
+      dispatch({ type: 'LOGIN_SUCCESS', payload: { user: tokenData.user, tenant: tokenData.tenant! } });
       
       console.log('[AuthContext] Context refreshed for subdomain:', subdomain, 'user:', authData.email);
       return true;
@@ -351,17 +402,18 @@ export function useAuth(): AuthContextType {
 
 // Hook to get user info
 export function useUser() {
-  const { user, isAuthenticated, isLoading } = useAuth();
-  return { user, isAuthenticated, isLoading };
+  const { user, isAuthenticated, isLoading, subdomainAccessDenied } = useAuth();
+  return { user, isAuthenticated, isLoading, subdomainAccessDenied };
 }
 
 // Hook to get tenant info  
 export function useTenant() {
-  const { tenant, user } = useAuth();
+  const { tenant, user, subdomainAccessDenied } = useAuth();
   return { 
     tenant, 
     isGlobalAdmin: user?.isGlobalAdmin || false,
     hasTeam: !!tenant?.teamId,
-    teamMemberships: user?.teamMemberships || []
+    teamMemberships: user?.teamMemberships || [],
+    subdomainAccessDenied
   };
 } 
