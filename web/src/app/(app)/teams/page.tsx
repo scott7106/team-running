@@ -509,7 +509,7 @@ export default function AdminTeamsPage() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div>
                               <div className="text-sm font-medium text-gray-900">{team.name}</div>
-                              <div className="text-sm text-gray-500">{team.subdomain}.teamstride.com</div>
+                              <div className="text-sm text-gray-500">{team.subdomain}.teamstride.net</div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -565,7 +565,7 @@ export default function AdminTeamsPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <p className="text-sm text-gray-600">{team.subdomain}.teamstride.com</p>
+                        <p className="text-sm text-gray-600">{team.subdomain}.teamstride.net</p>
                         <div className="flex items-center space-x-2">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeClass(team.status)}`}>
                             {getStatusLabel(team.status)}

@@ -9,7 +9,7 @@ import {
   faCheck
 } from '@fortawesome/free-solid-svg-icons';
 import { GlobalAdminTeamDto, GlobalAdminUpdateTeamDto, TeamTier, TeamStatus } from '@/types/team';
-import { teamsApi } from '@/utils/api';
+import { teamsApi, publicTeamsApi } from '@/utils/api';
 import FormModal from '@/components/ui/form-modal';
 
 interface EditTeamModalProps {
@@ -123,7 +123,7 @@ export default function EditTeamModal({ isOpen, onClose, onTeamUpdated, team }: 
     const timer = setTimeout(async () => {
       try {
         setSubdomainChecking(true);
-        const available = await teamsApi.checkSubdomainAvailability(formData.subdomain, team.id);
+        const available = await publicTeamsApi.checkSubdomainAvailability(formData.subdomain, team.id);
         setSubdomainAvailable(available);
       } catch (err) {
         console.error('Error checking subdomain:', err);
@@ -274,7 +274,7 @@ export default function EditTeamModal({ isOpen, onClose, onTeamUpdated, team }: 
 
       const originalExpiresOn = team.expiresOn ? team.expiresOn.split('T')[0] : '';
       if (formData.expiresOn !== originalExpiresOn) {
-        dto.expiresOn = formData.expiresOn || undefined;
+        dto.expiresOn = formData.expiresOn ? new Date(formData.expiresOn).toISOString() : undefined;
       }
       
       const originalLogoUrl = team.logoUrl || '';
@@ -366,7 +366,7 @@ export default function EditTeamModal({ isOpen, onClose, onTeamUpdated, team }: 
               </div>
             </div>
             <p className="text-sm text-gray-500 mt-1">
-              Will be available at: {formData.subdomain || 'subdomain'}.teamstride.com
+              Will be available at: {formData.subdomain || 'subdomain'}.teamstride.net
             </p>
             {fieldErrors.subdomain && (
               <p className="mt-1 text-sm text-red-600 flex items-center">

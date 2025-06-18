@@ -43,7 +43,7 @@ TeamStride is a mobile-first, multi-team SaaS application that empowers coaches 
 * Onboarding wizard for new users and teams
 
   #### **4.2 Team Management & Multi-Tenancy**
-* Subdomain support per team (e.g., `teamX.teamstride.com`)
+* Subdomain support per team (e.g., `teamX.teamstride.net`)
 * Custom-branded login, home, and registration pages
 * Global Admins: Full platform-wide access and team management
 * Team Owners/Admins: Limited to teams they own/administer

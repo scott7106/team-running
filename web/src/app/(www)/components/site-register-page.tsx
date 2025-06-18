@@ -11,8 +11,9 @@ import {
   faCheck,
   faStar
 } from '@fortawesome/free-solid-svg-icons';
-import { teamsApi } from '@/utils/api';
+import { publicTeamsApi } from '@/utils/api';
 import { TeamTier } from '@/types/team';
+import { useAuth } from '@/contexts/auth-context';
 
 interface TeamCreationFormData {
   teamName: string;
@@ -81,6 +82,8 @@ const tierInfo: Record<TeamTier, TierInfo> = {
 };
 
 export default function SiteRegisterPage() {
+  const { user, isAuthenticated } = useAuth();
+  
   const [formData, setFormData] = useState<TeamCreationFormData>({
     teamName: '',
     subdomain: '',
@@ -130,6 +133,18 @@ export default function SiteRegisterPage() {
     setFormData(prev => ({ ...prev, tier: initialTier }));
   }, [searchParams]);
 
+  // Set initial form data when user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      setFormData(prev => ({
+        ...prev,
+        ownerEmail: user.email,
+        ownerFirstName: user.firstName,
+        ownerLastName: user.lastName
+      }));
+    }
+  }, [isAuthenticated, user]);
+
   const updateFormField = (field: keyof TeamCreationFormData, value: string | TeamTier) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
@@ -152,7 +167,7 @@ export default function SiteRegisterPage() {
 
     setIsCheckingSubdomain(true);
     try {
-      const isAvailable = await teamsApi.checkSubdomainAvailability(subdomain);
+      const isAvailable = await publicTeamsApi.checkSubdomainAvailability(subdomain);
       if (!isAvailable) {
         setSubdomainError('This subdomain is already taken');
       } else {
@@ -189,13 +204,17 @@ export default function SiteRegisterPage() {
     if (!formData.teamName.trim()) return 'Team name is required';
     if (!formData.subdomain.trim()) return 'Subdomain is required';
     if (subdomainError) return 'Please fix the subdomain error';
-    if (!formData.ownerFirstName.trim()) return 'First name is required';
-    if (!formData.ownerLastName.trim()) return 'Last name is required';
-    if (!formData.ownerEmail.trim()) return 'Email is required';
-    if (emailError) return 'Please fix the email error';
-    if (!formData.ownerPassword) return 'Password is required';
-    if (formData.ownerPassword.length < 8) return 'Password must be at least 8 characters';
-    if (formData.ownerPassword !== formData.confirmPassword) return 'Passwords do not match';
+    
+    // Skip validation for authenticated users
+    if (!isAuthenticated) {
+      if (!formData.ownerFirstName.trim()) return 'First name is required';
+      if (!formData.ownerLastName.trim()) return 'Last name is required';
+      if (!formData.ownerEmail.trim()) return 'Email is required';  
+      if (emailError) return 'Please fix the email error';
+      if (!formData.ownerPassword) return 'Password is required';
+      if (formData.ownerPassword.length < 8) return 'Password must be at least 8 characters';
+      if (formData.ownerPassword !== formData.confirmPassword) return 'Passwords do not match';
+    }
     
     return null;
   };
@@ -213,21 +232,40 @@ export default function SiteRegisterPage() {
     setError('');
 
     try {
-      const dto = {
-        name: formData.teamName,
-        subdomain: formData.subdomain,
-        ownerEmail: formData.ownerEmail,
-        ownerFirstName: formData.ownerFirstName,
-        ownerLastName: formData.ownerLastName,
-        ownerPassword: formData.ownerPassword,
-        tier: formData.tier,
-        primaryColor: formData.primaryColor,
-        secondaryColor: formData.secondaryColor,
-        expiresOn: formData.tier === TeamTier.Free ? undefined : 
-                   new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year from now
-      };
+      let result;
       
-      const result = await teamsApi.createTeamWithNewOwner(dto);
+      if (isAuthenticated && user) {
+        // Create team with existing authenticated user
+        const dto = {
+          name: formData.teamName,
+          subdomain: formData.subdomain,
+          ownerId: user.id,
+          tier: formData.tier,
+          primaryColor: formData.primaryColor,
+          secondaryColor: formData.secondaryColor,
+          expiresOn: formData.tier === TeamTier.Free ? undefined : 
+                     new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year from now
+        };
+        
+        result = await publicTeamsApi.createTeamWithExistingOwner(dto);
+      } else {
+        // Create team with new owner
+        const dto = {
+          name: formData.teamName,
+          subdomain: formData.subdomain,
+          ownerEmail: formData.ownerEmail,
+          ownerFirstName: formData.ownerFirstName,
+          ownerLastName: formData.ownerLastName,
+          ownerPassword: formData.ownerPassword,
+          tier: formData.tier,
+          primaryColor: formData.primaryColor,
+          secondaryColor: formData.secondaryColor,
+          expiresOn: formData.tier === TeamTier.Free ? undefined : 
+                     new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year from now
+        };
+        
+        result = await publicTeamsApi.createTeamWithNewOwner(dto);
+      }
       
       // Set form data for success display
       setFormData(prev => ({ 
@@ -267,14 +305,14 @@ export default function SiteRegisterPage() {
           </p>
           <div className="bg-gray-50 rounded-lg p-3 mb-6">
             <code className="text-blue-600 font-mono">
-              {formData.subdomain}.teamstride.com
+              {formData.subdomain}.teamstride.net
             </code>
           </div>
           <p className="text-sm text-gray-500 mb-6">
             A confirmation email has been sent to {formData.ownerEmail} with your login details.
           </p>
           <button
-            onClick={() => window.location.href = `https://${formData.subdomain}.teamstride.com`}
+            onClick={() => window.location.href = `https://${formData.subdomain}.teamstride.net`}
             className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 transition-colors font-medium"
           >
             Go to Your Team
@@ -415,7 +453,7 @@ export default function SiteRegisterPage() {
                       )}
                     </div>
                     <p className="mt-1 text-sm text-gray-500">
-                      Your team will be available at: <strong>{formData.subdomain || 'your-team'}.teamstride.com</strong>
+                      Your team will be available at: <strong>{formData.subdomain || 'your-team'}.teamstride.net</strong>
                     </p>
                     {subdomainError && (
                       <p className="mt-1 text-sm text-red-600">{subdomainError}</p>
@@ -482,41 +520,45 @@ export default function SiteRegisterPage() {
 
               {/* Team Owner Information */}
               <div className="border-t border-gray-200 pt-8">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Team Owner Information</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                  {isAuthenticated ? 'Team Owner (You)' : 'Team Owner Information'}
+                </h3>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label htmlFor="ownerFirstName" className="block text-sm font-medium text-gray-700 mb-1">
-                      First Name *
-                    </label>
-                    <input
-                      id="ownerFirstName"
-                      name="ownerFirstName"
-                      type="text"
-                      required
-                      value={formData.ownerFirstName}
-                      onChange={(e) => updateFormField('ownerFirstName', e.target.value)}
-                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      disabled={isLoading}
-                    />
+                {!isAuthenticated && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="ownerFirstName" className="block text-sm font-medium text-gray-700 mb-1">
+                        First Name *
+                      </label>
+                      <input
+                        id="ownerFirstName"
+                        name="ownerFirstName"
+                        type="text"
+                        required
+                        value={formData.ownerFirstName}
+                        onChange={(e) => updateFormField('ownerFirstName', e.target.value)}
+                        className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        disabled={isLoading}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="ownerLastName" className="block text-sm font-medium text-gray-700 mb-1">
+                        Last Name *
+                      </label>
+                      <input
+                        id="ownerLastName"
+                        name="ownerLastName"
+                        type="text"
+                        required
+                        value={formData.ownerLastName}
+                        onChange={(e) => updateFormField('ownerLastName', e.target.value)}
+                        className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        disabled={isLoading}
+                      />
+                    </div>
                   </div>
-                  
-                  <div>
-                    <label htmlFor="ownerLastName" className="block text-sm font-medium text-gray-700 mb-1">
-                      Last Name *
-                    </label>
-                    <input
-                      id="ownerLastName"
-                      name="ownerLastName"
-                      type="text"
-                      required
-                      value={formData.ownerLastName}
-                      onChange={(e) => updateFormField('ownerLastName', e.target.value)}
-                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      disabled={isLoading}
-                    />
-                  </div>
-                </div>
+                )}
                 
                 <div className="mt-6">
                   <label htmlFor="ownerEmail" className="block text-sm font-medium text-gray-700 mb-1">
@@ -530,87 +572,96 @@ export default function SiteRegisterPage() {
                       required
                       value={formData.ownerEmail}
                       onChange={(e) => updateFormField('ownerEmail', e.target.value)}
-                      onBlur={(e) => checkEmailAvailability(e.target.value)}
+                      onBlur={(e) => !isAuthenticated && checkEmailAvailability(e.target.value)}
                       className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors pr-10 ${
-                        emailError 
-                          ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                          : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                        isAuthenticated
+                          ? 'bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed'
+                          : emailError 
+                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                            : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
                       }`}
-                      disabled={isLoading}
+                      disabled={isLoading || isAuthenticated}
                     />
-                    {isCheckingEmail && (
+                    {isCheckingEmail && !isAuthenticated && (
                       <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                       </div>
                     )}
                   </div>
-                  {emailError && (
+                  {emailError && !isAuthenticated && (
                     <p className="mt-1 text-sm text-red-600">{emailError}</p>
+                  )}
+                  {isAuthenticated && (
+                    <p className="mt-1 text-sm text-gray-500">
+                      Using your authenticated account email
+                    </p>
                   )}
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                  <div>
-                    <label htmlFor="ownerPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                      Password *
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="ownerPassword"
-                        name="ownerPassword"
-                        type={showPassword ? 'text' : 'password'}
-                        required
-                        value={formData.ownerPassword}
-                        onChange={(e) => updateFormField('ownerPassword', e.target.value)}
-                        className="w-full px-3 py-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        disabled={isLoading}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                        disabled={isLoading}
-                      >
-                        <FontAwesomeIcon 
-                          icon={showPassword ? faEyeSlash : faEye} 
-                          className="h-5 w-5" 
+                {!isAuthenticated && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    <div>
+                      <label htmlFor="ownerPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                        Password *
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="ownerPassword"
+                          name="ownerPassword"
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          value={formData.ownerPassword}
+                          onChange={(e) => updateFormField('ownerPassword', e.target.value)}
+                          className="w-full px-3 py-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          disabled={isLoading}
                         />
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                          disabled={isLoading}
+                        >
+                          <FontAwesomeIcon 
+                            icon={showPassword ? faEyeSlash : faEye} 
+                            className="h-5 w-5" 
+                          />
+                        </button>
+                      </div>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Must be at least 8 characters
+                      </p>
                     </div>
-                    <p className="mt-1 text-sm text-gray-500">
-                      Must be at least 8 characters
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                      Confirm Password *
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        required
-                        value={formData.confirmPassword}
-                        onChange={(e) => updateFormField('confirmPassword', e.target.value)}
-                        className="w-full px-3 py-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        disabled={isLoading}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                        disabled={isLoading}
-                      >
-                        <FontAwesomeIcon 
-                          icon={showConfirmPassword ? faEyeSlash : faEye} 
-                          className="h-5 w-5" 
+                    
+                    <div>
+                      <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                        Confirm Password *
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="confirmPassword"
+                          name="confirmPassword"
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          required
+                          value={formData.confirmPassword}
+                          onChange={(e) => updateFormField('confirmPassword', e.target.value)}
+                          className="w-full px-3 py-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          disabled={isLoading}
                         />
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                          disabled={isLoading}
+                        >
+                          <FontAwesomeIcon 
+                            icon={showConfirmPassword ? faEyeSlash : faEye} 
+                            className="h-5 w-5" 
+                          />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Submit Button */}
@@ -638,7 +689,7 @@ export default function SiteRegisterPage() {
                   <p className="text-sm text-gray-600">
                     Already have an account?{' '}
                     <a 
-                      href="/login" 
+                      href="/login?redirect=/register" 
                       className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
                     >
                       Sign in here

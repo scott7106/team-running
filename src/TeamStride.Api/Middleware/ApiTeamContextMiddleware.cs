@@ -5,7 +5,8 @@ using System.Text.Json;
 namespace TeamStride.Api.Middleware;
 
 /// <summary>
-/// Middleware to set team context for API endpoints from JWT claims when no subdomain is present
+/// Middleware to set team context for API endpoints from JWT claims when no subdomain is present.
+/// Only applies to endpoints starting with "api/teams".
 /// </summary>
 public class ApiTeamContextMiddleware
 {
@@ -22,25 +23,23 @@ public class ApiTeamContextMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
+        var path = context.Request.Path.Value?.ToLowerInvariant();
+        
+        // Only apply this middleware to endpoints starting with "api/teams"
+        if (!path?.StartsWith("/api/teams") == true)
+        {
+            await _next(context);
+            return;
+        }
+
         var teamService = context.RequestServices.GetRequiredService<ICurrentTeamService>();
         var currentUserService = context.RequestServices.GetRequiredService<ICurrentUserService>();
 
         try
         {
-            // Only process API endpoints that don't already have team context set
-            var path = context.Request.Path.Value?.ToLowerInvariant();
-            var isApiEndpoint = path?.StartsWith("/api/") == true;
-            
-            if (!isApiEndpoint || teamService.IsTeamSet)
+            // Only process if team context is not already set
+            if (teamService.IsTeamSet)
             {
-                await _next(context);
-                return;
-            }
-
-            // Skip team context for authentication endpoints and global admin endpoints
-            if (IsAuthenticationEndpoint(path) || IsGlobalAdminEndpoint(path))
-            {
-                _logger.LogDebug("Skipping team context for endpoint: {Path}", path);
                 await _next(context);
                 return;
             }
@@ -54,19 +53,16 @@ public class ApiTeamContextMiddleware
             }
 
             // Try to set team context from JWT claims if user is authenticated
-            if (currentUserService.IsAuthenticated)
+            var teamSetFromJwt = teamService.SetTeamFromJwtClaims();
+            if (teamSetFromJwt)
             {
-                var teamSetFromJwt = teamService.SetTeamFromJwtClaims();
-                if (teamSetFromJwt)
-                {
-                    _logger.LogInformation("Team context set from JWT claims for user {UserId} to team {TeamId}", 
-                        currentUserService.UserId, teamService.TeamId);
-                }
-                else
-                {
-                    _logger.LogDebug("Could not set team context from JWT claims for user {UserId}", 
-                        currentUserService.UserId);
-                }
+                _logger.LogInformation("Team context set from JWT claims for user {UserId} to team {TeamId}", 
+                    currentUserService.UserId, teamService.TeamId);
+            }
+            else
+            {
+                _logger.LogDebug("Could not set team context from JWT claims for user {UserId}", 
+                    currentUserService.UserId);
             }
 
             await _next(context);
@@ -76,25 +72,6 @@ public class ApiTeamContextMiddleware
             _logger.LogError(ex, "Error processing API team context middleware for path: {Path}", context.Request.Path);
             await HandleMiddlewareError(context, "Internal server error during API team context resolution");
         }
-    }
-
-    private static bool IsAuthenticationEndpoint(string? path)
-    {
-        if (string.IsNullOrEmpty(path)) return false;
-        
-        return path.Contains("/auth/") || 
-               path.Contains("/login") || 
-               path.Contains("/register") || 
-               path.Contains("/token") ||
-               path.Contains("/refresh");
-    }
-
-    private static bool IsGlobalAdminEndpoint(string? path)
-    {
-        if (string.IsNullOrEmpty(path)) return false;
-        
-        return path.Contains("/admin/") ||
-               path.StartsWith("/api/team-management") && !path.Contains("/subdomain/");
     }
 
     private async Task HandleMiddlewareError(HttpContext context, string message)

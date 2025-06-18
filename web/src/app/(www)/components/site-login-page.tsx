@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faExclamationTriangle,
@@ -37,6 +37,7 @@ export default function SiteLoginPage() {
   
   const router = useRouter();
   const { login, isAuthenticated } = useAuth();
+  const searchParams = useSearchParams();
 
   // Set document title
   useEffect(() => {
@@ -46,10 +47,16 @@ export default function SiteLoginPage() {
   useEffect(() => {
     // Check if user is already logged in
     if (isAuthenticated) {
-      // User is already authenticated, redirect to tenant switcher
-      router.push('/tenant-switcher');
+      // Check for redirect parameter
+      const redirect = searchParams.get('redirect');
+      if (redirect) {
+        router.push(redirect);
+      } else {
+        // User is already authenticated, redirect to tenant switcher
+        router.push('/tenant-switcher');
+      }
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, router, searchParams]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,8 +97,13 @@ export default function SiteLoginPage() {
       // Use centralized login function
       login(authData.token, authData.refreshToken);
 
-      // Site login always redirects to tenant switcher
-      router.push('/tenant-switcher');
+      // Check for redirect parameter, otherwise go to tenant switcher
+      const redirect = searchParams.get('redirect');
+      if (redirect) {
+        router.push(redirect);
+      } else {
+        router.push('/tenant-switcher');
+      }
       
     } catch (error) {
       console.error('Login error:', error);

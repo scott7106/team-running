@@ -35,7 +35,7 @@ export default function NoTeamAccessPage() {
 
   const handleContactSupport = () => {
     const userEmail = user?.email || 'unknown@example.com';
-    window.location.href = 'mailto:support@teamstride.com?subject=Team Access Request&body=Hello, I need help accessing my team. My account email is: ' + userEmail;
+    window.location.href = 'mailto:support@teamstride.net?subject=Team Access Request&body=Hello, I need help accessing my team. My account email is: ' + userEmail;
   };
 
   if (!isAuthenticated || !user) {
@@ -135,8 +135,8 @@ export default function NoTeamAccessPage() {
           <div className="mt-6 text-center">
             <p className="text-xs text-gray-500">
               Need immediate help? Contact{' '}
-              <a href="mailto:support@teamstride.com" className="text-blue-600 hover:text-blue-500">
-                support@teamstride.com
+              <a href="mailto:support@teamstride.net" className="text-blue-600 hover:text-blue-500">
+                support@teamstride.net
               </a>
             </p>
           </div>

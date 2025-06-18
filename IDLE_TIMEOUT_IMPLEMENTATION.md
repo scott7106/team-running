@@ -51,7 +51,8 @@ This component integrates the idle timeout hook with authentication logic:
 Wraps the application to provide idle timeout functionality:
 
 - **Route-Based Activation**: Only active on authenticated pages
-- **Public Page Exclusion**: Excludes `/` and `/login` routes
+- **Public Page Exclusion**: Excludes public pages like `/`, `/login`, `/register`, `/join-team`, and password reset pages
+- **Team-Specific Page Support**: Also excludes team-specific public pages (e.g., `{team}.teamstride.net/register`)
 - **Global Integration**: Integrated at the root layout level
 
 #### Idle Timeout Modal

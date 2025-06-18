@@ -28,8 +28,8 @@ The TeamStride application implements a comprehensive multi-layered session secu
 {
   "Authentication": {
     "JwtExpirationMinutes": 60,
-    "JwtIssuer": "https://api.teamstride.com",
-    "JwtAudience": "https://teamstride.com"
+    "JwtIssuer": "https://api.teamstride.net",
+    "JwtAudience": "https://teamstride.net"
   }
 }
 ```
@@ -241,7 +241,7 @@ const fingerprint = {
 ### Email Confirmation
 - **Requirement**: Required for account activation
 - **Implementation**: Secure token-based confirmation
-- **Link Format**: `https://teamstride.com/confirm-email?userId={id}&token={token}`
+- **Link Format**: `https://teamstride.net/confirm-email?userId={id}&token={token}`
 
 ### Password Reset
 - **Security**: Time-limited, single-use tokens

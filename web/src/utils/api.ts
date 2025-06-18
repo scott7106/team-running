@@ -7,8 +7,7 @@ import {
   TeamRegistrationWindowDto, 
   CreateRegistrationWindowDto, 
   UpdateRegistrationWindowDto,
-  UserRegistrationDto,
-  TeamCreationDto
+  UserRegistrationDto
 } from '@/types/registration';
 
 export interface DashboardStatsDto {
@@ -81,7 +80,17 @@ const apiRequest = async <T>(
     
     try {
       const errorData = await response.json();
-      errorMessage = errorData.message || errorData.detail || errorMessage;
+      console.error('API Error Response:', errorData);
+      
+      // Handle ASP.NET ModelState validation errors
+      if (errorData.errors && typeof errorData.errors === 'object') {
+        const validationErrors = Object.entries(errorData.errors)
+          .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+          .join('; ');
+        errorMessage = `Validation errors: ${validationErrors}`;
+      } else {
+        errorMessage = errorData.message || errorData.detail || errorData.title || errorMessage;
+      }
     } catch {
       // If we can't parse error as JSON, use default message
     }
@@ -113,20 +122,49 @@ const apiRequest = async <T>(
   }
 };
 
-export const teamsApi = {
-  getTeams: async (params: TeamsApiParams = {}): Promise<TeamsApiResponse> => {
-    const queryString = buildQueryString(params as Record<string, unknown>);
-    return apiRequest<TeamsApiResponse>(`/api/admin/teams${queryString}`);
+export const publicTeamsApi = {
+  checkSubdomainAvailability: async (subdomain: string, excludeTeamId?: string): Promise<boolean> => {
+    const params: Record<string, string> = { subdomain };
+    if (excludeTeamId) {
+      params.excludeTeamId = excludeTeamId;
+    }
+    const queryString = buildQueryString(params);
+    return apiRequest<boolean>(`/api/public/teams/subdomain-availability${queryString}`);
   },
-  
+
   createTeamWithNewOwner: async (dto: CreateTeamWithNewOwnerDto): Promise<PublicTeamCreationResultDto> => {
     return apiRequest<PublicTeamCreationResultDto>('/api/public/teams/with-new-owner', {
       method: 'POST',
       body: JSON.stringify(dto),
     });
   },
+
+  createTeamWithExistingOwner: async (dto: CreateTeamWithExistingOwnerDto): Promise<PublicTeamCreationResultDto> => {
+    return apiRequest<PublicTeamCreationResultDto>('/api/public/teams/with-existing-owner', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+};
+
+export const teamsApi = {
+  getTeams: async (params: TeamsApiParams = {}): Promise<TeamsApiResponse> => {
+    const queryString = buildQueryString(params as Record<string, unknown>);
+    return apiRequest<TeamsApiResponse>(`/api/admin/teams${queryString}`);
+  },
   
-  createTeamWithExistingOwner: async (dto: CreateTeamWithExistingOwnerDto): Promise<GlobalAdminTeamDto> => {
+  getTeamById: async (teamId: string): Promise<GlobalAdminTeamDto> => {
+    return apiRequest<GlobalAdminTeamDto>(`/api/admin/teams/${teamId}`);
+  },
+
+  createTeamWithNewOwnerAdmin: async (dto: CreateTeamWithNewOwnerDto): Promise<GlobalAdminTeamDto> => {
+    return apiRequest<GlobalAdminTeamDto>('/api/admin/teams/with-new-owner', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+  
+  createTeamWithExistingOwnerAdmin: async (dto: CreateTeamWithExistingOwnerDto): Promise<GlobalAdminTeamDto> => {
     return apiRequest<GlobalAdminTeamDto>('/api/admin/teams/with-existing-owner', {
       method: 'POST',
       body: JSON.stringify(dto),
@@ -138,12 +176,6 @@ export const teamsApi = {
       method: 'PUT',
       body: JSON.stringify(dto),
     });
-  },
-
-  checkSubdomainAvailability: async (subdomain: string): Promise<boolean> => {
-    const params: Record<string, string> = { subdomain };
-    const queryString = buildQueryString(params);
-    return apiRequest<boolean>(`/api/public/teams/subdomain-availability${queryString}`);
   },
 
   deleteTeam: async (teamId: string): Promise<void> => {
@@ -309,14 +341,6 @@ export const registrationApi = {
   // User account registration
   registerUser: async (dto: UserRegistrationDto): Promise<void> => {
     return apiRequest<void>('/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(dto),
-    });
-  },
-
-  // Team creation registration
-  createTeam: async (dto: TeamCreationDto): Promise<GlobalAdminTeamDto> => {
-    return apiRequest<GlobalAdminTeamDto>('/api/auth/create-team', {
       method: 'POST',
       body: JSON.stringify(dto),
     });

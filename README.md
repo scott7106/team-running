@@ -66,7 +66,7 @@ Located in the `web` directory:
    {
      "Authentication": {
        "ExternalProviders": {
-         "BaseUrl": "https://api.teamstride.com",
+         "BaseUrl": "https://api.teamstride.net",
          "Microsoft": {
            "ClientId": "your_microsoft_client_id_here",
            "ClientSecret": "your_microsoft_client_secret_here"
@@ -96,10 +96,10 @@ Located in the `web` directory:
 
 3. Configure redirect URIs for each provider:
    ```
-   https://api.teamstride.com/api/authentication/external-login/microsoft/callback
-   https://api.teamstride.com/api/authentication/external-login/google/callback
-   https://api.teamstride.com/api/authentication/external-login/facebook/callback
-   https://api.teamstride.com/api/authentication/external-login/twitter/callback
+   https://api.teamstride.net/api/authentication/external-login/microsoft/callback
+   https://api.teamstride.net/api/authentication/external-login/google/callback
+   https://api.teamstride.net/api/authentication/external-login/facebook/callback
+   https://api.teamstride.net/api/authentication/external-login/twitter/callback
    ```
 
 ### Using External Authentication

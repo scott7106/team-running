@@ -40,7 +40,7 @@ public class TeamMiddleware
                 return;
             }
 
-            // Extract subdomain (should be the first part for team subdomains like team.teamstride.com)
+            // Extract subdomain (should be the first part for team subdomains like team.teamstride.net)
             var subdomain = hostParts[0];
             _logger.LogInformation("Processing team resolution for subdomain: {Subdomain}", subdomain);
 

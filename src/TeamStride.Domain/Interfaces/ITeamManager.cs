@@ -6,7 +6,7 @@ namespace TeamStride.Domain.Interfaces;
 /// <summary>
 /// Domain service interface for core team management operations.
 /// Provides domain-level functionality for team creation, subdomain management, and team retrieval.
-/// Does not handle authentication, authorization, or user creation - those are handled by application services.
+/// Does not handle authentication, authorization, user creation, or transaction management - those are handled by application services.
 /// </summary>
 public interface ITeamManager
 {
@@ -28,23 +28,14 @@ public interface ITeamManager
     Task<Team> GetTeamBySubdomainAsync(string subdomain);
 
     /// <summary>
-    /// Creates a team with the specified owner. Does not create user accounts.
+    /// Creates a team with the specified owner. Does not create user accounts or manage transactions.
     /// The owner must already exist in the system.
+    /// This method should be called within an existing transaction scope.
     /// </summary>
     /// <param name="request">Team creation request with owner information</param>
     /// <returns>Created team entity</returns>
     /// <exception cref="InvalidOperationException">Thrown when subdomain is taken or owner doesn't exist</exception>
     Task<Team> CreateTeamAsync(CreateTeamRequest request);
-
-    /// <summary>
-    /// Creates a new team with a new owner user account.
-    /// Handles both user creation and team creation in a single transaction.
-    /// This is the core domain operation for team registration scenarios.
-    /// </summary>
-    /// <param name="request">Team and owner creation parameters</param>
-    /// <returns>Tuple containing the created user and team</returns>
-    /// <exception cref="InvalidOperationException">Thrown when subdomain is taken or user creation fails</exception>
-    Task<(ApplicationUser User, Team Team)> CreateTeamWithNewOwnerAsync(CreateTeamWithNewOwnerRequest request);
 
     /// <summary>
     /// Validates subdomain format and characters.
@@ -78,20 +69,4 @@ public class CreateTeamRequest
     public string? LogoUrl { get; set; }
 }
 
-/// <summary>
-/// Request model for creating a team with a new owner user account.
-/// Contains both team and user creation data for domain-level operations.
-/// </summary>
-public class CreateTeamWithNewOwnerRequest
-{
-    public string Name { get; set; } = string.Empty;
-    public string Subdomain { get; set; } = string.Empty;
-    public string OwnerEmail { get; set; } = string.Empty;
-    public string OwnerFirstName { get; set; } = string.Empty;
-    public string OwnerLastName { get; set; } = string.Empty;
-    public string OwnerPassword { get; set; } = string.Empty;
-    public TeamTier Tier { get; set; } = TeamTier.Free;
-    public string PrimaryColor { get; set; } = "#000000";
-    public string SecondaryColor { get; set; } = "#FFFFFF";
-    public DateTime? ExpiresOn { get; set; }
-} 
+ 

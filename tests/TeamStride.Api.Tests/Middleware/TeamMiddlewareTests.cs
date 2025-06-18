@@ -34,7 +34,7 @@ public class TeamMiddlewareTests
     public async Task InvokeAsync_WithMainSite_SkipsTeamResolution()
     {
         // Arrange
-        var context = CreateHttpContext("teamstride.com");
+        var context = CreateHttpContext("teamstride.net");
         SetupServices(context);
 
         // Act
@@ -50,7 +50,7 @@ public class TeamMiddlewareTests
     public async Task InvokeAsync_WithApiEndpoint_SkipsTeamResolution()
     {
         // Arrange
-        var context = CreateHttpContext("api.teamstride.com");
+        var context = CreateHttpContext("api.teamstride.net");
         SetupServices(context);
 
         // Act
@@ -66,7 +66,7 @@ public class TeamMiddlewareTests
     public async Task InvokeAsync_WithWwwSubdomain_SkipsTeamResolution()
     {
         // Arrange
-        var context = CreateHttpContext("www.teamstride.com");
+        var context = CreateHttpContext("www.teamstride.net");
         SetupServices(context);
 
         // Act
@@ -82,7 +82,7 @@ public class TeamMiddlewareTests
     public async Task InvokeAsync_WithInvalidSubdomain_ReturnsNotFound()
     {
         // Arrange
-        var context = CreateHttpContext("ab.teamstride.com"); // Too short
+        var context = CreateHttpContext("ab.teamstride.net"); // Too short
         SetupServices(context);
 
         // Act
@@ -98,7 +98,7 @@ public class TeamMiddlewareTests
     public async Task InvokeAsync_WithValidSubdomain_TeamNotFound_ReturnsNotFound()
     {
         // Arrange
-        var context = CreateHttpContext("nonexistent.teamstride.com");
+        var context = CreateHttpContext("nonexistent.teamstride.net");
         SetupServices(context);
         _mockTeamService.Setup(x => x.SetTeamFromSubdomainAsync("nonexistent"))
             .ReturnsAsync(false);
@@ -116,7 +116,7 @@ public class TeamMiddlewareTests
     public async Task InvokeAsync_WithValidSubdomain_TeamFound_UnauthenticatedUser_Succeeds()
     {
         // Arrange
-        var context = CreateHttpContext("testteam.teamstride.com");
+        var context = CreateHttpContext("testteam.teamstride.net");
         SetupServices(context);
         var teamId = Guid.NewGuid();
         
@@ -138,7 +138,7 @@ public class TeamMiddlewareTests
     public async Task InvokeAsync_WithValidSubdomain_AuthenticatedUser_HasAccess_Succeeds()
     {
         // Arrange
-        var context = CreateHttpContext("testteam.teamstride.com");
+        var context = CreateHttpContext("testteam.teamstride.net");
         SetupServices(context);
         var teamId = Guid.NewGuid();
         var userId = Guid.NewGuid();
@@ -164,7 +164,7 @@ public class TeamMiddlewareTests
     public async Task InvokeAsync_WithValidSubdomain_AuthenticatedUser_NoAccess_ReturnsForbidden()
     {
         // Arrange
-        var context = CreateHttpContext("testteam.teamstride.com");
+        var context = CreateHttpContext("testteam.teamstride.net");
         SetupServices(context);
         var teamId = Guid.NewGuid();
         var userId = Guid.NewGuid();
@@ -189,7 +189,7 @@ public class TeamMiddlewareTests
     public async Task InvokeAsync_WithValidSubdomain_GlobalAdmin_AlwaysSucceeds()
     {
         // Arrange
-        var context = CreateHttpContext("testteam.teamstride.com");
+        var context = CreateHttpContext("testteam.teamstride.net");
         SetupServices(context);
         var teamId = Guid.NewGuid();
         var userId = Guid.NewGuid();
@@ -214,7 +214,7 @@ public class TeamMiddlewareTests
     public async Task InvokeAsync_WithException_ReturnsInternalServerError()
     {
         // Arrange
-        var context = CreateHttpContext("testteam.teamstride.com");
+        var context = CreateHttpContext("testteam.teamstride.net");
         SetupServices(context);
         
         _mockTeamService.Setup(x => x.SetTeamFromSubdomainAsync("testteam"))
@@ -232,7 +232,7 @@ public class TeamMiddlewareTests
     public async Task InvokeAsync_AlwaysClearsTeamInFinally()
     {
         // Arrange
-        var context = CreateHttpContext("testteam.teamstride.com");
+        var context = CreateHttpContext("testteam.teamstride.net");
         SetupServices(context);
         
         _mockTeamService.Setup(x => x.SetTeamFromSubdomainAsync("testteam"))

@@ -206,9 +206,11 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         DbContext.UserTeams.Add(userTeam);
         await DbContext.SaveChangesAsync();
 
-        // Setup TeamManager mock to return the created entities
-        _mockTeamManager.Setup(x => x.CreateTeamWithNewOwnerAsync(It.IsAny<CreateTeamWithNewOwnerRequest>()))
-            .ReturnsAsync((mockUser, mockTeam));
+        // Setup TeamManager mocks for the new architecture
+        _mockTeamManager.Setup(x => x.IsSubdomainAvailableAsync(dto.Subdomain, null))
+            .ReturnsAsync(true);
+        _mockTeamManager.Setup(x => x.CreateTeamAsync(It.IsAny<CreateTeamRequest>()))
+            .ReturnsAsync(mockTeam);
 
         // Act
         var result = await service.CreateTeamWithNewOwnerAsync(dto);
@@ -222,7 +224,8 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
         result.OwnerFirstName.ShouldBe("New");
         result.OwnerLastName.ShouldBe("Owner");
         
-        _mockTeamManager.Verify(x => x.CreateTeamWithNewOwnerAsync(It.IsAny<CreateTeamWithNewOwnerRequest>()), Times.Once);
+        _mockTeamManager.Verify(x => x.IsSubdomainAvailableAsync(dto.Subdomain, null), Times.Once);
+        _mockTeamManager.Verify(x => x.CreateTeamAsync(It.IsAny<CreateTeamRequest>()), Times.Once);
     }
 
     [Fact]
@@ -897,9 +900,9 @@ public class GlobalAdminTeamServiceTests : BaseSecuredTest
             Tier = TeamTier.Free
         };
 
-        // Setup TeamManager mock to throw exception for taken subdomain
-        _mockTeamManager.Setup(x => x.CreateTeamWithNewOwnerAsync(It.IsAny<CreateTeamWithNewOwnerRequest>()))
-            .ThrowsAsync(new InvalidOperationException($"Subdomain 'taken-subdomain' is already taken"));
+        // Setup TeamManager mock to return false for subdomain availability
+        _mockTeamManager.Setup(x => x.IsSubdomainAvailableAsync("taken-subdomain", null))
+            .ReturnsAsync(false);
 
         // Act & Assert
         var exception = await Should.ThrowAsync<InvalidOperationException>(

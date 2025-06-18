@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TeamStride.Domain.Entities;
@@ -16,7 +15,6 @@ namespace TeamStride.Infrastructure.Managers;
 public class TeamManager : ITeamManager
 {
     private readonly ApplicationDbContext _context;
-    private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<TeamManager> _logger;
 
     // Regex for validating subdomain format: 3-63 characters, lowercase letters, numbers, hyphens
@@ -25,11 +23,9 @@ public class TeamManager : ITeamManager
 
     public TeamManager(
         ApplicationDbContext context,
-        UserManager<ApplicationUser> userManager,
         ILogger<TeamManager> logger)
     {
         _context = context;
-        _userManager = userManager;
         _logger = logger;
     }
 
@@ -93,90 +89,52 @@ public class TeamManager : ITeamManager
             throw new InvalidOperationException($"Subdomain '{normalizedSubdomain}' is already taken");
         }
 
-        // Validate that the owner exists
-        var owner = await _userManager.FindByIdAsync(request.OwnerId.ToString());
-        if (owner == null)
+        // Validate that the owner exists in the database
+        var ownerExists = await _context.Users.AnyAsync(u => u.Id == request.OwnerId);
+        if (!ownerExists)
         {
             throw new InvalidOperationException($"Owner with ID '{request.OwnerId}' not found");
         }
 
-        // Use execution strategy for transaction resilience
-        var strategy = _context.Database.CreateExecutionStrategy();
-        return await strategy.ExecuteAsync(async () =>
+        // Create the team (transaction management is handled by the calling service)
+        var team = new Team
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try
-            {
-                // Create the team
-                var team = new Team
-                {
-                    Id = Guid.NewGuid(),
-                    Name = request.Name,
-                    Subdomain = normalizedSubdomain,
-                    OwnerId = request.OwnerId,
-                    Tier = request.Tier,
-                    Status = request.Status,
-                    PrimaryColor = request.PrimaryColor,
-                    SecondaryColor = request.SecondaryColor,
-                    ExpiresOn = request.ExpiresOn,
-                    LogoUrl = request.LogoUrl,
-                    CreatedOn = DateTime.UtcNow
-                };
+            Id = Guid.NewGuid(),
+            Name = request.Name,
+            Subdomain = normalizedSubdomain,
+            OwnerId = request.OwnerId,
+            Tier = request.Tier,
+            Status = request.Status,
+            PrimaryColor = request.PrimaryColor,
+            SecondaryColor = request.SecondaryColor,
+            ExpiresOn = request.ExpiresOn,
+            LogoUrl = request.LogoUrl,
+            CreatedOn = DateTime.UtcNow
+        };
 
-                _context.Teams.Add(team);
-                await _context.SaveChangesAsync();
+        _context.Teams.Add(team);
+        await _context.SaveChangesAsync();
 
-                // Create or update the owner relationship in UserTeam
-                var existingUserTeam = await _context.UserTeams
-                    .FirstOrDefaultAsync(ut => ut.UserId == request.OwnerId && ut.TeamId == team.Id);
+        // Create the owner relationship in UserTeam
+        var userTeam = new UserTeam
+        {
+            UserId = request.OwnerId,
+            TeamId = team.Id,
+            Role = TeamRole.TeamOwner,
+            MemberType = MemberType.Coach,
+            IsActive = true,
+            IsDefault = true, // New teams are set as default - calling service can override this
+            JoinedOn = DateTime.UtcNow,
+            CreatedOn = DateTime.UtcNow
+        };
 
-                if (existingUserTeam != null)
-                {
-                    // Update existing relationship
-                    existingUserTeam.Role = TeamRole.TeamOwner;
-                    existingUserTeam.MemberType = MemberType.Coach;
-                    existingUserTeam.IsActive = true;
-                    existingUserTeam.ModifiedOn = DateTime.UtcNow;
-                }
-                else
-                {
-                    // Create new relationship
-                    var userTeam = new UserTeam
-                    {
-                        UserId = request.OwnerId,
-                        TeamId = team.Id,
-                        Role = TeamRole.TeamOwner,
-                        MemberType = MemberType.Coach,
-                        IsActive = true,
-                        IsDefault = owner.DefaultTeamId == null, // Set as default if user has no default team
-                        JoinedOn = DateTime.UtcNow,
-                        CreatedOn = DateTime.UtcNow
-                    };
+        _context.UserTeams.Add(userTeam);
+        await _context.SaveChangesAsync();
 
-                    _context.UserTeams.Add(userTeam);
-                }
+        _logger.LogInformation("Created team {TeamId} '{TeamName}' with subdomain '{Subdomain}' for owner {OwnerId}", 
+            team.Id, team.Name, team.Subdomain, request.OwnerId);
 
-                // Update user's default team if they don't have one
-                if (owner.DefaultTeamId == null)
-                {
-                    owner.DefaultTeamId = team.Id;
-                    await _userManager.UpdateAsync(owner);
-                }
-
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                _logger.LogInformation("Created team {TeamId} '{TeamName}' with subdomain '{Subdomain}' for owner {OwnerId}", 
-                    team.Id, team.Name, team.Subdomain, request.OwnerId);
-
-                return team;
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
-        });
+        return team;
     }
 
     public bool IsValidSubdomainFormat(string subdomain)
@@ -216,79 +174,4 @@ public class TeamManager : ITeamManager
         return subdomain.Trim().ToLowerInvariant();
     }
 
-    public async Task<(ApplicationUser User, Team Team)> CreateTeamWithNewOwnerAsync(CreateTeamWithNewOwnerRequest request)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.Name);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.Subdomain);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.OwnerEmail);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.OwnerFirstName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.OwnerLastName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.OwnerPassword);
-
-        // Validate subdomain availability
-        if (!await IsSubdomainAvailableAsync(request.Subdomain))
-        {
-            throw new InvalidOperationException($"Subdomain '{request.Subdomain}' is already taken");
-        }
-
-        // Check if user already exists
-        var existingUser = await _userManager.FindByEmailAsync(request.OwnerEmail);
-        if (existingUser != null)
-        {
-            throw new InvalidOperationException($"User with email '{request.OwnerEmail}' already exists");
-        }
-
-        // Use execution strategy for transaction resilience
-        var strategy = _context.Database.CreateExecutionStrategy();
-        return await strategy.ExecuteAsync(async () =>
-        {
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try
-            {
-                // Create the new user first
-                var newUser = new ApplicationUser
-                {
-                    Id = Guid.NewGuid(),
-                    UserName = request.OwnerEmail,
-                    Email = request.OwnerEmail,
-                    FirstName = request.OwnerFirstName,
-                    LastName = request.OwnerLastName,
-                    EmailConfirmed = true, // Auto-confirm for team owners
-                    CreatedOn = DateTime.UtcNow
-                };
-
-                var result = await _userManager.CreateAsync(newUser, request.OwnerPassword);
-                if (!result.Succeeded)
-                {
-                    throw new InvalidOperationException($"Failed to create user: {string.Join(", ", result.Errors.Select(e => e.Description))}");
-                }
-
-                // Create team using existing CreateTeamAsync method
-                var createTeamRequest = new CreateTeamRequest
-                {
-                    Name = request.Name,
-                    Subdomain = request.Subdomain,
-                    OwnerId = newUser.Id,
-                    Tier = request.Tier,
-                    Status = TeamStatus.Active,
-                    PrimaryColor = request.PrimaryColor,
-                    SecondaryColor = request.SecondaryColor,
-                    ExpiresOn = request.ExpiresOn
-                };
-
-                var team = await CreateTeamAsync(createTeamRequest);
-                await transaction.CommitAsync();
-
-                _logger.LogInformation("Created team {TeamId} with new owner {UserId} via TeamManager", team.Id, newUser.Id);
-
-                return (newUser, team);
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
-        });
-    }
 } 

@@ -34,7 +34,7 @@ export default function JoinTeamPage() {
       
       // Check if team exists by trying to navigate to it
       // We'll redirect to the team's registration page
-      window.location.href = `https://${cleanSubdomain}.teamstride.com/register`;
+      window.location.href = `https://${cleanSubdomain}.teamstride.net/register`;
     } catch (error) {
       console.error('Team lookup error:', error);
       setError('Unable to find that team. Please check the team name and try again.');
@@ -107,7 +107,7 @@ export default function JoinTeamPage() {
                 />
               </div>
               <p className="mt-2 text-xs text-gray-500">
-                This will redirect you to: <span className="font-mono text-blue-600">{teamSubdomain || '[team]'}.teamstride.com</span>
+                This will redirect you to: <span className="font-mono text-blue-600">{teamSubdomain || '[team]'}.teamstride.net</span>
               </p>
             </div>
 

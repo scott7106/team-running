@@ -163,7 +163,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
 
         // Generate email confirmation token and send email
         var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-        var baseUrl = _configuration["Authentication:BaseUrl"] ?? "https://teamstride.com";
+        var baseUrl = _configuration["Authentication:BaseUrl"] ?? "https://teamstride.net";
         var confirmationLink = $"{baseUrl}/confirm-email?userId={user.Id}&token={Uri.EscapeDataString(token)}";
         await _emailService.SendEmailConfirmationAsync(user.Email!, confirmationLink);
 
@@ -262,7 +262,7 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             throw new AuthenticationException("User not found", AuthenticationException.ErrorCodes.UserNotFound);
 
         var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-        var baseUrl = _configuration["Authentication:BaseUrl"] ?? "https://teamstride.com";
+        var baseUrl = _configuration["Authentication:BaseUrl"] ?? "https://teamstride.net";
         var resetLink = $"{baseUrl}/reset-password?userId={user.Id}&token={Uri.EscapeDataString(token)}";
         await _emailService.SendPasswordResetAsync(email, resetLink);
 

@@ -239,50 +239,124 @@ public class GlobalAdminTeamService : IGlobalAdminTeamService
     {
         await _authorizationService.RequireGlobalAdminAsync();
 
-        // Convert DTO to domain request
-        var request = new CreateTeamWithNewOwnerRequest
+        // Validate subdomain availability first
+        if (!await _teamManager.IsSubdomainAvailableAsync(dto.Subdomain))
         {
-            Name = dto.Name,
-            Subdomain = dto.Subdomain,
-            OwnerEmail = dto.OwnerEmail,
-            OwnerFirstName = dto.OwnerFirstName,
-            OwnerLastName = dto.OwnerLastName,
-            OwnerPassword = dto.OwnerPassword,
-            Tier = dto.Tier,
-            PrimaryColor = dto.PrimaryColor,
-            SecondaryColor = dto.SecondaryColor,
-            ExpiresOn = dto.ExpiresOn
-        };
+            throw new InvalidOperationException($"Subdomain '{dto.Subdomain}' is already taken");
+        }
 
-        // Use TeamManager to create team with new owner
-        var (user, team) = await _teamManager.CreateTeamWithNewOwnerAsync(request);
+        // Check if user already exists
+        var existingUser = await _userManager.FindByEmailAsync(dto.OwnerEmail);
+        if (existingUser != null)
+        {
+            throw new InvalidOperationException($"User with email '{dto.OwnerEmail}' already exists");
+        }
 
-        _logger.LogInformation("Created team {TeamId} with new owner {UserId} via global admin", team.Id, user.Id);
+        // Use execution strategy for transaction resilience
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                // Create the new user first
+                var newUser = new ApplicationUser
+                {
+                    Id = Guid.NewGuid(),
+                    UserName = dto.OwnerEmail,
+                    Email = dto.OwnerEmail,
+                    FirstName = dto.OwnerFirstName,
+                    LastName = dto.OwnerLastName,
+                    EmailConfirmed = true, // Auto-confirm for team owners
+                    IsActive = true,
+                    Status = UserStatus.Active,
+                    CreatedOn = DateTime.UtcNow
+                };
 
-        return await GetTeamByIdAsync(team.Id);
+                var result = await _userManager.CreateAsync(newUser, dto.OwnerPassword);
+                if (!result.Succeeded)
+                {
+                    throw new InvalidOperationException($"Failed to create user: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+                }
+
+                // Create team using TeamManager
+                var createTeamRequest = new CreateTeamRequest
+                {
+                    Name = dto.Name,
+                    Subdomain = dto.Subdomain,
+                    OwnerId = newUser.Id,
+                    Tier = dto.Tier,
+                    Status = TeamStatus.Active,
+                    PrimaryColor = dto.PrimaryColor,
+                    SecondaryColor = dto.SecondaryColor,
+                    ExpiresOn = dto.ExpiresOn
+                };
+
+                var team = await _teamManager.CreateTeamAsync(createTeamRequest);
+
+                // Set the team as the user's default team
+                newUser.DefaultTeamId = team.Id;
+                await _userManager.UpdateAsync(newUser);
+
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Created team {TeamId} with new owner {UserId} via global admin", team.Id, newUser.Id);
+
+                return await GetTeamByIdAsync(team.Id);
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        });
     }
 
     public async Task<GlobalAdminTeamDto> CreateTeamWithExistingOwnerAsync(CreateTeamWithExistingOwnerDto dto)
     {
         await _authorizationService.RequireGlobalAdminAsync();
 
-        var createTeamRequest = new CreateTeamRequest
+        // Use execution strategy for transaction resilience
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
-            Name = dto.Name,
-            Subdomain = dto.Subdomain,
-            OwnerId = dto.OwnerId,
-            Tier = dto.Tier,
-            Status = TeamStatus.Active,
-            PrimaryColor = dto.PrimaryColor,
-            SecondaryColor = dto.SecondaryColor,
-            ExpiresOn = dto.ExpiresOn
-        };
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var createTeamRequest = new CreateTeamRequest
+                {
+                    Name = dto.Name,
+                    Subdomain = dto.Subdomain,
+                    OwnerId = dto.OwnerId,
+                    Tier = dto.Tier,
+                    Status = TeamStatus.Active,
+                    PrimaryColor = dto.PrimaryColor,
+                    SecondaryColor = dto.SecondaryColor,
+                    ExpiresOn = dto.ExpiresOn
+                };
 
-        var team = await _teamManager.CreateTeamAsync(createTeamRequest);
+                var team = await _teamManager.CreateTeamAsync(createTeamRequest);
 
-        _logger.LogInformation("Created team {TeamId} with existing owner {UserId} via global admin", team.Id, dto.OwnerId);
+                // Update user's default team if they don't have one
+                var user = await _userManager.FindByIdAsync(dto.OwnerId.ToString());
+                if (user != null && user.DefaultTeamId == null)
+                {
+                    user.DefaultTeamId = team.Id;
+                    await _userManager.UpdateAsync(user);
+                }
 
-        return await GetTeamByIdAsync(team.Id);
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Created team {TeamId} with existing owner {UserId} via global admin", team.Id, dto.OwnerId);
+
+                return await GetTeamByIdAsync(team.Id);
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        });
     }
 
     public async Task<GlobalAdminTeamDto> UpdateTeamAsync(Guid teamId, GlobalAdminUpdateTeamDto dto)

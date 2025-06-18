@@ -126,6 +126,35 @@ public class Program
         builder.Services.Configure<TeamStride.Infrastructure.Configuration.RateLimitingOptions>(
             builder.Configuration.GetSection(TeamStride.Infrastructure.Configuration.RateLimitingOptions.SectionName));
 
+        // Configure app settings
+        builder.Services.Configure<TeamStride.Infrastructure.Configuration.AppConfiguration>(
+            builder.Configuration.GetSection(TeamStride.Infrastructure.Configuration.AppConfiguration.SectionName));
+
+        // Configure CORS to allow requests from team subdomains
+        builder.Services.AddCors(options =>
+        {
+            options.AddPolicy("AllowTeamSubdomains", policy =>
+            {
+                policy
+                    .SetIsOriginAllowed(origin =>
+                    {
+                        if (string.IsNullOrEmpty(origin))
+                            return false;
+
+                        // Allow localhost:3000 and all team subdomains like eagles.localhost:3000
+                        return origin == "http://localhost:3000" || 
+                               origin == "https://localhost:3000" ||
+                               (origin.StartsWith("http://") && origin.EndsWith(".localhost:3000")) ||
+                               (origin.StartsWith("https://") && origin.EndsWith(".localhost:3000")) ||
+                               // For production, allow teamstride.net subdomains
+                               (origin.StartsWith("https://") && origin.EndsWith(".teamstride.net"));
+                    })
+                    .AllowAnyMethod()
+                    .AllowAnyHeader()
+                    .AllowCredentials();
+            });
+        });
+
         var app = builder.Build();
 
         // Configure the HTTP request pipeline.
@@ -146,6 +175,9 @@ public class Program
         }
 
         app.UseHttpsRedirection();
+
+        // Use CORS
+        app.UseCors("AllowTeamSubdomains");
 
         // Add team resolution before authentication
         app.UseTeamResolution();

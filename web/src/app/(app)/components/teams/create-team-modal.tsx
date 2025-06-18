@@ -11,7 +11,7 @@ import {
   faEyeSlash
 } from '@fortawesome/free-solid-svg-icons';
 import { CreateTeamWithNewOwnerDto, CreateTeamWithExistingOwnerDto, TeamTier, GlobalAdminTeamDto } from '@/types/team';
-import { teamsApi, usersApi } from '@/utils/api';
+import { teamsApi, usersApi, publicTeamsApi } from '@/utils/api';
 import { UsersApiResponse } from '@/types/user';
 import FormModal from '@/components/ui/form-modal';
 
@@ -140,7 +140,7 @@ export default function CreateTeamModal({ isOpen, onClose, onTeamCreated }: Crea
     const timer = setTimeout(async () => {
       try {
         setSubdomainChecking(true);
-        const available = await teamsApi.checkSubdomainAvailability(formData.subdomain);
+        const available = await publicTeamsApi.checkSubdomainAvailability(formData.subdomain);
         setSubdomainAvailable(available);
       } catch (err) {
         console.error('Error checking subdomain:', err);
@@ -340,10 +340,11 @@ export default function CreateTeamModal({ isOpen, onClose, onTeamCreated }: Crea
           tier: formData.tier,
           primaryColor: formData.primaryColor,
           secondaryColor: formData.secondaryColor,
-          expiresOn: formData.expiresOn || undefined,
+          expiresOn: formData.expiresOn ? new Date(formData.expiresOn).toISOString() : undefined,
         };
 
-        newTeam = await teamsApi.createTeamWithNewOwner(dto);
+        console.log('Creating team with DTO:', JSON.stringify(dto, null, 2));
+        newTeam = await teamsApi.createTeamWithNewOwnerAdmin(dto);
       } else {
         const dto: CreateTeamWithExistingOwnerDto = {
           name: formData.name,
@@ -352,15 +353,17 @@ export default function CreateTeamModal({ isOpen, onClose, onTeamCreated }: Crea
           tier: formData.tier,
           primaryColor: formData.primaryColor,
           secondaryColor: formData.secondaryColor,
-          expiresOn: formData.expiresOn || undefined,
+          expiresOn: formData.expiresOn ? new Date(formData.expiresOn).toISOString() : undefined,
         };
 
-        newTeam = await teamsApi.createTeamWithExistingOwner(dto);
+        console.log('Creating team with DTO:', JSON.stringify(dto, null, 2));
+        newTeam = await teamsApi.createTeamWithExistingOwnerAdmin(dto);
       }
 
       onTeamCreated(newTeam);
       onClose();
     } catch (err) {
+      console.error('Team creation error:', err);
       setError(err instanceof Error ? err.message : 'Failed to create team. Please try again.');
     } finally {
       setLoading(false);
@@ -439,7 +442,7 @@ export default function CreateTeamModal({ isOpen, onClose, onTeamCreated }: Crea
               </div>
             </div>
             <p className="text-sm text-gray-500 mt-1">
-              Will be available at: {formData.subdomain || 'subdomain'}.teamstride.com
+              Will be available at: {formData.subdomain || 'subdomain'}.teamstride.net
             </p>
             {fieldErrors.subdomain && (
               <p className="mt-1 text-sm text-red-600 flex items-center">
