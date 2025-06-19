@@ -30,11 +30,6 @@ export default function AdminHomePage() {
   // Auto-refresh token when subdomain context changes
   useAuthTokenRefresh();
 
-  // Set document title
-  useEffect(() => {
-    document.title = "TeamStride - Global Administration - Dashboard";
-  }, []);
-
   // No longer need useEffect for auth - managed by AuthContext
 
   useEffect(() => {

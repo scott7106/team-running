@@ -40,11 +40,6 @@ export default function SiteLoginPage() {
   const { login, isAuthenticated } = useAuth();
   const searchParams = useSearchParams();
 
-  // Set document title
-  useEffect(() => {
-    document.title = "TeamStride - Login";
-  }, []);
-
   // Check for logout message
   useEffect(() => {
     const message = localStorage.getItem('logoutMessage');

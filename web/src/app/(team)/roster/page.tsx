@@ -301,11 +301,6 @@ export default function RosterPage() {
     }
   }, [loadAthletes, isAuthenticated, isTeamMember, isLoading]);
 
-  // Set document title
-  useEffect(() => {
-    document.title = "TeamStride - Team Roster";
-  }, []);
-
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     setCurrentPage(1);

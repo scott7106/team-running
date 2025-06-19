@@ -75,7 +75,6 @@ export default function TeamRegisterPage({
         // Load theme data
         const themeDataResult = await getTeamThemeData(teamSubdomain);
         setThemeData(themeDataResult);
-        document.title = `Join ${themeDataResult.teamName || teamSubdomain} - Registration`;
 
         // Load active registration window
         setLoadingWindow(true);

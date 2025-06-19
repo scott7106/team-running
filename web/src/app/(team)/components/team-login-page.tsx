@@ -55,8 +55,6 @@ export default function TeamLoginPage({
       try {
         const data = await getTeamThemeData(teamSubdomain);
         setThemeData(data);
-        // Set document title with team name
-        document.title = `${data.teamName || teamSubdomain} - Login`;
       } catch (error) {
         console.error('Failed to load theme data:', error);
         // Use default theme
@@ -68,7 +66,6 @@ export default function TeamLoginPage({
           secondaryColor: '#F0FDF4',
           logoUrl: undefined
         });
-        document.title = `${teamSubdomain} - Login`;
       }
     };
 

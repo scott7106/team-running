@@ -253,11 +253,6 @@ export default function AdminUsersPage() {
     loadUsers();
   }, [loadUsers]);
 
-  // Set document title
-  useEffect(() => {
-    document.title = "TeamStride - Global Administration - Users";
-  }, []);
-
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     setCurrentPage(1);

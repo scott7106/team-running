@@ -49,11 +49,6 @@ export default function AdminLoginPage() {
     }
   }, [isAuthenticated, router]);
 
-  // Set document title
-  useEffect(() => {
-    document.title = "TeamStride Admin - Login";
-  }, []);
-
   // Check for logout message
   useEffect(() => {
     const message = localStorage.getItem('logoutMessage');

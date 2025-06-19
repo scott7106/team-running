@@ -230,11 +230,6 @@ export default function AdminTeamsPage() {
     loadTeams();
   }, [loadTeams]);
 
-  // Set document title
-  useEffect(() => {
-    document.title = "TeamStride - Global Administration - Teams";
-  }, []);
-
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     setCurrentPage(1);

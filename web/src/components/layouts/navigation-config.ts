@@ -30,10 +30,10 @@ export const ADMIN_NAV_ITEMS: NavigationItem[] = [
 export const TEAM_NAV_ITEMS: NavigationItem[] = [
   { key: 'dashboard', label: 'Dashboard', href: '/', icon: faHome },
   { key: 'roster', label: 'Roster', href: '/roster', icon: faUsers, isImplemented: true },
-  { key: 'practices', label: 'Practices', href: '/practices', icon: faRunning },
-  { key: 'races', label: 'Races', href: '/races', icon: faTrophy },
-  { key: 'training', label: 'Training', href: '/training', icon: faChartLine },
-  { key: 'uniforms', label: 'Uniforms', href: '/uniforms', icon: faTshirt },
-  { key: 'events', label: 'Events', href: '/events', icon: faCalendar },
-  { key: 'fees', label: 'Fees', href: '/fees', icon: faDollarSign }
+  { key: 'practices', label: 'Practices', href: '/practices', icon: faRunning, isImplemented: false },
+  { key: 'races', label: 'Races', href: '/races', icon: faTrophy, isImplemented: false },
+  { key: 'training', label: 'Training', href: '/training', icon: faChartLine, isImplemented: false },
+  { key: 'uniforms', label: 'Uniforms', href: '/uniforms', icon: faTshirt, isImplemented: false },
+  { key: 'events', label: 'Events', href: '/events', icon: faCalendar, isImplemented: false },
+  { key: 'fees', label: 'Fees', href: '/fees', icon: faDollarSign, isImplemented: false }
 ]; 
