@@ -23,7 +23,8 @@ import {
   faUserTimes,
   faKey
 } from '@fortawesome/free-solid-svg-icons';
-import AdminLayout from '@/components/layouts/admin-layout';
+import BaseLayout from '@/components/layouts/base-layout';
+import { ADMIN_NAV_ITEMS } from '@/components/layouts/navigation-config';
 import ConfirmationModal from '@/components/ui/confirmation-modal';
 import CreateUserModal from '../components/users/create-user-modal';
 import EditUserModal from '../components/users/edit-user-modal';
@@ -399,24 +400,24 @@ export default function AdminUsersPage() {
   const hasActiveFilters = searchQuery || statusFilter !== '' || activeFilter !== '';
 
   return (
-    <AdminLayout pageTitle="Global Administration" currentSection="users">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-              <p className="text-gray-600 mt-1">Manage users across the TeamStride platform</p>
-            </div>
-            <button 
-              onClick={handleCreateUser}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center"
-            >
-              <FontAwesomeIcon icon={faPlus} className="w-4 h-4 mr-2" />
-              Create User
-            </button>
-          </div>
-        </div>
+    <BaseLayout 
+      pageTitle="User Management" 
+      currentSection="users"
+      variant="admin"
+      navigationItems={ADMIN_NAV_ITEMS}
+      siteName="TeamStride"
+    >
+      {/* Page Actions */}
+      <div className="mb-8 flex items-center justify-between">
+        <p className="text-gray-600">Manage users across the TeamStride platform</p>
+        <button 
+          onClick={handleCreateUser}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center"
+        >
+          <FontAwesomeIcon icon={faPlus} className="w-4 h-4 mr-2" />
+          Create User
+        </button>
+      </div>
 
         {/* Search and filters */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
@@ -793,7 +794,6 @@ export default function AdminUsersPage() {
         onPasswordReset={handlePasswordReset}
         user={userToResetPassword}
       />
-      </div>
-    </AdminLayout>
+    </BaseLayout>
   );
 } 

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faUsers, 
@@ -23,6 +22,9 @@ import {
 import TeamThemeProvider from '../components/team-theme-provider';
 import UserContextMenu from '@/components/shared/user-context-menu';
 import ConfirmationModal from '@/components/ui/confirmation-modal';
+import BaseLayout from '@/components/layouts/base-layout';
+import { TEAM_NAV_ITEMS } from '@/components/layouts/navigation-config';
+import { SubdomainThemeDto } from '@/types/team';
 import CreateAthleteModal from '../components/roster/create-athlete-modal';
 import EditAthleteModal from '../components/roster/edit-athlete-modal';
 import AthleteProfileModal from '../components/roster/athlete-profile-modal';
@@ -159,6 +161,7 @@ export default function RosterPage() {
   const [isTeamMember, setIsTeamMember] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [themeData] = useState<SubdomainThemeDto | null>(null);
   const [athletes, setAthletes] = useState<AthleteDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -460,6 +463,457 @@ export default function RosterPage() {
     );
   }
 
+  // For authenticated team members, use BaseLayout
+  if (isAuthenticated && isTeamMember) {
+    return (
+      <TeamThemeProvider>
+        <BaseLayout
+          pageTitle="Team Roster"
+          currentSection="roster"
+          variant="team"
+          navigationItems={TEAM_NAV_ITEMS}
+          siteName={teamName}
+          logoUrl={themeData?.logoUrl}
+          showTeamTheme={true}
+        >
+          <div>
+            {/* Header */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-600 mt-1">Manage your team athletes</p>
+                </div>
+                {canCreateAthlete() && (
+                  <button 
+                    onClick={handleCreateAthlete}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center"
+                  >
+                    <FontAwesomeIcon icon={faPlus} className="w-4 h-4 mr-2" />
+                    Add Athlete
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Search and filters */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+              <div className="p-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        placeholder="Search athletes by name or email..."
+                        value={searchQuery}
+                        onChange={(e) => handleSearch(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setFiltersExpanded(!filtersExpanded)}
+                    className={`flex items-center px-4 py-2 border rounded-lg font-medium transition-colors ${
+                      hasActiveFilters 
+                        ? 'border-blue-500 text-blue-600 bg-blue-50' 
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <FontAwesomeIcon icon={faFilter} className="w-4 h-4 mr-2" />
+                    Filters
+                    <FontAwesomeIcon 
+                      icon={filtersExpanded ? faChevronUp : faChevronDown} 
+                      className="w-4 h-4 ml-2" 
+                    />
+                  </button>
+                </div>
+                
+                {filtersExpanded && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label htmlFor="role-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                          Role
+                        </label>
+                        <select
+                          id="role-filter"
+                          value={roleFilter}
+                          onChange={(e) => handleRoleFilter(e.target.value === '' ? '' : parseInt(e.target.value) as AthleteRole)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="">All Roles</option>
+                          <option value={AthleteRole.Athlete}>Athlete</option>
+                          <option value={AthleteRole.Captain}>Captain</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="physical-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                          Physical Status
+                        </label>
+                        <select
+                          id="physical-filter"
+                          value={physicalFilter.toString()}
+                          onChange={(e) => handlePhysicalFilter(e.target.value === '' ? '' : e.target.value === 'true')}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="">All</option>
+                          <option value="true">Physical Complete</option>
+                          <option value="false">Physical Needed</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="waiver-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                          Waiver Status
+                        </label>
+                        <select
+                          id="waiver-filter"
+                          value={waiverFilter.toString()}
+                          onChange={(e) => handleWaiverFilter(e.target.value === '' ? '' : e.target.value === 'true')}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="">All</option>
+                          <option value="true">Waiver Signed</option>
+                          <option value="false">Waiver Needed</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Error message */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <div className="flex">
+                  <FontAwesomeIcon icon={faExclamationTriangle} className="w-5 h-5 text-red-400 mr-3 mt-0.5" />
+                  <div className="text-red-700">{error}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Athletes table */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <FontAwesomeIcon icon={faSpinner} className="w-8 h-8 text-blue-600" spin />
+                  <span className="ml-3 text-gray-600">Loading athletes...</span>
+                </div>
+              ) : athletes.length === 0 ? (
+                <div className="text-center py-12">
+                  <FontAwesomeIcon icon={faUsers} className="w-12 h-12 text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No athletes found</h3>
+                  <p className="text-gray-500 mb-4">
+                    {hasActiveFilters ? 'Try adjusting your search or filters.' : 'Get started by adding your first athlete.'}
+                  </p>
+                  {canCreateAthlete() && !hasActiveFilters && (
+                    <button
+                      onClick={handleCreateAthlete}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                    >
+                      <FontAwesomeIcon icon={faPlus} className="w-4 h-4 mr-2" />
+                      Add First Athlete
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* Desktop table */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Athlete
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Role
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Grade
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Physical
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Waiver
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Emergency Contact
+                          </th>
+                          <th className="relative px-6 py-3">
+                            <span className="sr-only">Actions</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {athletes.map((athlete) => (
+                          <tr key={athlete.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {athlete.firstName} {athlete.lastName}
+                                  </div>
+                                  {athlete.email && (
+                                    <div className="text-sm text-gray-500">{athlete.email}</div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                athlete.role === AthleteRole.Captain
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {getAthleteRoleDisplayName(athlete.role)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {athlete.grade || '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                athlete.hasPhysicalOnFile
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {athlete.hasPhysicalOnFile ? 'Complete' : 'Needed'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                athlete.hasWaiverSigned
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {athlete.hasWaiverSigned ? 'Signed' : 'Needed'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {athlete.emergencyContactName || '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <DropdownMenu
+                                athlete={athlete}
+                                onEdit={handleEdit}
+                                onDelete={handleDelete}
+                                onProfile={handleProfile}
+                                onTogglePhysical={handleTogglePhysical}
+                                onToggleWaiver={handleToggleWaiver}
+                                canEdit={canEditAthlete(athlete)}
+                                canDelete={canDeleteAthlete()}
+                                canToggleStatus={canToggleStatus(athlete)}
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile cards */}
+                  <div className="md:hidden">
+                    <div className="divide-y divide-gray-200">
+                      {athletes.map((athlete) => (
+                        <div key={athlete.id} className="p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <h3 className="text-lg font-medium text-gray-900">
+                                {athlete.firstName} {athlete.lastName}
+                              </h3>
+                              {athlete.email && (
+                                <p className="text-sm text-gray-500">{athlete.email}</p>
+                              )}
+                            </div>
+                            <DropdownMenu
+                              athlete={athlete}
+                              onEdit={handleEdit}
+                              onDelete={handleDelete}
+                              onProfile={handleProfile}
+                              onTogglePhysical={handleTogglePhysical}
+                              onToggleWaiver={handleToggleWaiver}
+                              canEdit={canEditAthlete(athlete)}
+                              canDelete={canDeleteAthlete()}
+                              canToggleStatus={canToggleStatus(athlete)}
+                            />
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">Role:</span>
+                              <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                athlete.role === AthleteRole.Captain
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {getAthleteRoleDisplayName(athlete.role)}
+                              </span>
+                            </div>
+                            
+                            <div>
+                              <span className="text-gray-500">Grade:</span>
+                              <span className="ml-2 text-gray-900">{athlete.grade || '-'}</span>
+                            </div>
+                            
+                            <div>
+                              <span className="text-gray-500">Physical:</span>
+                              <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                athlete.hasPhysicalOnFile
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {athlete.hasPhysicalOnFile ? 'Complete' : 'Needed'}
+                              </span>
+                            </div>
+                            
+                            <div>
+                              <span className="text-gray-500">Waiver:</span>
+                              <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                athlete.hasWaiverSigned
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {athlete.hasWaiverSigned ? 'Signed' : 'Needed'}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {athlete.emergencyContactName && (
+                            <div className="mt-2 text-sm">
+                              <span className="text-gray-500">Emergency Contact:</span>
+                              <span className="ml-2 text-gray-900">{athlete.emergencyContactName}</span>
+                              {athlete.emergencyContactPhone && (
+                                <span className="ml-2 text-gray-500">({athlete.emergencyContactPhone})</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="px-6 py-3 flex items-center justify-between border-t border-gray-200 bg-gray-50">
+                      <div className="flex-1 flex justify-between sm:hidden">
+                        <button
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          disabled={currentPage === 1}
+                          className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Previous
+                        </button>
+                        <button
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                          className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Next
+                        </button>
+                      </div>
+                      <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm text-gray-700">
+                            Showing <span className="font-medium">{startIndex}</span> to{' '}
+                            <span className="font-medium">{endIndex}</span> of{' '}
+                            <span className="font-medium">{totalCount}</span> results
+                          </p>
+                        </div>
+                        <div>
+                          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                            <button
+                              onClick={() => handlePageChange(currentPage - 1)}
+                              disabled={currentPage === 1}
+                              className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <FontAwesomeIcon icon={faChevronLeft} className="w-4 h-4" />
+                            </button>
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                              <button
+                                key={page}
+                                onClick={() => handlePageChange(page)}
+                                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                  page === currentPage
+                                    ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            ))}
+                            <button
+                              onClick={() => handlePageChange(currentPage + 1)}
+                              disabled={currentPage === totalPages}
+                              className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <FontAwesomeIcon icon={faChevronRight} className="w-4 h-4" />
+                            </button>
+                          </nav>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Modals */}
+          {showCreateModal && (
+            <CreateAthleteModal
+              onClose={() => setShowCreateModal(false)}
+              onAthleteCreated={handleAthleteCreated}
+            />
+          )}
+
+          {showEditModal && athleteToEdit && (
+            <EditAthleteModal
+              athlete={athleteToEdit}
+              onClose={() => {
+                setShowEditModal(false);
+                setAthleteToEdit(null);
+              }}
+              onAthleteUpdated={handleAthleteUpdated}
+            />
+          )}
+
+          {showProfileModal && athleteToView && (
+            <AthleteProfileModal
+              athlete={athleteToView}
+              onClose={() => {
+                setShowProfileModal(false);
+                setAthleteToView(null);
+              }}
+              canEdit={canEditAthlete(athleteToView)}
+              onProfileUpdated={handleAthleteUpdated}
+            />
+          )}
+
+          {showDeleteModal && athleteToDelete && (
+            <ConfirmationModal
+              isOpen={showDeleteModal}
+              onClose={() => {
+                setShowDeleteModal(false);
+                setAthleteToDelete(null);
+              }}
+              onConfirm={confirmDelete}
+              title="Remove Athlete from Team"
+              message={`Are you sure you want to remove ${athleteToDelete.firstName} ${athleteToDelete.lastName} from the team? This will remove them from the roster and their team membership, but will not delete their user account.`}
+              confirmText="Remove from Team"
+              loading={deleteLoading}
+              confirmButtonClass="bg-red-600 text-white hover:bg-red-700 focus:ring-red-500"
+            />
+          )}
+        </BaseLayout>
+      </TeamThemeProvider>
+    );
+  }
+
+  // For non-authenticated users or non-team members, use the existing public layout
   return (
     <TeamThemeProvider>
       <div className="min-h-screen" style={{ backgroundColor: 'var(--team-primary-bg)' }}>
@@ -502,523 +956,25 @@ export default function RosterPage() {
           </div>
         </header>
 
-        <div className="flex">
-          {/* Sidebar - only show to team members */}
-          {isAuthenticated && isTeamMember && (
-            <aside className="w-64 bg-white shadow-md min-h-screen">
-              <nav className="mt-8 px-4">
-                                 <ul className="space-y-2">
-                   <li>
-                     <Link 
-                       href="/" 
-                       className="flex items-center px-4 py-2 text-gray-700 rounded-md hover:bg-gray-100"
-                     >
-                       <span>Dashboard</span>
-                     </Link>
-                   </li>
-                                     <li>
-                     <Link 
-                       href="/roster" 
-                       className="flex items-center px-4 py-2 rounded-md hover:bg-gray-100"
-                       style={{ color: 'var(--team-primary)' }}
-                     >
-                       <span>Roster</span>
-                     </Link>
-                   </li>
-                  <li>
-                    <a 
-                      href="#" 
-                      className="flex items-center px-4 py-2 text-gray-700 rounded-md hover:bg-gray-100"
-                    >
-                      <span>My Training</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a 
-                      href="#" 
-                      className="flex items-center px-4 py-2 text-gray-700 rounded-md hover:bg-gray-100"
-                    >
-                      <span>Team Calendar</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a 
-                      href="#" 
-                      className="flex items-center px-4 py-2 text-gray-700 rounded-md hover:bg-gray-100"
-                    >
-                      <span>Race Results</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a 
-                      href="#" 
-                      className="flex items-center px-4 py-2 text-gray-700 rounded-md hover:bg-gray-100"
-                    >
-                      <span>Team Chat</span>
-                    </a>
-                  </li>
-                </ul>
-              </nav>
-            </aside>
-          )}
-
-          {/* Main content */}
-          <main className={`flex-1 ${isAuthenticated && isTeamMember ? 'p-8' : 'p-0'}`}>
-            {isAuthenticated && isTeamMember ? (
-              // Team Member Roster Content
-              <div>
-                {/* Header */}
-                <div className="mb-8">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-3xl font-bold text-gray-900">Team Roster</h2>
-                      <p className="text-gray-600 mt-1">Manage your team athletes</p>
-                    </div>
-                    {canCreateAthlete() && (
-                      <button 
-                        onClick={handleCreateAthlete}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center"
-                      >
-                        <FontAwesomeIcon icon={faPlus} className="w-4 h-4 mr-2" />
-                        Add Athlete
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Search and filters */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-                  <div className="p-4">
-                    <div className="flex flex-col sm:flex-row gap-4">
-                      <div className="flex-1">
-                        <div className="relative">
-                          <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                          <input
-                            type="text"
-                            placeholder="Search athletes by name or email..."
-                            value={searchQuery}
-                            onChange={(e) => handleSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setFiltersExpanded(!filtersExpanded)}
-                        className={`flex items-center px-4 py-2 border rounded-lg font-medium transition-colors ${
-                          hasActiveFilters 
-                            ? 'border-blue-500 text-blue-600 bg-blue-50' 
-                            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        <FontAwesomeIcon icon={faFilter} className="w-4 h-4 mr-2" />
-                        Filters
-                        <FontAwesomeIcon 
-                          icon={filtersExpanded ? faChevronUp : faChevronDown} 
-                          className="w-4 h-4 ml-2" 
-                        />
-                      </button>
-                    </div>
-                    
-                    {filtersExpanded && (
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          <div>
-                            <label htmlFor="role-filter" className="block text-sm font-medium text-gray-700 mb-1">
-                              Role
-                            </label>
-                            <select
-                              id="role-filter"
-                              value={roleFilter}
-                              onChange={(e) => handleRoleFilter(e.target.value === '' ? '' : parseInt(e.target.value) as AthleteRole)}
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            >
-                              <option value="">All Roles</option>
-                              <option value={AthleteRole.Athlete}>Athlete</option>
-                              <option value={AthleteRole.Captain}>Captain</option>
-                            </select>
-                          </div>
-                          
-                          <div>
-                            <label htmlFor="physical-filter" className="block text-sm font-medium text-gray-700 mb-1">
-                              Physical Status
-                            </label>
-                            <select
-                              id="physical-filter"
-                              value={physicalFilter.toString()}
-                              onChange={(e) => handlePhysicalFilter(e.target.value === '' ? '' : e.target.value === 'true')}
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            >
-                              <option value="">All</option>
-                              <option value="true">Physical Complete</option>
-                              <option value="false">Physical Needed</option>
-                            </select>
-                          </div>
-                          
-                          <div>
-                            <label htmlFor="waiver-filter" className="block text-sm font-medium text-gray-700 mb-1">
-                              Waiver Status
-                            </label>
-                            <select
-                              id="waiver-filter"
-                              value={waiverFilter.toString()}
-                              onChange={(e) => handleWaiverFilter(e.target.value === '' ? '' : e.target.value === 'true')}
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            >
-                              <option value="">All</option>
-                              <option value="true">Waiver Signed</option>
-                              <option value="false">Waiver Needed</option>
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Error message */}
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                    <div className="flex">
-                      <FontAwesomeIcon icon={faExclamationTriangle} className="w-5 h-5 text-red-400 mr-3 mt-0.5" />
-                      <div className="text-red-700">{error}</div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Athletes table */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                  {loading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <FontAwesomeIcon icon={faSpinner} className="w-8 h-8 text-blue-600" spin />
-                      <span className="ml-3 text-gray-600">Loading athletes...</span>
-                    </div>
-                  ) : athletes.length === 0 ? (
-                    <div className="text-center py-12">
-                      <FontAwesomeIcon icon={faUsers} className="w-12 h-12 text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">No athletes found</h3>
-                      <p className="text-gray-500 mb-4">
-                        {hasActiveFilters ? 'Try adjusting your search or filters.' : 'Get started by adding your first athlete.'}
-                      </p>
-                      {canCreateAthlete() && !hasActiveFilters && (
-                        <button
-                          onClick={handleCreateAthlete}
-                          className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                        >
-                          <FontAwesomeIcon icon={faPlus} className="w-4 h-4 mr-2" />
-                          Add First Athlete
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      {/* Desktop table */}
-                      <div className="hidden md:block overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Athlete
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Role
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Grade
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Physical
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Waiver
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Emergency Contact
-                              </th>
-                              <th className="relative px-6 py-3">
-                                <span className="sr-only">Actions</span>
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {athletes.map((athlete) => (
-                              <tr key={athlete.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="flex items-center">
-                                    <div>
-                                      <div className="text-sm font-medium text-gray-900">
-                                        {athlete.firstName} {athlete.lastName}
-                                      </div>
-                                      {athlete.email && (
-                                        <div className="text-sm text-gray-500">{athlete.email}</div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                    athlete.role === AthleteRole.Captain
-                                      ? 'bg-yellow-100 text-yellow-800'
-                                      : 'bg-gray-100 text-gray-800'
-                                  }`}>
-                                    {getAthleteRoleDisplayName(athlete.role)}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {athlete.grade || '-'}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                    athlete.hasPhysicalOnFile
-                                      ? 'bg-green-100 text-green-800'
-                                      : 'bg-red-100 text-red-800'
-                                  }`}>
-                                    {athlete.hasPhysicalOnFile ? 'Complete' : 'Needed'}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                    athlete.hasWaiverSigned
-                                      ? 'bg-green-100 text-green-800'
-                                      : 'bg-red-100 text-red-800'
-                                  }`}>
-                                    {athlete.hasWaiverSigned ? 'Signed' : 'Needed'}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {athlete.emergencyContactName || '-'}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                  <DropdownMenu
-                                    athlete={athlete}
-                                    onEdit={handleEdit}
-                                    onDelete={handleDelete}
-                                    onProfile={handleProfile}
-                                    onTogglePhysical={handleTogglePhysical}
-                                    onToggleWaiver={handleToggleWaiver}
-                                    canEdit={canEditAthlete(athlete)}
-                                    canDelete={canDeleteAthlete()}
-                                    canToggleStatus={canToggleStatus(athlete)}
-                                  />
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Mobile cards */}
-                      <div className="md:hidden">
-                        <div className="divide-y divide-gray-200">
-                          {athletes.map((athlete) => (
-                            <div key={athlete.id} className="p-4">
-                              <div className="flex items-center justify-between mb-3">
-                                <div>
-                                  <h3 className="text-lg font-medium text-gray-900">
-                                    {athlete.firstName} {athlete.lastName}
-                                  </h3>
-                                  {athlete.email && (
-                                    <p className="text-sm text-gray-500">{athlete.email}</p>
-                                  )}
-                                </div>
-                                <DropdownMenu
-                                  athlete={athlete}
-                                  onEdit={handleEdit}
-                                  onDelete={handleDelete}
-                                  onProfile={handleProfile}
-                                  onTogglePhysical={handleTogglePhysical}
-                                  onToggleWaiver={handleToggleWaiver}
-                                  canEdit={canEditAthlete(athlete)}
-                                  canDelete={canDeleteAthlete()}
-                                  canToggleStatus={canToggleStatus(athlete)}
-                                />
-                              </div>
-                              
-                              <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                  <span className="text-gray-500">Role:</span>
-                                  <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                    athlete.role === AthleteRole.Captain
-                                      ? 'bg-yellow-100 text-yellow-800'
-                                      : 'bg-gray-100 text-gray-800'
-                                  }`}>
-                                    {getAthleteRoleDisplayName(athlete.role)}
-                                  </span>
-                                </div>
-                                
-                                <div>
-                                  <span className="text-gray-500">Grade:</span>
-                                  <span className="ml-2 text-gray-900">{athlete.grade || '-'}</span>
-                                </div>
-                                
-                                <div>
-                                  <span className="text-gray-500">Physical:</span>
-                                  <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                    athlete.hasPhysicalOnFile
-                                      ? 'bg-green-100 text-green-800'
-                                      : 'bg-red-100 text-red-800'
-                                  }`}>
-                                    {athlete.hasPhysicalOnFile ? 'Complete' : 'Needed'}
-                                  </span>
-                                </div>
-                                
-                                <div>
-                                  <span className="text-gray-500">Waiver:</span>
-                                  <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                    athlete.hasWaiverSigned
-                                      ? 'bg-green-100 text-green-800'
-                                      : 'bg-red-100 text-red-800'
-                                  }`}>
-                                    {athlete.hasWaiverSigned ? 'Signed' : 'Needed'}
-                                  </span>
-                                </div>
-                              </div>
-                              
-                              {athlete.emergencyContactName && (
-                                <div className="mt-2 text-sm">
-                                  <span className="text-gray-500">Emergency Contact:</span>
-                                  <span className="ml-2 text-gray-900">{athlete.emergencyContactName}</span>
-                                  {athlete.emergencyContactPhone && (
-                                    <span className="ml-2 text-gray-500">({athlete.emergencyContactPhone})</span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Pagination */}
-                      {totalPages > 1 && (
-                        <div className="px-6 py-3 flex items-center justify-between border-t border-gray-200 bg-gray-50">
-                          <div className="flex-1 flex justify-between sm:hidden">
-                            <button
-                              onClick={() => handlePageChange(currentPage - 1)}
-                              disabled={currentPage === 1}
-                              className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Previous
-                            </button>
-                            <button
-                              onClick={() => handlePageChange(currentPage + 1)}
-                              disabled={currentPage === totalPages}
-                              className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Next
-                            </button>
-                          </div>
-                          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                            <div>
-                              <p className="text-sm text-gray-700">
-                                Showing <span className="font-medium">{startIndex}</span> to{' '}
-                                <span className="font-medium">{endIndex}</span> of{' '}
-                                <span className="font-medium">{totalCount}</span> results
-                              </p>
-                            </div>
-                            <div>
-                              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                                <button
-                                  onClick={() => handlePageChange(currentPage - 1)}
-                                  disabled={currentPage === 1}
-                                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  <FontAwesomeIcon icon={faChevronLeft} className="w-4 h-4" />
-                                </button>
-                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                                  <button
-                                    key={page}
-                                    onClick={() => handlePageChange(page)}
-                                    className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                                      page === currentPage
-                                        ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                                        : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                                    }`}
-                                  >
-                                    {page}
-                                  </button>
-                                ))}
-                                <button
-                                  onClick={() => handlePageChange(currentPage + 1)}
-                                  disabled={currentPage === totalPages}
-                                  className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  <FontAwesomeIcon icon={faChevronRight} className="w-4 h-4" />
-                                </button>
-                              </nav>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            ) : (
-              // Access Denied - not a team member
-              <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                  <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
-                  <p className="text-gray-600">You need to be a team member to access the roster.</p>
-                  {!isAuthenticated && (
-                    <a
-                      href="/login"
-                      className="mt-4 inline-block bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                    >
-                      Login to Continue
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
-          </main>
-        </div>
+        {/* Main content for non-team members */}
+        <main className="p-0">
+          {/* Access Denied - not a team member */}
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
+              <p className="text-gray-600">You need to be a team member to access the roster.</p>
+              {!isAuthenticated && (
+                <a
+                  href="/login"
+                  className="mt-4 inline-block bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                >
+                  Login to Continue
+                </a>
+              )}
+            </div>
+          </div>
+        </main>
       </div>
-
-      {/* Modals */}
-      {showCreateModal && (
-        <CreateAthleteModal
-          onClose={() => setShowCreateModal(false)}
-          onAthleteCreated={handleAthleteCreated}
-        />
-      )}
-
-      {showEditModal && athleteToEdit && (
-        <EditAthleteModal
-          athlete={athleteToEdit}
-          onClose={() => {
-            setShowEditModal(false);
-            setAthleteToEdit(null);
-          }}
-          onAthleteUpdated={handleAthleteUpdated}
-        />
-      )}
-
-      {showProfileModal && athleteToView && (
-        <AthleteProfileModal
-          athlete={athleteToView}
-          onClose={() => {
-            setShowProfileModal(false);
-            setAthleteToView(null);
-          }}
-          canEdit={canEditAthlete(athleteToView)}
-          onProfileUpdated={handleAthleteUpdated}
-        />
-      )}
-
-      {showDeleteModal && athleteToDelete && (
-        <ConfirmationModal
-          isOpen={showDeleteModal}
-          onClose={() => {
-            setShowDeleteModal(false);
-            setAthleteToDelete(null);
-          }}
-          onConfirm={confirmDelete}
-          title="Remove Athlete from Team"
-          message={`Are you sure you want to remove ${athleteToDelete.firstName} ${athleteToDelete.lastName} from the team? This will remove them from the roster and their team membership, but will not delete their user account.`}
-          confirmText="Remove from Team"
-          loading={deleteLoading}
-          confirmButtonClass="bg-red-600 text-white hover:bg-red-700 focus:ring-red-500"
-        />
-      )}
-    </TeamThemeProvider>
-  );
-} 
+              </TeamThemeProvider>
+   );
+  } 

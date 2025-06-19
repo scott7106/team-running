@@ -25,6 +25,45 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Team theming classes - only apply team colors to specific elements */
+.team-navbar { 
+  background-color: var(--team-primary); 
+}
+
+.team-main-bg { 
+  background-color: var(--team-primary-bg); 
+}
+
+.team-sidebar {
+  background-color: var(--team-primary);
+}
+
+/* Cards remain consistent - NO theming */
+.card {
+  background: white;
+  border: 1px solid rgb(229 231 235);
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  border-radius: 0.5rem;
+}
+
+/* Design System Tokens */
+:root {
+  /* Spacing */
+  --layout-header-height: 4rem;
+  --layout-sidebar-width: 16rem;
+  --content-padding: 2rem;
+  --card-padding: 1.5rem;
+  --card-gap: 1.5rem;
+
+  /* Borders */
+  --border-radius: 0.5rem;
+  --border-color: rgb(229 231 235);
+
+  /* Shadows */
+  --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  --card-shadow-hover: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
 /* Global form field text styling */
 input,
 textarea,

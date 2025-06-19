@@ -63,7 +63,7 @@ public class ApiTeamContextMiddleware
 
             // For API endpoints, we may not have subdomain context from the host
             // Try to determine subdomain from the request or use a fallback strategy
-            await TrySetSubdomainContextForApiRequest(context, teamService);
+            TrySetSubdomainContextForApiRequest(context, teamService);
 
             // Try to set team context from JWT claims if user is authenticated
             var teamSetFromJwt = teamService.SetTeamFromJwtClaims();
@@ -98,7 +98,7 @@ public class ApiTeamContextMiddleware
         }
     }
 
-    private async Task TrySetSubdomainContextForApiRequest(HttpContext context, ICurrentTeamService teamService)
+    private void TrySetSubdomainContextForApiRequest(HttpContext context, ICurrentTeamService teamService)
     {
         try
         {

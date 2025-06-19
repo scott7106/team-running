@@ -7,18 +7,17 @@ import {
   faUsers, 
   faBuilding, 
   faUserShield,
-  faSpinner,
-  faBars,
-  faTimes
+  faSpinner
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuthTokenRefresh } from '@/hooks/use-auth-token-refresh';
 import UserContextMenu from '@/components/shared/user-context-menu';
 import { useUser, useTenant } from '@/contexts/auth-context';
 import { dashboardApi, DashboardStatsDto, ApiError } from '@/utils/api';
 import HeroSection from '@/components/shared/hero-section';
+import BaseLayout from '@/components/layouts/base-layout';
+import { ADMIN_NAV_ITEMS } from '@/components/layouts/navigation-config';
 
 export default function AdminHomePage() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStatsDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,12 +64,10 @@ export default function AdminHomePage() {
 
   const handleManageTeams = () => {
     router.push('/teams');
-    setIsSidebarOpen(false);
   };
 
   const handleManageUsers = () => {
     router.push('/users');
-    setIsSidebarOpen(false);
   };
 
   const handleLoginClick = () => {
@@ -280,77 +277,16 @@ export default function AdminHomePage() {
 
   // If authenticated and is a global admin, show full admin layout
   return (
-    <div className="min-h-screen bg-gray-50 lg:flex">
-      {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 w-64 bg-gray-900 transform ${
-        isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      } transition-transform duration-300 ease-in-out lg:translate-x-0 lg:relative lg:flex-shrink-0 z-50 lg:z-auto`}>
-        <div className="flex items-center justify-center h-16 px-4 bg-gray-800">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-lg">T</span>
-          </div>
-          <span className="ml-2 text-xl font-bold text-white">TeamStride</span>
-          <button
-            onClick={() => setIsSidebarOpen(false)}
-            className="ml-auto text-gray-400 hover:text-white lg:hidden"
-          >
-            <FontAwesomeIcon icon={faTimes} />
-          </button>
-        </div>
-
-        <nav className="mt-8">
-          <div className="px-4 space-y-2">
-            <button
-              onClick={handleManageTeams}
-              className="w-full flex items-center px-4 py-3 rounded-lg transition-colors text-left text-gray-300 hover:bg-gray-700 hover:text-white"
-            >
-              <FontAwesomeIcon icon={faBuilding} className="w-5 h-5 mr-3" />
-              <span>Manage Teams</span>
-            </button>
-            <button
-              onClick={handleManageUsers}
-              className="w-full flex items-center px-4 py-3 rounded-lg transition-colors text-left text-gray-300 hover:bg-gray-700 hover:text-white"
-            >
-              <FontAwesomeIcon icon={faUsers} className="w-5 h-5 mr-3" />
-              <span>Manage Users</span>
-            </button>
-          </div>
-        </nav>
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 lg:flex lg:flex-col lg:overflow-hidden">
-        {/* Top bar */}
-        <div className="bg-white shadow-sm border-b">
-          <div className="flex items-center justify-between h-16 px-4">
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="text-gray-500 hover:text-gray-700 lg:hidden"
-            >
-              <FontAwesomeIcon icon={faBars} className="w-6 h-6" />
-            </button>
-            
-            {/* Desktop: Show page title */}
-            <h1 className="hidden lg:block text-xl font-semibold text-gray-900">Global Administration</h1>
-            
-            {/* Mobile & Desktop: User Context Menu */}
-            <UserContextMenu className="lg:hidden" />
-            
-            <div className="hidden lg:flex items-center space-x-4">
-              <UserContextMenu />
-            </div>
-          </div>
-        </div>
-
-        {/* Page content */}
-        <div className="flex-1 p-6 lg:overflow-y-auto">
-          <div className="max-w-4xl mx-auto">
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Administration Dashboard</h2>
-              <p className="text-gray-600">
-                Manage teams and users across the entire TeamStride platform.
-              </p>
-            </div>
+    <BaseLayout
+      pageTitle="Administration Dashboard"
+      currentSection="dashboard"
+      variant="admin"
+      navigationItems={ADMIN_NAV_ITEMS}
+      siteName="TeamStride"
+    >
+      <p className="text-gray-600 mb-8">
+        Manage teams and users across the entire TeamStride platform.
+      </p>
 
             {/* Main action cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -459,17 +395,6 @@ export default function AdminHomePage() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile overlay */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-    </div>
+    </BaseLayout>
   );
 } 
