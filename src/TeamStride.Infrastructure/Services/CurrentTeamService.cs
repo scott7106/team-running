@@ -49,45 +49,152 @@ public class CurrentTeamService : ICurrentTeamService
         
         if (!IsAuthenticated)
         {
+            _logger.LogDebug("User not authenticated, returning empty team memberships");
             return memberships;
         }
 
         try
         {
             var teamMembershipsJson = _httpContextAccessor.HttpContext?.User?.FindFirst("team_memberships")?.Value;
+            _logger.LogWarning("Raw team memberships claim value: {TeamMembershipsJson}", teamMembershipsJson ?? "null");
+            
             if (string.IsNullOrEmpty(teamMembershipsJson))
             {
+                _logger.LogWarning("Team memberships claim is null or empty");
                 return memberships;
             }
 
             var teamMembershipDtos = JsonSerializer.Deserialize<List<dynamic>>(teamMembershipsJson);
-            if (teamMembershipDtos == null) return memberships;
+            if (teamMembershipDtos == null) 
+            {
+                _logger.LogWarning("Failed to deserialize team memberships JSON");
+                return memberships;
+            }
+
+            _logger.LogWarning("Parsed {Count} team membership entries from JSON", teamMembershipDtos.Count);
 
             foreach (var dto in teamMembershipDtos)
             {
-                var jsonElement = (JsonElement)dto;
-                
-                if (jsonElement.TryGetProperty("teamId", out var teamIdProp) &&
-                    jsonElement.TryGetProperty("teamSubdomain", out var subdomainProp) &&
-                    jsonElement.TryGetProperty("teamRole", out var roleProp) &&
-                    jsonElement.TryGetProperty("memberType", out var memberTypeProp) &&
-                    Guid.TryParse(teamIdProp.GetString(), out var teamId) &&
-                    Enum.TryParse<TeamRole>(roleProp.GetString(), out var teamRole) &&
-                    Enum.TryParse<MemberType>(memberTypeProp.GetString(), out var memberType))
+                try
                 {
-                    memberships.Add(new TeamMembershipInfo(
+                    var jsonElement = (JsonElement)dto;
+                    _logger.LogWarning("Processing membership JSON element: {JsonElement}", jsonElement.ToString());
+                    
+                    // Parse teamId - handle both string and GUID formats
+                    Guid teamId;
+                    if (jsonElement.TryGetProperty("teamId", out var teamIdProp))
+                    {
+                        if (teamIdProp.ValueKind == JsonValueKind.String)
+                        {
+                            if (!Guid.TryParse(teamIdProp.GetString(), out teamId))
+                            {
+                                _logger.LogWarning("Failed to parse teamId as GUID from string: {TeamIdValue}", teamIdProp.GetString());
+                                continue;
+                            }
+                        }
+                        else if (teamIdProp.ValueKind == JsonValueKind.Number)
+                        {
+                            _logger.LogWarning("TeamId is stored as number, but expected string/GUID: {TeamIdValue}", teamIdProp.ToString());
+                            continue;
+                        }
+                        else
+                        {
+                            _logger.LogWarning("TeamId has unexpected value kind: {ValueKind}, value: {Value}", teamIdProp.ValueKind, teamIdProp.ToString());
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Missing teamId property in membership JSON");
+                        continue;
+                    }
+
+                    // Parse other required properties
+                    if (!jsonElement.TryGetProperty("teamSubdomain", out var subdomainProp) ||
+                        !jsonElement.TryGetProperty("teamRole", out var roleProp) ||
+                        !jsonElement.TryGetProperty("memberType", out var memberTypeProp))
+                    {
+                        _logger.LogWarning("Missing required properties in membership JSON: {JsonElement}", jsonElement.ToString());
+                        continue;
+                    }
+
+                    // Parse teamRole - handle both string and number formats
+                    TeamRole teamRole;
+                    if (roleProp.ValueKind == JsonValueKind.String)
+                    {
+                        if (!Enum.TryParse<TeamRole>(roleProp.GetString(), out teamRole))
+                        {
+                            _logger.LogWarning("Failed to parse teamRole from string: {TeamRoleValue}", roleProp.GetString());
+                            continue;
+                        }
+                    }
+                    else if (roleProp.ValueKind == JsonValueKind.Number)
+                    {
+                        var roleNumber = roleProp.GetInt32();
+                        if (!Enum.IsDefined(typeof(TeamRole), roleNumber))
+                        {
+                            _logger.LogWarning("Invalid teamRole number: {TeamRoleValue}", roleNumber);
+                            continue;
+                        }
+                        teamRole = (TeamRole)roleNumber;
+                        _logger.LogWarning("Parsed teamRole from number: {RoleNumber} = {RoleName}", roleNumber, teamRole);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("TeamRole has unexpected value kind: {ValueKind}, value: {Value}", roleProp.ValueKind, roleProp.ToString());
+                        continue;
+                    }
+
+                    // Parse memberType - handle both string and number formats
+                    MemberType memberType;
+                    if (memberTypeProp.ValueKind == JsonValueKind.String)
+                    {
+                        if (!Enum.TryParse<MemberType>(memberTypeProp.GetString(), out memberType))
+                        {
+                            _logger.LogWarning("Failed to parse memberType from string: {MemberTypeValue}", memberTypeProp.GetString());
+                            continue;
+                        }
+                    }
+                    else if (memberTypeProp.ValueKind == JsonValueKind.Number)
+                    {
+                        var memberTypeNumber = memberTypeProp.GetInt32();
+                        if (!Enum.IsDefined(typeof(MemberType), memberTypeNumber))
+                        {
+                            _logger.LogWarning("Invalid memberType number: {MemberTypeValue}", memberTypeNumber);
+                            continue;
+                        }
+                        memberType = (MemberType)memberTypeNumber;
+                        _logger.LogWarning("Parsed memberType from number: {MemberTypeNumber} = {MemberTypeName}", memberTypeNumber, memberType);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("MemberType has unexpected value kind: {ValueKind}, value: {Value}", memberTypeProp.ValueKind, memberTypeProp.ToString());
+                        continue;
+                    }
+
+                    var membership = new TeamMembershipInfo(
                         teamId,
                         subdomainProp.GetString() ?? string.Empty,
                         teamRole,
-                        memberType));
+                        memberType);
+                    
+                    memberships.Add(membership);
+                    _logger.LogWarning("Successfully parsed membership: TeamId={TeamId}, Subdomain={Subdomain}, Role={Role}, MemberType={MemberType}", 
+                        teamId, subdomainProp.GetString(), teamRole, memberType);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error parsing individual team membership entry");
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to parse team memberships from JWT claims");
+            _logger.LogError(ex, "Failed to parse team memberships from JWT claims. Raw JSON: {RawJson}", 
+                _httpContextAccessor.HttpContext?.User?.FindFirst("team_memberships")?.Value ?? "null");
         }
 
+        _logger.LogDebug("Returning {Count} team memberships", memberships.Count);
         return memberships;
     }
 
@@ -108,7 +215,6 @@ public class CurrentTeamService : ICurrentTeamService
     {
         get
         {
-            if (IsGlobalAdmin) return TeamRole.TeamOwner; // Global admins have full permissions
             return GetCurrentTeamMembership()?.TeamRole;
         }
     }
@@ -117,7 +223,6 @@ public class CurrentTeamService : ICurrentTeamService
     {
         get
         {
-            if (IsGlobalAdmin) return MemberType.Coach; // Default for global admins
             return GetCurrentTeamMembership()?.MemberType;
         }
     }
@@ -174,29 +279,71 @@ public class CurrentTeamService : ICurrentTeamService
     {
         try
         {
+            _logger.LogDebug("Starting SetTeamFromJwtClaims. Current subdomain: {Subdomain}, IsAuthenticated: {IsAuthenticated}", 
+                _currentSubdomain, IsAuthenticated);
+
             if (!IsAuthenticated)
             {
                 _logger.LogDebug("User not authenticated, cannot set team from JWT claims");
                 return false;
             }
 
-            // For global admins, we don't set team from claims as they can access any team
-            if (IsGlobalAdmin)
+            // Global admins must have team membership to access team context, same as regular users
+
+            // Get all team memberships first
+            var memberships = GetTeamMemberships();
+            if (!memberships.Any())
             {
-                _logger.LogDebug("Global admin user - team context determined by subdomain");
-                return true;
+                _logger.LogWarning("User has no team memberships in JWT claims");
+                return false;
             }
 
             // For regular users, the current team is determined by subdomain matching
-            // This method is now primarily used for validation
             if (!string.IsNullOrEmpty(_currentSubdomain))
             {
+                _logger.LogDebug("Looking for team membership matching subdomain: {Subdomain}", _currentSubdomain);
                 var currentMembership = GetCurrentTeamMembership();
                 if (currentMembership != null)
                 {
+                    _logger.LogInformation("Found matching team membership. Setting team {TeamId} for subdomain {Subdomain}", 
+                        currentMembership.TeamId, _currentSubdomain);
                     _currentTeamId = currentMembership.TeamId;
                     _logger.LogInformation("Team context validated from JWT claims for subdomain {Subdomain} to team {TeamId}", _currentSubdomain, currentMembership.TeamId);
                     return true;
+                }
+                else
+                {
+                    _logger.LogWarning("No team membership found matching subdomain {Subdomain}. Available memberships: {MembershipCount}", 
+                        _currentSubdomain, memberships.Count);
+                    foreach (var membership in memberships)
+                    {
+                        _logger.LogDebug("Available membership: TeamId={TeamId}, Subdomain={TeamSubdomain}, Role={Role}", 
+                            membership.TeamId, membership.TeamSubdomain, membership.TeamRole);
+                    }
+                }
+            }
+            else
+            {
+                _logger.LogWarning("Current subdomain is null or empty. Attempting fallback strategy with {MembershipCount} available memberships", memberships.Count);
+                
+                // Fallback strategy: If user has only one team membership, use that team
+                if (memberships.Count == 1)
+                {
+                    var singleMembership = memberships.First();
+                    _logger.LogInformation("Using single team membership as fallback. Setting team {TeamId} (subdomain: {Subdomain})", 
+                        singleMembership.TeamId, singleMembership.TeamSubdomain);
+                    _currentTeamId = singleMembership.TeamId;
+                    _currentSubdomain = singleMembership.TeamSubdomain; // Set the subdomain for consistency
+                    return true;
+                }
+                else
+                {
+                    _logger.LogWarning("User has {MembershipCount} team memberships but no subdomain context. Cannot determine which team to use", memberships.Count);
+                    foreach (var membership in memberships)
+                    {
+                        _logger.LogDebug("Available membership: TeamId={TeamId}, Subdomain={TeamSubdomain}, Role={Role}", 
+                            membership.TeamId, membership.TeamSubdomain, membership.TeamRole);
+                    }
                 }
             }
 
@@ -226,7 +373,6 @@ public class CurrentTeamService : ICurrentTeamService
 
     public bool HasMinimumTeamRole(TeamRole minimumRole)
     {
-        if (IsGlobalAdmin) return true;
         if (!CurrentTeamRole.HasValue) return false;
 
         var roleHierarchy = new Dictionary<TeamRole, int>
@@ -241,8 +387,6 @@ public class CurrentTeamService : ICurrentTeamService
 
     public bool CanAccessTeam(Guid teamId)
     {
-        if (IsGlobalAdmin) return true;
-
         // Check if user has membership in the specified team
         var memberships = GetTeamMemberships();
         return memberships.Any(m => m.TeamId == teamId);

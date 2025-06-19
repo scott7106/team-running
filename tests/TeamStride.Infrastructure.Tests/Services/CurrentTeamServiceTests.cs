@@ -629,7 +629,7 @@ public class CurrentTeamServiceTests
     }
 
     [Fact]
-    public void SetTeamFromJwtClaims_WhenGlobalAdmin_ReturnsTrue()
+    public void SetTeamFromJwtClaims_WhenGlobalAdminWithoutTeamMembership_ReturnsFalse()
     {
         // Arrange
         var teamSubdomain = "test-team";
@@ -639,8 +639,8 @@ public class CurrentTeamServiceTests
         var result = _currentTeamService.SetTeamFromJwtClaims();
 
         // Assert
-        result.ShouldBeTrue();
-        // Note: Global admins don't automatically set team from claims, team context is managed by subdomain
+        result.ShouldBeFalse();
+        // Note: Global admins now require actual team membership to access team context
     }
 
     [Fact]
@@ -675,7 +675,7 @@ public class CurrentTeamServiceTests
     }
 
     [Fact]
-    public void CanAccessCurrentTeam_WhenGlobalAdmin_ReturnsTrue()
+    public void CanAccessCurrentTeam_WhenGlobalAdminWithoutTeamMembership_ReturnsFalse()
     {
         // Arrange
         var teamId = Guid.NewGuid();
@@ -687,7 +687,7 @@ public class CurrentTeamServiceTests
         var result = _currentTeamService.CanAccessCurrentTeam();
 
         // Assert
-        result.ShouldBeTrue();
+        result.ShouldBeFalse();
     }
 
     [Theory]
@@ -715,7 +715,7 @@ public class CurrentTeamServiceTests
     }
 
     [Fact]
-    public void HasMinimumTeamRole_WhenGlobalAdmin_ReturnsTrue()
+    public void HasMinimumTeamRole_WhenGlobalAdminWithoutTeamMembership_ReturnsFalse()
     {
         // Arrange
         SetupHttpContextWithTeamMemberships(new List<TeamMembershipInfo>(), null, isGlobalAdmin: true);
@@ -724,7 +724,55 @@ public class CurrentTeamServiceTests
         var result = _currentTeamService.HasMinimumTeamRole(TeamRole.TeamOwner);
 
         // Assert
+        result.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void SetTeamFromJwtClaims_WhenGlobalAdminWithTeamMembership_ReturnsTrue()
+    {
+        // Arrange
+        var teamId = Guid.NewGuid();
+        var teamSubdomain = "test-team";
+        SetupHttpContextWithSingleTeamMembership(teamId, teamSubdomain, TeamRole.TeamAdmin, MemberType.Coach, isGlobalAdmin: true);
+
+        // Act
+        var result = _currentTeamService.SetTeamFromJwtClaims();
+
+        // Assert
         result.ShouldBeTrue();
+        _currentTeamService.IsTeamSet.ShouldBeTrue();
+        _currentTeamService.TeamId.ShouldBe(teamId);
+        // Note: Global admins with team membership work like regular users
+    }
+
+    [Fact]
+    public void CanAccessCurrentTeam_WhenGlobalAdminWithTeamMembership_ReturnsTrue()
+    {
+        // Arrange
+        var teamId = Guid.NewGuid();
+        var teamSubdomain = "test-team";
+        SetupHttpContextWithSingleTeamMembership(teamId, teamSubdomain, TeamRole.TeamAdmin, MemberType.Coach, isGlobalAdmin: true);
+        _currentTeamService.SetTeamId(teamId);
+
+        // Act
+        var result = _currentTeamService.CanAccessCurrentTeam();
+
+        // Assert
+        result.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void HasMinimumTeamRole_WhenGlobalAdminWithTeamMembership_ChecksActualRole()
+    {
+        // Arrange
+        var teamId = Guid.NewGuid();
+        var teamSubdomain = "test-team";
+        SetupHttpContextWithSingleTeamMembership(teamId, teamSubdomain, TeamRole.TeamAdmin, MemberType.Coach, isGlobalAdmin: true);
+
+        // Act & Assert
+        _currentTeamService.HasMinimumTeamRole(TeamRole.TeamOwner).ShouldBeFalse(); // Admin < Owner
+        _currentTeamService.HasMinimumTeamRole(TeamRole.TeamAdmin).ShouldBeTrue();   // Admin = Admin
+        _currentTeamService.HasMinimumTeamRole(TeamRole.TeamMember).ShouldBeTrue();  // Admin > Member
     }
 
     [Fact]
