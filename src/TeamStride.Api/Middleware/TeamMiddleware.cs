@@ -26,9 +26,6 @@ public class TeamMiddleware
 
         try
         {
-            // Clear any existing team context
-            teamService.ClearTeam();
-
             // Skip team resolution for the main marketing site and API endpoints without subdomains
             var hostParts = host.Split('.');
             var isMainSite = hostParts.Length <= 2 || host.StartsWith("api.") || host.StartsWith("www.");
@@ -100,11 +97,6 @@ public class TeamMiddleware
         {
             _logger.LogError(ex, "Error processing team middleware for host: {Host}", host);
             await HandleMiddlewareError(context, "Internal server error during team resolution");
-        }
-        finally
-        {
-            // Clear team context after request processing
-            teamService.ClearTeam();
         }
     }
 

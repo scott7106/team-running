@@ -41,7 +41,6 @@ public class TeamMiddlewareTests
         await _middleware.InvokeAsync(context);
 
         // Assert
-        _mockTeamService.Verify(x => x.ClearTeam(), Times.Exactly(2)); // Once at start, once in finally
         _mockNext.Verify(x => x(context), Times.Once);
         _mockTeamService.Verify(x => x.SetTeamFromSubdomainAsync(It.IsAny<string>()), Times.Never);
     }
@@ -57,7 +56,6 @@ public class TeamMiddlewareTests
         await _middleware.InvokeAsync(context);
 
         // Assert
-        _mockTeamService.Verify(x => x.ClearTeam(), Times.Exactly(2)); // Once at start, once in finally
         _mockNext.Verify(x => x(context), Times.Once);
         _mockTeamService.Verify(x => x.SetTeamFromSubdomainAsync(It.IsAny<string>()), Times.Never);
     }
@@ -73,7 +71,6 @@ public class TeamMiddlewareTests
         await _middleware.InvokeAsync(context);
 
         // Assert
-        _mockTeamService.Verify(x => x.ClearTeam(), Times.Exactly(2)); // Once at start, once in finally
         _mockNext.Verify(x => x(context), Times.Once);
         _mockTeamService.Verify(x => x.SetTeamFromSubdomainAsync(It.IsAny<string>()), Times.Never);
     }
@@ -91,7 +88,6 @@ public class TeamMiddlewareTests
         // Assert
         context.Response.StatusCode.ShouldBe(404);
         _mockNext.Verify(x => x(context), Times.Never);
-        _mockTeamService.Verify(x => x.ClearTeam(), Times.Exactly(2)); // Once at start, once in finally
     }
 
     [Fact]
@@ -226,23 +222,6 @@ public class TeamMiddlewareTests
         // Assert
         context.Response.StatusCode.ShouldBe(500);
         _mockNext.Verify(x => x(context), Times.Never);
-    }
-
-    [Fact]
-    public async Task InvokeAsync_AlwaysClearsTeamInFinally()
-    {
-        // Arrange
-        var context = CreateHttpContext("testteam.teamstride.net");
-        SetupServices(context);
-        
-        _mockTeamService.Setup(x => x.SetTeamFromSubdomainAsync("testteam"))
-            .ReturnsAsync(true);
-
-        // Act
-        await _middleware.InvokeAsync(context);
-
-        // Assert
-        _mockTeamService.Verify(x => x.ClearTeam(), Times.Exactly(2)); // Once at start, once in finally
     }
 
     private HttpContext CreateHttpContext(string host)

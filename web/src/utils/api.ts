@@ -47,6 +47,26 @@ const getAuthToken = (): string | null => {
   return localStorage.getItem('token');
 };
 
+const getCurrentSubdomain = (): string => {
+  if (typeof window === 'undefined') return '';
+  
+  const hostname = window.location.hostname;
+  
+  if (hostname.includes('localhost')) {
+    const parts = hostname.split('.');
+    if (parts.length > 1) {
+      return parts[0]; // wildcats.localhost -> 'wildcats'
+    }
+    return ''; // just 'localhost' -> no subdomain
+  } else {
+    const parts = hostname.split('.');
+    if (parts.length > 2) {
+      return parts[0]; // wildcats.teamstride.net -> 'wildcats'
+    }
+    return ''; // no subdomain
+  }
+};
+
 const buildQueryString = (params: Record<string, unknown>): string => {
   const searchParams = new URLSearchParams();
   
@@ -65,6 +85,7 @@ const apiRequest = async <T>(
   options: RequestInit = {}
 ): Promise<T> => {
   const token = getAuthToken();
+  const subdomain = getCurrentSubdomain();
   
   const defaultHeaders: HeadersInit = {
     'Content-Type': 'application/json',
@@ -72,6 +93,11 @@ const apiRequest = async <T>(
   
   if (token) {
     defaultHeaders.Authorization = `Bearer ${token}`;
+  }
+  
+  // Add subdomain header for API team context resolution
+  if (subdomain) {
+    defaultHeaders['X-Subdomain'] = subdomain;
   }
   
   const config: RequestInit = {
