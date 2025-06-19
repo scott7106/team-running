@@ -1,7 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
-import { decodeToken, isTokenExpired, setSessionFingerprint, stopHeartbeat, disableFocusValidation, canAccessSubdomain, parseTeamMemberships, TeamMembershipInfo } from '@/utils/auth';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
+import { decodeToken, isTokenExpired, setSessionFingerprint, stopHeartbeat, disableFocusValidation, canAccessSubdomain, parseTeamMemberships, TeamMembershipInfo, generateFingerprint, validateSessionFingerprint, logoutForSecurityViolation } from '@/utils/auth';
 
 // Types
 interface User {
@@ -201,11 +201,104 @@ function parseTokenDataWithSubdomainCheck(token: string): {
   return { user, tenant, hasSubdomainAccess: true, currentSubdomain };
 }
 
-
-
 // Auth Provider Component
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, initialState);
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const missedHeartbeatCountRef = useRef(0);
+
+  // Heartbeat mechanism
+  useEffect(() => {
+    if (!state.isAuthenticated || typeof window === 'undefined') {
+      // Clear heartbeat if not authenticated
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+        heartbeatIntervalRef.current = null;
+      }
+      missedHeartbeatCountRef.current = 0;
+      return;
+    }
+
+    const HEARTBEAT_INTERVAL = 60 * 1000; // 90 seconds
+    const MAX_MISSED_HEARTBEATS = 5;
+
+    const performHeartbeat = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          return;
+        }
+
+        const response = await fetch('/api/authentication/heartbeat', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            fingerprint: generateFingerprint()
+          })
+        });
+
+        if (response.ok) {
+          missedHeartbeatCountRef.current = 0;
+        } else if (response.status === 401) {
+          // 401 Unauthorized - immediate logout (session invalidated by another device)
+          logoutForSecurityViolation('Heartbeat validation failed');
+        } else {
+          // Other errors - count as missed heartbeat
+          missedHeartbeatCountRef.current++;
+          
+          if (missedHeartbeatCountRef.current >= MAX_MISSED_HEARTBEATS) {
+            logoutForSecurityViolation('Heartbeat validation failed');
+          }
+        }
+      } catch {
+        missedHeartbeatCountRef.current++;
+        
+        if (missedHeartbeatCountRef.current >= MAX_MISSED_HEARTBEATS) {
+          logoutForSecurityViolation('Heartbeat validation failed');
+        }
+      }
+    };
+
+    // Start heartbeat
+    performHeartbeat(); // Initial heartbeat
+    heartbeatIntervalRef.current = setInterval(performHeartbeat, HEARTBEAT_INTERVAL);
+
+    return () => {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+        heartbeatIntervalRef.current = null;
+      }
+    };
+  }, [state.isAuthenticated]);
+
+  // Focus validation
+  useEffect(() => {
+    if (!state.isAuthenticated || typeof window === 'undefined') return;
+
+    const handleVisibilityChange = async () => {
+      if (document.hidden) {
+        return;
+      }
+
+      try {
+        const isValid = validateSessionFingerprint();
+        if (!isValid) {
+          logoutForSecurityViolation('Session fingerprint validation failed');
+        }
+      } catch (error) {
+        console.error('Session validation error:', error);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [state.isAuthenticated]);
 
   // Load auth state from localStorage
   const loadAuthState = useCallback(() => {
@@ -241,6 +334,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Keep token for tenant switcher access
         dispatch({ type: 'SUBDOMAIN_ACCESS_DENIED', payload: { user: tokenData.user } });
         return;
+      }
+
+      // Initialize session fingerprint for authenticated users
+      const storedFingerprint = localStorage.getItem('sessionFingerprint');
+      if (!storedFingerprint) {
+        try {
+          const fingerprint = generateFingerprint();
+          localStorage.setItem('sessionFingerprint', fingerprint);
+        } catch (error) {
+          console.error('Failed to generate session fingerprint:', error);
+        }
       }
 
       dispatch({ type: 'LOGIN_SUCCESS', payload: { user: tokenData.user, tenant: tokenData.tenant! } });
@@ -281,7 +385,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Logout function
   const logout = useCallback(() => {
-    // Stop security mechanisms
+    // Stop heartbeat mechanism
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = null;
+    }
+    missedHeartbeatCountRef.current = 0;
+    
+    // Stop legacy security mechanisms (for backward compatibility)
     stopHeartbeat();
     disableFocusValidation();
     

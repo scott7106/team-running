@@ -2,7 +2,7 @@
 
 ## Overview
 
-The TeamStride application implements a comprehensive multi-layered session security system that combines client-side and server-side mechanisms to ensure secure user sessions and protect against various security threats. The system includes idle timeout management, heartbeat validation, session fingerprinting, role-based authorization, and administrative force logout capabilities.
+TeamStride implements a robust, multi-layered session security system combining client-side and server-side mechanisms to ensure secure user sessions and protect against a wide range of threats. The system includes idle timeout management, heartbeat validation, session fingerprinting, role-based authorization, administrative force logout, and comprehensive event logging.
 
 ---
 
@@ -14,7 +14,7 @@ The TeamStride application implements a comprehensive multi-layered session secu
 - **Configuration**: Configurable JWT settings in `appsettings.json`
 
 #### JWT Token Claims:
-- `sub`: User ID 
+- `sub`: User ID
 - `email`: User email address
 - `first_name`: User's first name
 - `last_name`: User's last name
@@ -38,7 +38,9 @@ The TeamStride application implements a comprehensive multi-layered session secu
 - **Expiration**: 7 days from creation
 - **Security**: Cryptographically secure random tokens
 - **Tracking**: IP address tracking for refresh token usage
-- **Revocation**: Old refresh tokens are revoked when new ones are issued
+- **Revocation**: All refresh tokens are revoked on new issuance, force logout, or device change
+
+- **Validation**: Every API request and heartbeat validates JWT and user status
 
 ---
 
@@ -61,7 +63,7 @@ The TeamStride application implements a comprehensive multi-layered session secu
   - Team context validation
   - Route parameter validation
 
-#### RequireGlobalAdminAttribute  
+#### RequireGlobalAdminAttribute
 - **Location**: `src/TeamStride.Api/Authorization/RequireGlobalAdminAttribute.cs`
 - **Purpose**: Restricts access to global administrators only
 
@@ -75,37 +77,22 @@ The TeamStride application implements a comprehensive multi-layered session secu
 ## 3. Idle Timeout System
 
 ### Client-Side Implementation
-
-#### Core Hook: useIdleTimeout
-- **Location**: `web/src/utils/useIdleTimeout.ts`
+- **Core**: `IdleTimeoutProvider` and `IdleTimeoutModal` in React, integrated at the app root
 - **Timeout Duration**: 5 minutes total (4 minutes idle + 1 minute warning)
-- **Monitored Events**: 
-  - `mousedown`, `mousemove`, `keypress`, `scroll`, `touchstart`, `click`
+- **Monitored Events**: Mouse, keyboard, scroll, and touch events
+- **Warning System**: Modal appears for 1 minute before logout; modal interactions do not reset timer
+- **No Activity**: If no action is taken during warning, automatic logout occurs
 
-#### Activity Detection Features:
-- **Throttling**: 1-second intervals to prevent excessive resets
-- **Warning System**: Shows modal 1 minute before logout
-- **Countdown Timer**: Real-time countdown during warning period
-- **Modal Interaction Prevention**: Modal interactions don't reset idle timer
-
-#### Idle Timeout Components:
-- **AuthenticatedIdleTimeout**: Main component integrating idle timeout with auth
-- **IdleTimeoutProvider**: Application-wide provider
-- **IdleTimeoutModal**: Warning modal with countdown and user actions
-
-### Configuration:
-```typescript
-const TIMEOUT_DURATION = 5 * 60 * 1000;  // 5 minutes
-const WARNING_DURATION = 1 * 60 * 1000;  // 1 minute warning
-```
+### Server-Side
+- **Last Activity**: Updated on every successful heartbeat
 
 ---
 
 ## 4. Heartbeat Validation System
 
 ### Client-Side Heartbeat
-- **Location**: `web/src/components/SessionSecurityProvider.tsx`
-- **Interval**: 90 seconds
+- **Location**: `SessionSecurityProvider` and `auth-context.tsx`
+- **Interval**: 60 seconds
 - **Failure Tolerance**: Maximum 5 missed heartbeats before logout
 - **Endpoint**: `POST /api/authentication/heartbeat`
 
@@ -116,14 +103,17 @@ const WARNING_DURATION = 1 * 60 * 1000;  // 1 minute warning
   - User existence and active status
   - Session fingerprint match
   - Force logout status
+- **Process**:
+  1. Client sends heartbeat request with session fingerprint
+  2. Server validates JWT token and user status
+  3. Server checks for force logout conditions
+  4. Server updates user's last activity timestamp
+  5. Server validates/stores session fingerprint
+  6. Returns 200 OK for valid sessions, 401 Unauthorized for invalid
 
-#### Heartbeat Process:
-1. Client sends heartbeat request with session fingerprint
-2. Server validates JWT token and user status
-3. Server checks for force logout conditions
-4. Server updates user's last activity timestamp
-5. Server validates/stores session fingerprint
-6. Returns 200 OK for valid sessions, 401 Unauthorized for invalid
+### Focus-Based Validation
+- **Trigger**: Window focus/visibility change events
+- **Validation**: Checks token expiration, session fingerprint, and optionally triggers immediate heartbeat
 
 ---
 
@@ -138,9 +128,9 @@ const WARNING_DURATION = 1 * 60 * 1000;  // 1 minute warning
   - Screen resolution
 
 ### Fingerprint Validation
-- **Client-Side**: Validates fingerprint consistency
-- **Server-Side**: Stores and validates fingerprints in `UserSessions` table
-- **Security**: Detects potential session hijacking attempts
+- **Client-Side**: Validates fingerprint consistency on login, focus, and periodically
+- **Server-Side**: Stores and validates fingerprints in `UserSessions` table. Mismatch triggers force logout on all other devices and refresh token revocation
+- **Security**: Detects session hijacking and enforces single active session per device
 
 #### Implementation:
 ```typescript
@@ -149,7 +139,6 @@ const fingerprint = {
   language: navigator.language,
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   screen: `${screen.width}x${screen.height}`
-  // Note: timestamp removed to ensure consistent fingerprints
 };
 ```
 
@@ -182,36 +171,21 @@ const fingerprint = {
   - Revokes all refresh tokens
   - Causes subsequent heartbeat validations to fail
 
-### Implementation Process:
-1. Admin triggers force logout for specific user
-2. System sets ForceLogoutAfter timestamp to current time
-3. All refresh tokens for user are revoked
-4. Next heartbeat validation fails due to timestamp check
-5. User is automatically logged out
+### Device Change
+- **Process**: New device login updates fingerprint, invalidates other sessions, and revokes tokens
 
 ---
 
-## 8. Focus-Based Validation
+## 8. Security Violation Handling
 
-### Focus-Based Validation
-- **Trigger**: Window focus/visibility change events
-- **Validation**:
-  - Token expiration check
-  - Session fingerprint validation
-  - Optional immediate heartbeat request
-
----
-
-## 9. Security Violation Handling
-
-### Immediate Logout Scenarios:
+### Immediate Logout Scenarios
 - Heartbeat validation failures (5 consecutive failures)
 - Session fingerprint mismatches
 - Token expiration detection
 - Force logout enforcement
 - Focus validation failures
 
-### Security Logout Process:
+### Security Logout Process
 1. Clear all session data from localStorage
 2. Stop all timers and intervals
 3. Hard page reload to ensure clean state
@@ -219,7 +193,7 @@ const fingerprint = {
 
 ---
 
-## 10. Password Security
+## 9. Password Security
 
 ### Password Requirements
 - **Minimum Length**: 8 characters
@@ -229,14 +203,14 @@ const fingerprint = {
   - At least one uppercase letter
   - At least one non-alphanumeric character
 
-### Password Management Features:
+### Password Management Features
 - Password change with current password verification
 - Password reset via email with secure tokens
 - Account lockout protection
 
 ---
 
-## 11. Email Verification & Security
+## 10. Email Verification & Security
 
 ### Email Confirmation
 - **Requirement**: Required for account activation
@@ -249,22 +223,22 @@ const fingerprint = {
 
 ---
 
-## 12. External Authentication Support
+## 11. External Authentication Support
 
-### Supported Providers:
+### Supported Providers
 - Microsoft Account
 - Google
 - Facebook
 - Twitter
 
-### OAuth Configuration:
+### OAuth Configuration
 - Client ID and secret management
 - Secure callback handling
 - User profile integration
 
 ---
 
-## 13. Security Middleware
+## 12. Security Middleware
 
 ### Exception Handling Middleware
 - **Location**: `src/TeamStride.Api/Middleware/ExceptionHandlingMiddleware.cs`
@@ -276,64 +250,64 @@ const fingerprint = {
 
 ---
 
-## 14. Configuration & Environment Security
+## 13. Configuration & Environment Security
 
-### Production Security Settings:
+### Production Security Settings
 - HTTPS enforcement
 - Secure cookie settings
 - CORS configuration
 - Environment-specific configurations
 
-### Development vs Production:
+### Development vs Production
 - Swagger UI only in development
 - Static file serving configuration
 - Different authentication flows
 
 ---
 
-## 15. Monitoring & Logging
+## 14. Monitoring & Logging
 
-### Security Event Logging:
+### Security Event Logging
 - Failed authentication attempts
 - Heartbeat validation failures
 - Session fingerprint mismatches
 - Force logout events
 - Token validation errors
 
-### Activity Tracking:
+### Activity Tracking
 - User login timestamps
 - Last activity tracking
 - Session creation and termination
 
 ---
 
-## 16. Security Best Practices Implemented
+## 15. Security Best Practices Implemented
 
-### Token Security:
+### Token Security
 - Short JWT expiration (60 minutes)
 - Secure refresh token rotation
 - Token validation on every request
 
-### Session Security:
+### Session Security
 - Idle timeout enforcement
 - Activity monitoring
 - Fingerprint validation
 
-### Administrative Security:
+### Administrative Security
 - Force logout capabilities
 - Role-based access control
 - Global admin privileges
 
-### Communication Security:
+### Communication Security
 - HTTPS enforcement
 - Secure headers
 - CORS protection
 
 ---
 
-## Configuration Summary
+## 16. Client/Server Configuration Summary
 
-### Client-Side Timeouts:
+### Client-Side Timeouts
 ```typescript
 IDLE_TIMEOUT = 5 minutes (300,000ms)
 WARNING_TIME = 1 minute (60,000ms)
@@ -341,11 +315,13 @@ HEARTBEAT_INTERVAL = 90 seconds (90,000ms)
 MAX_MISSED_HEARTBEATS = 5
 ```
 
-### Server-Side Settings:
+### Server-Side Settings
 ```csharp
 JWT_EXPIRATION = 60 minutes
 REFRESH_TOKEN_EXPIRATION = 7 days
 FINGERPRINT_MAX_LENGTH = 2000 characters
 ```
+
+---
 
 This comprehensive security implementation ensures robust session management, protects against common attack vectors, and provides administrators with the tools needed to maintain security across the application. 

@@ -557,6 +557,11 @@ public class AuthenticationService : ITeamStrideAuthenticationService
         if (user.ForceLogoutAfter.HasValue && user.ForceLogoutAfter < DateTime.UtcNow)
         {
             _logger.LogWarning("Heartbeat validation failed: User {UserId} was force-logged out at {ForceLogoutAfter}", userId, user.ForceLogoutAfter);
+            
+            // Clear the ForceLogoutAfter timestamp since we've processed it
+            user.ForceLogoutAfter = null;
+            await _userManager.UpdateAsync(user);
+            
             return false;
         }
         
@@ -577,14 +582,14 @@ public class AuthenticationService : ITeamStrideAuthenticationService
 
     private async Task ValidateOrStoreFingerprint(Guid userId, string fingerprint)
     {
-        var existingFingerprint = await _context.UserSessions
+        var existingSession = await _context.UserSessions
             .Where(us => us.UserId == userId && us.IsActive)
-            .Select(us => us.Fingerprint)
             .FirstOrDefaultAsync();
         
-        if (existingFingerprint == null)
+        if (existingSession == null)
         {
             // First time - store fingerprint
+            _logger.LogDebug("Creating new session for user {UserId}", userId);
             var session = new UserSession
             {
                 UserId = userId,
@@ -597,14 +602,49 @@ public class AuthenticationService : ITeamStrideAuthenticationService
             _context.UserSessions.Add(session);
             await _context.SaveChangesAsync();
         }
-        else if (existingFingerprint != fingerprint)
+        else if (existingSession.Fingerprint != fingerprint)
         {
-            // Fingerprint mismatch - potential security issue
+            // Fingerprint mismatch - new device/browser detected
             _logger.LogWarning("Fingerprint mismatch for user {UserId}. Stored: {Stored}, Current: {Current}", 
-                userId, existingFingerprint, fingerprint);
+                userId, existingSession.Fingerprint, fingerprint);
             
-            // You could choose to invalidate the session here
-            // For now, we'll log and continue, but you might want to return false
+            _logger.LogInformation("User {UserId} logging in from new device. Invalidating previous session and updating fingerprint.", userId);
+            
+            // STRICT POLICY: Update fingerprint to new device and invalidate previous sessions
+            
+            // 1. Update the existing session with new fingerprint (current device wins)
+            existingSession.Fingerprint = fingerprint;
+            existingSession.LastActiveOn = DateTime.UtcNow;
+            
+            // 2. Force logout on all other devices by setting ForceLogoutAfter timestamp
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+            if (user != null)
+            {
+                user.ForceLogoutAfter = DateTime.UtcNow;
+                await _userManager.UpdateAsync(user);
+                _logger.LogInformation("Set ForceLogoutAfter for user {UserId} to invalidate other sessions", userId);
+            }
+            
+            // 3. Revoke all refresh tokens to ensure complete logout
+            var refreshTokens = await _context.RefreshTokens
+                .Where(rt => rt.UserId == userId && rt.RevokedOn == null && rt.ExpiresOn > DateTime.UtcNow)
+                .ToListAsync();
+            
+            foreach (var token in refreshTokens)
+            {
+                token.RevokedOn = DateTime.UtcNow;
+                token.ReasonRevoked = "New device login - session invalidated";
+            }
+            
+            await _context.SaveChangesAsync();
+            
+            _logger.LogInformation("Invalidated {TokenCount} refresh tokens for user {UserId}", refreshTokens.Count, userId);
+        }
+        else
+        {
+            // Fingerprint matches - update last activity
+            existingSession.LastActiveOn = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
         }
     }
 

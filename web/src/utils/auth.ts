@@ -419,9 +419,9 @@ export function disableFocusValidation(): void {
 
 // LOGOUT FUNCTIONS
 
-// For security violations - immediate logout without modal
+// For security violations - immediate logout with optional message
 export function logoutForSecurityViolation(reason: string): void {
-  console.error(`Security violation logout: ${reason}`);
+  console.warn(`Security violation logout: ${reason}`);
   
   // Stop all security mechanisms
   stopHeartbeat();
@@ -432,8 +432,21 @@ export function logoutForSecurityViolation(reason: string): void {
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('sessionFingerprint');
   
+  // Store logout reason for display on login page
+  let message = 'Your session has been terminated for security reasons.';
+  
+  if (reason === 'heartbeat-rejected' || reason === 'Heartbeat validation failed') {
+    message = 'You have been logged out because you signed in on another device. Only one active session is allowed at a time.';
+  } else if (reason === 'fingerprint-mismatch') {
+    message = 'Your session has been terminated due to a security check failure.';
+  } else if (reason === 'token-expired') {
+    message = 'Your session has expired. Please log in again.';
+  }
+  
+  localStorage.setItem('logoutMessage', message);
+  
   // Force a hard reload to ensure all state is cleared
-  window.location.replace('/');
+  window.location.replace('/login');
 }
 
 // For idle timeout and manual logout - allows modal to show

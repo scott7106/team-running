@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import IdleTimeoutProvider from "@/components/auth/idle-timeout-provider";
-import SessionSecurityProvider from '@/components/auth/session-security-provider';
 import { AuthProvider } from '@/contexts/auth-context';
 
 const geistSans = Geist({
@@ -31,11 +30,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
-          <SessionSecurityProvider>
-            <IdleTimeoutProvider>
-              {children}
-            </IdleTimeoutProvider>
-          </SessionSecurityProvider>
+          <IdleTimeoutProvider>
+            {children}
+          </IdleTimeoutProvider>
         </AuthProvider>
       </body>
     </html>

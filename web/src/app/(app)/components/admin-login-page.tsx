@@ -33,6 +33,7 @@ export default function AdminLoginPage() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [logoutMessage, setLogoutMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
   const router = useRouter();
@@ -51,6 +52,15 @@ export default function AdminLoginPage() {
   // Set document title
   useEffect(() => {
     document.title = "TeamStride Admin - Login";
+  }, []);
+
+  // Check for logout message
+  useEffect(() => {
+    const message = localStorage.getItem('logoutMessage');
+    if (message) {
+      setLogoutMessage(message);
+      localStorage.removeItem('logoutMessage');
+    }
   }, []);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -132,6 +142,24 @@ export default function AdminLoginPage() {
 
       <div className="relative mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow-xl sm:rounded-xl sm:px-10 border border-gray-100">
+          {/* Logout Message Alert */}
+          {logoutMessage && (
+            <div className="mb-6 p-4 bg-amber-50 border-2 border-amber-200 rounded-lg shadow-sm">
+              <div className="flex items-start">
+                <FontAwesomeIcon icon={faExclamationTriangle} className="text-amber-500 mt-0.5 mr-3 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-amber-800">{logoutMessage}</p>
+                </div>
+                <button
+                  onClick={() => setLogoutMessage('')}
+                  className="text-amber-400 hover:text-amber-600 ml-2 flex-shrink-0"
+                >
+                  <FontAwesomeIcon icon={faTimes} className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Error Alert */}
           {loginError && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
