@@ -9,6 +9,15 @@ import {
   UpdateRegistrationWindowDto,
   UserRegistrationDto
 } from '@/types/registration';
+import { 
+  AthleteDto, 
+  CreateAthleteDto, 
+  UpdateAthleteDto, 
+  AthleteApiParams, 
+  PaginatedAthleteResponse, 
+  AthleteRole, 
+  UpdateAthleteProfileDto 
+} from '@/types/athlete';
 
 export interface DashboardStatsDto {
   activeTeamsCount: number;
@@ -344,6 +353,84 @@ export const registrationApi = {
       method: 'POST',
       body: JSON.stringify(dto),
     });
+  },
+};
+
+export const athletesApi = {
+  getAthletes: async (params: AthleteApiParams = {}): Promise<PaginatedAthleteResponse> => {
+    const queryString = buildQueryString(params as Record<string, unknown>);
+    return apiRequest<PaginatedAthleteResponse>(`/api/teams/athletes${queryString}`);
+  },
+
+  getAthlete: async (athleteId: string): Promise<AthleteDto> => {
+    return apiRequest<AthleteDto>(`/api/teams/athletes/${athleteId}`);
+  },
+
+  getAthleteByUserId: async (userId: string): Promise<AthleteDto | null> => {
+    try {
+      return await apiRequest<AthleteDto>(`/api/teams/athletes/by-user/${userId}`);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 204) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  getCaptains: async (): Promise<AthleteDto[]> => {
+    return apiRequest<AthleteDto[]>('/api/teams/athletes/captains');
+  },
+
+  createAthlete: async (dto: CreateAthleteDto): Promise<AthleteDto> => {
+    return apiRequest<AthleteDto>('/api/teams/athletes', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  updateAthlete: async (athleteId: string, dto: UpdateAthleteDto): Promise<AthleteDto> => {
+    return apiRequest<AthleteDto>(`/api/teams/athletes/${athleteId}`, {
+      method: 'PUT',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  updateAthleteRole: async (athleteId: string, role: AthleteRole): Promise<AthleteDto> => {
+    return apiRequest<AthleteDto>(`/api/teams/athletes/${athleteId}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify(role),
+    });
+  },
+
+  updatePhysicalStatus: async (athleteId: string, hasPhysical: boolean): Promise<AthleteDto> => {
+    return apiRequest<AthleteDto>(`/api/teams/athletes/${athleteId}/physical`, {
+      method: 'PATCH',
+      body: JSON.stringify(hasPhysical),
+    });
+  },
+
+  updateWaiverStatus: async (athleteId: string, hasSigned: boolean): Promise<AthleteDto> => {
+    return apiRequest<AthleteDto>(`/api/teams/athletes/${athleteId}/waiver`, {
+      method: 'PATCH',
+      body: JSON.stringify(hasSigned),
+    });
+  },
+
+  updateAthleteProfile: async (athleteId: string, profileDto: UpdateAthleteProfileDto): Promise<AthleteDto> => {
+    return apiRequest<AthleteDto>(`/api/teams/athletes/${athleteId}/profile`, {
+      method: 'PUT',
+      body: JSON.stringify(profileDto),
+    });
+  },
+
+  deleteAthlete: async (athleteId: string): Promise<void> => {
+    return apiRequest<void>(`/api/teams/athletes/${athleteId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  isAthleteInTeam: async (athleteId: string): Promise<boolean> => {
+    return apiRequest<boolean>(`/api/teams/athletes/${athleteId}/is-in-team`);
   },
 };
 

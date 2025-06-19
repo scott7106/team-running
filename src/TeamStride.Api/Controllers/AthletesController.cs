@@ -12,7 +12,7 @@ namespace TeamStride.Api.Controllers;
 /// Controller for athlete management operations
 /// </summary>
 [ApiController]
-[Route("api/athletes")]
+[Route("api/teams/athletes")]
 [Authorize]
 public class AthletesController : BaseApiController
 {
