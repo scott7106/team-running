@@ -1,6 +1,6 @@
 export enum AthleteRole {
-  Athlete = 'Athlete',
-  Captain = 'Captain'
+  Athlete = 0,
+  Captain = 1
 }
 
 export interface AthleteProfileDto {

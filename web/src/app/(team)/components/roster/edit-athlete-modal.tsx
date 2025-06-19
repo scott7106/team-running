@@ -154,7 +154,7 @@ export default function EditAthleteModal({ athlete, onClose, onAthleteUpdated }:
             <select
               id="role"
               value={formData.role}
-              onChange={(e) => handleChange('role', e.target.value as AthleteRole)}
+              onChange={(e) => handleChange('role', parseInt(e.target.value) as AthleteRole)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value={AthleteRole.Athlete}>Athlete</option>

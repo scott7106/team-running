@@ -40,16 +40,48 @@ export function parseTeamMemberships(claims: JwtClaims): TeamMembershipInfo[] {
       teamId?: string;
       TeamSubdomain?: string;
       teamSubdomain?: string;
-      TeamRole?: string;
-      teamRole?: string;
-      MemberType?: string;
-      memberType?: string;
-    }) => ({
-      teamId: m.TeamId || m.teamId || '',
-      teamSubdomain: m.TeamSubdomain || m.teamSubdomain || '',
-      teamRole: m.TeamRole || m.teamRole || '',
-      memberType: m.MemberType || m.memberType || ''
-    })) : [];
+      TeamRole?: string | number;
+      teamRole?: string | number;
+      MemberType?: string | number;
+      memberType?: string | number;
+    }) => {
+      // Convert numeric team role to string equivalent
+      const rawTeamRole = m.TeamRole || m.teamRole;
+      let teamRole = '';
+      if (typeof rawTeamRole === 'number') {
+        // Map numeric enum values to string names (based on C# enum)
+        switch (rawTeamRole) {
+          case 0: teamRole = 'TeamOwner'; break;
+          case 1: teamRole = 'TeamAdmin'; break;
+          case 2: teamRole = 'TeamMember'; break;
+          default: teamRole = 'TeamMember'; break; // fallback
+        }
+      } else {
+        teamRole = rawTeamRole || '';
+      }
+
+      // Convert numeric member type to string equivalent
+      const rawMemberType = m.MemberType || m.memberType;
+      let memberType = '';
+      if (typeof rawMemberType === 'number') {
+        // Map numeric enum values to string names (based on C# enum)
+        switch (rawMemberType) {
+          case 0: memberType = 'Coach'; break;
+          case 1: memberType = 'Athlete'; break;
+          case 2: memberType = 'Parent'; break;
+          default: memberType = 'Coach'; break; // fallback
+        }
+      } else {
+        memberType = rawMemberType || '';
+      }
+
+      return {
+        teamId: m.TeamId || m.teamId || '',
+        teamSubdomain: m.TeamSubdomain || m.teamSubdomain || '',
+        teamRole,
+        memberType
+      };
+    }) : [];
   } catch (error) {
     console.error('Failed to parse team memberships:', error);
     return [];

@@ -280,7 +280,7 @@ export default function AthleteProfileModal({ athlete, onClose, canEdit, onProfi
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-1">Role</h3>
-              <p className="text-sm text-gray-900">{athlete.role}</p>
+              <p className="text-sm text-gray-900">{athlete.firstName} {athlete.lastName}</p>
             </div>
             {athlete.grade && (
               <div>

@@ -143,6 +143,18 @@ function DropdownMenu({
   );
 }
 
+// Helper function to convert AthleteRole enum to display string
+function getAthleteRoleDisplayName(role: AthleteRole): string {
+  switch (role) {
+    case AthleteRole.Athlete:
+      return 'Athlete';
+    case AthleteRole.Captain:
+      return 'Captain';
+    default:
+      return 'Athlete';
+  }
+}
+
 export default function RosterPage() {
   const [isTeamMember, setIsTeamMember] = useState(false);
   const [teamName, setTeamName] = useState('');
@@ -617,7 +629,7 @@ export default function RosterPage() {
                             <select
                               id="role-filter"
                               value={roleFilter}
-                              onChange={(e) => handleRoleFilter(e.target.value as AthleteRole | '')}
+                              onChange={(e) => handleRoleFilter(e.target.value === '' ? '' : parseInt(e.target.value) as AthleteRole)}
                               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             >
                               <option value="">All Roles</option>
@@ -748,7 +760,7 @@ export default function RosterPage() {
                                       ? 'bg-yellow-100 text-yellow-800'
                                       : 'bg-gray-100 text-gray-800'
                                   }`}>
-                                    {athlete.role}
+                                    {getAthleteRoleDisplayName(athlete.role)}
                                   </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -829,7 +841,7 @@ export default function RosterPage() {
                                       ? 'bg-yellow-100 text-yellow-800'
                                       : 'bg-gray-100 text-gray-800'
                                   }`}>
-                                    {athlete.role}
+                                    {getAthleteRoleDisplayName(athlete.role)}
                                   </span>
                                 </div>
                                 
