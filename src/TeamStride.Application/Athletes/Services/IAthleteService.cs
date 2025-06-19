@@ -8,7 +8,15 @@ public interface IAthleteService
 {
     Task<AthleteDto> GetByIdAsync(Guid id);
     Task<AthleteDto?> GetByUserIdAsync(Guid userId);
-    Task<PaginatedList<AthleteDto>> GetTeamRosterAsync(int pageNumber = 1, int pageSize = 10);
+    Task<PaginatedList<AthleteDto>> GetTeamRosterAsync(
+        int pageNumber = 1, 
+        int pageSize = 10,
+        string? searchQuery = null,
+        AthleteRole? role = null,
+        Gender? gender = null,
+        GradeLevel? gradeLevel = null,
+        bool? hasPhysical = null,
+        bool? hasWaiver = null);
     Task<AthleteDto> CreateAsync(CreateAthleteDto dto);
     Task<AthleteDto> UpdateAsync(Guid id, UpdateAthleteDto dto);
     Task DeleteAsync(Guid id);

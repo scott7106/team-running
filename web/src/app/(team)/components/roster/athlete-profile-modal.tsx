@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faIdCard, faEdit } from '@fortawesome/free-solid-svg-icons';
 import FormModal from '@/components/ui/form-modal';
-import { AthleteDto, UpdateAthleteProfileDto } from '@/types/athlete';
+import { AthleteDto, UpdateAthleteProfileDto, getGradeLevelDisplayName } from '@/types/athlete';
 import { athletesApi, ApiError } from '@/utils/api';
 
 interface AthleteProfileModalProps {
@@ -282,12 +282,10 @@ export default function AthleteProfileModal({ athlete, onClose, canEdit, onProfi
               <h3 className="text-sm font-medium text-gray-700 mb-1">Role</h3>
               <p className="text-sm text-gray-900">{athlete.firstName} {athlete.lastName}</p>
             </div>
-            {athlete.grade && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-1">Grade</h3>
-                <p className="text-sm text-gray-900">{athlete.grade}</p>
-              </div>
-            )}
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-1">Grade</h3>
+              <p className="text-sm text-gray-900">{getGradeLevelDisplayName(athlete.gradeLevel)}</p>
+            </div>
           </div>
 
           {/* Profile Information */}

@@ -52,7 +52,15 @@ public class AthletesControllerTests
         };
 
         var paginatedList = new PaginatedList<AthleteDto>(athletes, 2, 1, 10);
-        _mockAthleteService.Setup(x => x.GetTeamRosterAsync(1, 10))
+        _mockAthleteService.Setup(x => x.GetTeamRosterAsync(
+                It.Is<int>(p => p == 1), 
+                It.Is<int>(p => p == 10), 
+                It.IsAny<string?>(), 
+                It.IsAny<AthleteRole?>(), 
+                It.IsAny<Gender?>(), 
+                It.IsAny<GradeLevel?>(), 
+                It.IsAny<bool?>(), 
+                It.IsAny<bool?>()))
             .ReturnsAsync(paginatedList);
 
         // Act
@@ -69,7 +77,15 @@ public class AthletesControllerTests
     public async Task GetTeamRoster_WithUnauthorizedAccess_ShouldReturnForbid()
     {
         // Arrange
-        _mockAthleteService.Setup(x => x.GetTeamRosterAsync(1, 10))
+        _mockAthleteService.Setup(x => x.GetTeamRosterAsync(
+                It.Is<int>(p => p == 1), 
+                It.Is<int>(p => p == 10), 
+                It.IsAny<string?>(), 
+                It.IsAny<AthleteRole?>(), 
+                It.IsAny<Gender?>(), 
+                It.IsAny<GradeLevel?>(), 
+                It.IsAny<bool?>(), 
+                It.IsAny<bool?>()))
             .ThrowsAsync(new UnauthorizedAccessException("Access denied"));
 
         // Act
@@ -84,7 +100,15 @@ public class AthletesControllerTests
     public async Task GetTeamRoster_WithException_ShouldReturnInternalServerError()
     {
         // Arrange
-        _mockAthleteService.Setup(x => x.GetTeamRosterAsync(1, 10))
+        _mockAthleteService.Setup(x => x.GetTeamRosterAsync(
+                It.Is<int>(p => p == 1), 
+                It.Is<int>(p => p == 10), 
+                It.IsAny<string?>(), 
+                It.IsAny<AthleteRole?>(), 
+                It.IsAny<Gender?>(), 
+                It.IsAny<GradeLevel?>(), 
+                It.IsAny<bool?>(), 
+                It.IsAny<bool?>()))
             .ThrowsAsync(new Exception("Database error"));
 
         // Act
@@ -365,7 +389,8 @@ public class AthletesControllerTests
         var updateDto = new UpdateAthleteDto
         {
             Role = AthleteRole.Captain,
-            JerseyNumber = "99"
+            Gender = Gender.Male,
+            GradeLevel = GradeLevel.Senior
         };
 
         var updatedAthlete = new AthleteDto
@@ -376,7 +401,9 @@ public class AthletesControllerTests
             LastName = "Doe",
             Email = "john.doe@test.com",
             Role = AthleteRole.Captain,
-            JerseyNumber = "99"
+            Gender = Gender.Male,
+            DateOfBirth = DateTime.Today.AddYears(-18),
+            GradeLevel = GradeLevel.Senior
         };
 
         _mockAthleteService.Setup(x => x.UpdateAsync(athleteId, updateDto))
@@ -389,7 +416,8 @@ public class AthletesControllerTests
         var okResult = result.ShouldBeOfType<OkObjectResult>();
         var returnedAthlete = okResult.Value.ShouldBeOfType<AthleteDto>();
         returnedAthlete.Role.ShouldBe(AthleteRole.Captain);
-        returnedAthlete.JerseyNumber.ShouldBe("99");
+        returnedAthlete.Gender.ShouldBe(Gender.Male);
+        returnedAthlete.GradeLevel.ShouldBe(GradeLevel.Senior);
     }
 
     [Fact]

@@ -72,7 +72,15 @@ public class AthleteService : IAthleteService
         return athlete != null ? _mapper.Map<AthleteDto>(athlete) : null;
     }
 
-    public async Task<PaginatedList<AthleteDto>> GetTeamRosterAsync(int pageNumber = 1, int pageSize = 10)
+    public async Task<PaginatedList<AthleteDto>> GetTeamRosterAsync(
+        int pageNumber = 1, 
+        int pageSize = 10,
+        string? searchQuery = null,
+        AthleteRole? role = null,
+        Gender? gender = null,
+        GradeLevel? gradeLevel = null,
+        bool? hasPhysical = null,
+        bool? hasWaiver = null)
     {
         await _authorizationService.RequireTeamAccessAsync(_currentUserService.CurrentTeamId!.Value, TeamRole.TeamMember);
 
@@ -80,8 +88,48 @@ public class AthleteService : IAthleteService
             .ApplyTeamIdFilter(_currentUserService.CurrentTeamId)
             .Include(a => a.User)
             .Include(a => a.Profile)
-            .OrderBy(a => a.LastName)
-            .ThenBy(a => a.FirstName);
+            .AsQueryable();
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            var search = searchQuery.Trim().ToLower();
+            query = query.Where(a => 
+                a.FirstName.ToLower().Contains(search) ||
+                a.LastName.ToLower().Contains(search) ||
+                (a.EmergencyContactName != null && a.EmergencyContactName.ToLower().Contains(search)) ||
+                (a.EmergencyContactPhone != null && a.EmergencyContactPhone.ToLower().Equals(search)) ||
+                (a.User != null && a.User.Email != null && a.User.Email.ToLower().Contains(search)));
+        }
+
+        // Apply filters
+        if (role.HasValue)
+        {
+            query = query.Where(a => a.Role == role.Value);
+        }
+
+        if (gender.HasValue)
+        {
+            query = query.Where(a => a.Gender == gender.Value);
+        }
+
+        if (gradeLevel.HasValue)
+        {
+            query = query.Where(a => a.GradeLevel == gradeLevel.Value);
+        }
+
+        if (hasPhysical.HasValue)
+        {
+            query = query.Where(a => a.HasPhysicalOnFile == hasPhysical.Value);
+        }
+
+        if (hasWaiver.HasValue)
+        {
+            query = query.Where(a => a.HasWaiverSigned == hasWaiver.Value);
+        }
+
+        // Apply ordering
+        query = query.OrderBy(a => a.LastName).ThenBy(a => a.FirstName);
 
         var totalCount = await query.CountAsync();
         var athletes = await query

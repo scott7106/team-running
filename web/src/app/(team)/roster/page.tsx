@@ -28,8 +28,8 @@ import { SubdomainThemeDto } from '@/types/team';
 import CreateAthleteModal from '../components/roster/create-athlete-modal';
 import EditAthleteModal from '../components/roster/edit-athlete-modal';
 import AthleteProfileModal from '../components/roster/athlete-profile-modal';
-import { AthleteDto, AthleteRole, AthleteApiParams } from '@/types/athlete';
-import { athletesApi, ApiError } from '@/utils/api';
+import { AthleteDto, AthleteRole, AthleteApiParams, Gender, GradeLevel, getGenderAbbreviation, getGradeLevelDisplayName } from '@/types/athlete';
+import { athletesApi, teamsApi, ApiError } from '@/utils/api';
 import { useAuthTokenRefresh } from '@/hooks/use-auth-token-refresh';
 import { useUser, useTenant } from '@/contexts/auth-context';
 
@@ -167,6 +167,8 @@ export default function RosterPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<AthleteRole | ''>('');
+  const [genderFilter, setGenderFilter] = useState<Gender | ''>('');
+  const [gradeLevelFilter, setGradeLevelFilter] = useState<GradeLevel | ''>('');
   const [physicalFilter, setPhysicalFilter] = useState<boolean | ''>('');
   const [waiverFilter, setWaiverFilter] = useState<boolean | ''>('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -174,6 +176,7 @@ export default function RosterPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize] = useState(10);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [gradeLevels, setGradeLevels] = useState<Array<{value: number, name: string, displayName: string}>>([]);
   
   // Create athlete modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -215,7 +218,6 @@ export default function RosterPage() {
       }
     }
 
-    // Check team membership using centralized auth state
     const checkTeamMembership = () => {
       // Check if current subdomain matches user's team context
       // Users with subdomainAccessDenied should be treated as non-members
@@ -229,6 +231,21 @@ export default function RosterPage() {
 
     checkTeamMembership();
   }, [hasTeam, tenant, subdomainAccessDenied]);
+
+  useEffect(() => {
+    const loadGradeLevels = async () => {
+      try {
+        const levels = await teamsApi.getGradeLevels();
+        setGradeLevels(levels);
+      } catch (error) {
+        console.error('Failed to load grade levels:', error);
+      }
+    };
+
+    if (isTeamMember) {
+      loadGradeLevels();
+    }
+  }, [isTeamMember]);
 
   // Permission checks
   const canEditAthlete = (athlete: AthleteDto): boolean => {
@@ -275,6 +292,8 @@ export default function RosterPage() {
         pageSize,
         searchQuery: searchQuery || undefined,
         role: roleFilter !== '' ? roleFilter : undefined,
+        gender: genderFilter !== '' ? genderFilter : undefined,
+        gradeLevel: gradeLevelFilter !== '' ? gradeLevelFilter : undefined,
         hasPhysical: physicalFilter !== '' ? physicalFilter : undefined,
         hasWaiver: waiverFilter !== '' ? waiverFilter : undefined,
         ...params
@@ -293,7 +312,7 @@ export default function RosterPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, searchQuery, roleFilter, physicalFilter, waiverFilter]);
+  }, [currentPage, pageSize, searchQuery, roleFilter, genderFilter, gradeLevelFilter, physicalFilter, waiverFilter]);
 
   useEffect(() => {
     if (isAuthenticated && isTeamMember && !isLoading) {
@@ -308,6 +327,16 @@ export default function RosterPage() {
 
   const handleRoleFilter = (role: AthleteRole | '') => {
     setRoleFilter(role);
+    setCurrentPage(1);
+  };
+
+  const handleGenderFilter = (gender: Gender | '') => {
+    setGenderFilter(gender);
+    setCurrentPage(1);
+  };
+
+  const handleGradeLevelFilter = (gradeLevel: GradeLevel | '') => {
+    setGradeLevelFilter(gradeLevel);
     setCurrentPage(1);
   };
 
@@ -430,7 +459,7 @@ export default function RosterPage() {
   const endIndex = Math.min(currentPage * pageSize, totalCount);
 
   // Check if any filters are active
-  const hasActiveFilters = searchQuery || roleFilter !== '' || physicalFilter !== '' || waiverFilter !== '';
+  const hasActiveFilters = searchQuery || roleFilter !== '' || genderFilter !== '' || gradeLevelFilter !== '' || physicalFilter !== '' || waiverFilter !== '';
 
   if (isLoading) {
     return (
@@ -525,7 +554,7 @@ export default function RosterPage() {
                 
                 {filtersExpanded && (
                   <div className="mt-4 pt-4 border-t border-gray-200">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       <div>
                         <label htmlFor="role-filter" className="block text-sm font-medium text-gray-700 mb-1">
                           Role
@@ -543,6 +572,66 @@ export default function RosterPage() {
                       </div>
                       
                       <div>
+                        <label htmlFor="gender-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                          Gender
+                        </label>
+                        <select
+                          id="gender-filter"
+                          value={genderFilter}
+                          onChange={(e) => handleGenderFilter(e.target.value === '' ? '' : parseInt(e.target.value) as Gender)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="">All Genders</option>
+                          <option value={Gender.Female}>Female</option>
+                          <option value={Gender.Male}>Male</option>
+                          <option value={Gender.NS}>Not Specified</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="grade-level-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                          Grade Level
+                        </label>
+                        <select
+                          id="grade-level-filter"
+                          value={gradeLevelFilter}
+                          onChange={(e) => handleGradeLevelFilter(e.target.value === '' ? '' : parseInt(e.target.value) as GradeLevel)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="">All Grade Levels</option>
+                          {gradeLevels.length > 0 ? (
+                            gradeLevels.map((level) => (
+                              <option key={level.value} value={level.value}>
+                                {level.displayName}
+                              </option>
+                            ))
+                          ) : (
+                            // Fallback options if API data not loaded
+                            <>
+                              <option value={GradeLevel.K}>Kindergarten</option>
+                              <option value={GradeLevel.First}>1st Grade</option>
+                              <option value={GradeLevel.Second}>2nd Grade</option>
+                              <option value={GradeLevel.Third}>3rd Grade</option>
+                              <option value={GradeLevel.Fourth}>4th Grade</option>
+                              <option value={GradeLevel.Fifth}>5th Grade</option>
+                              <option value={GradeLevel.Sixth}>6th Grade</option>
+                              <option value={GradeLevel.Seventh}>7th Grade</option>
+                              <option value={GradeLevel.Eighth}>8th Grade</option>
+                              <option value={GradeLevel.Ninth}>9th Grade</option>
+                              <option value={GradeLevel.Tenth}>10th Grade</option>
+                              <option value={GradeLevel.Eleventh}>11th Grade</option>
+                              <option value={GradeLevel.Twelfth}>12th Grade</option>
+                              <option value={GradeLevel.Other}>Other</option>
+                              <option value={GradeLevel.Freshman}>Freshman</option>
+                              <option value={GradeLevel.Sophomore}>Sophomore</option>
+                              <option value={GradeLevel.Junior}>Junior</option>
+                              <option value={GradeLevel.Senior}>Senior</option>
+                            </>
+                          )}
+                        </select>
+                      </div>
+
+                      <div>
                         <label htmlFor="physical-filter" className="block text-sm font-medium text-gray-700 mb-1">
                           Physical Status
                         </label>
@@ -557,7 +646,9 @@ export default function RosterPage() {
                           <option value="false">Physical Needed</option>
                         </select>
                       </div>
-                      
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                       <div>
                         <label htmlFor="waiver-filter" className="block text-sm font-medium text-gray-700 mb-1">
                           Waiver Status
@@ -627,6 +718,9 @@ export default function RosterPage() {
                             Role
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Gender
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Grade
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -668,7 +762,10 @@ export default function RosterPage() {
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {athlete.grade || '-'}
+                              {getGenderAbbreviation(athlete.gender)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {getGradeLevelDisplayName(athlete.gradeLevel)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -750,8 +847,13 @@ export default function RosterPage() {
                             </div>
                             
                             <div>
+                              <span className="text-gray-500">Gender:</span>
+                              <span className="ml-2 text-gray-900">{getGenderAbbreviation(athlete.gender)}</span>
+                            </div>
+                            
+                            <div>
                               <span className="text-gray-500">Grade:</span>
-                              <span className="ml-2 text-gray-900">{athlete.grade || '-'}</span>
+                              <span className="ml-2 text-gray-900">{getGradeLevelDisplayName(athlete.gradeLevel)}</span>
                             </div>
                             
                             <div>
@@ -782,7 +884,7 @@ export default function RosterPage() {
                               <span className="text-gray-500">Emergency Contact:</span>
                               <span className="ml-2 text-gray-900">{athlete.emergencyContactName}</span>
                               {athlete.emergencyContactPhone && (
-                                <span className="ml-2 text-gray-500">({athlete.emergencyContactPhone})</span>
+                                <span className="ml-2 text-gray-500">{athlete.emergencyContactPhone}</span>
                               )}
                             </div>
                           )}
@@ -970,6 +1072,6 @@ export default function RosterPage() {
           </div>
         </main>
       </div>
-              </TeamThemeProvider>
-   );
-  } 
+    </TeamThemeProvider>
+  );
+} 

@@ -252,11 +252,11 @@ public class AthleteServiceTests : BaseSecuredTest
             FirstName = "New",
             LastName = "Athlete",
             Role = AthleteRole.Athlete,
-            JerseyNumber = "42",
+            Gender = Gender.Male,
             EmergencyContactName = "Parent Name",
             EmergencyContactPhone = "555-0123",
             DateOfBirth = DateTime.Today.AddYears(-16),
-            Grade = "11"
+            GradeLevel = GradeLevel.Eleventh
         };
 
         // Act
@@ -268,11 +268,11 @@ public class AthleteServiceTests : BaseSecuredTest
         result.LastName.ShouldBe("Athlete");
         result.Email.ShouldBe("newathlete@test.com");
         result.Role.ShouldBe(AthleteRole.Athlete);
-        result.JerseyNumber.ShouldBe("42");
+        result.Gender.ShouldBe(Gender.Male);
         result.EmergencyContactName.ShouldBe("Parent Name");
         result.EmergencyContactPhone.ShouldBe("555-0123");
         result.DateOfBirth.ShouldBe(DateTime.Today.AddYears(-16));
-        result.Grade.ShouldBe("11");
+        result.GradeLevel.ShouldBe(GradeLevel.Eleventh);
 
         // Verify user was created
         var user = await _userManager.FindByEmailAsync("newathlete@test.com");
@@ -492,7 +492,9 @@ public class AthleteServiceTests : BaseSecuredTest
             FirstName = "Walk-On",
             LastName = "Athlete",
             Role = AthleteRole.Athlete,
-            JerseyNumber = "99"
+            Gender = Gender.Female,
+            DateOfBirth = DateTime.Today.AddYears(-14),
+            GradeLevel = GradeLevel.Ninth
         };
 
         // Act
@@ -505,7 +507,8 @@ public class AthleteServiceTests : BaseSecuredTest
         result.Email.ShouldBeNull(); // No user account means no email
         result.UserId.ShouldBeNull(); // No user account
         result.Role.ShouldBe(AthleteRole.Athlete);
-        result.JerseyNumber.ShouldBe("99");
+        result.Gender.ShouldBe(Gender.Female);
+        result.GradeLevel.ShouldBe(GradeLevel.Ninth);
 
         // Verify no user was created
         var users = await _userManager.Users.ToListAsync();
@@ -537,10 +540,10 @@ public class AthleteServiceTests : BaseSecuredTest
         var updateDto = new UpdateAthleteDto
         {
             Role = AthleteRole.Captain,
-            JerseyNumber = "99",
+            Gender = Gender.Male,
             EmergencyContactName = "Updated Contact",
             EmergencyContactPhone = "555-9999",
-            Grade = "12",
+            GradeLevel = GradeLevel.Twelfth,
             HasPhysicalOnFile = true,
             HasWaiverSigned = true
         };
@@ -551,10 +554,10 @@ public class AthleteServiceTests : BaseSecuredTest
         // Assert
         result.ShouldNotBeNull();
         result.Role.ShouldBe(AthleteRole.Captain);
-        result.JerseyNumber.ShouldBe("99");
+        result.Gender.ShouldBe(Gender.Male);
         result.EmergencyContactName.ShouldBe("Updated Contact");
         result.EmergencyContactPhone.ShouldBe("555-9999");
-        result.Grade.ShouldBe("12");
+        result.GradeLevel.ShouldBe(GradeLevel.Twelfth);
         result.HasPhysicalOnFile.ShouldBeTrue();
         result.HasWaiverSigned.ShouldBeTrue();
     }
@@ -937,7 +940,9 @@ public class AthleteServiceTests : BaseSecuredTest
             LastName = "Athlete",
             TeamId = teamId,
             Role = role,
-            JerseyNumber = "1",
+            Gender = Gender.Female,
+            DateOfBirth = DateTime.Today.AddYears(-16),
+            GradeLevel = GradeLevel.Tenth,
             HasPhysicalOnFile = false,
             HasWaiverSigned = false,
             CreatedOn = DateTime.UtcNow,

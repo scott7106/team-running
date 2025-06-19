@@ -17,10 +17,18 @@ public class CreateAthleteDto
     public string LastName { get; set; } = string.Empty;
 
     public AthleteRole Role { get; set; } = AthleteRole.Athlete;
-    public string? JerseyNumber { get; set; }
+    
+    [Required]
+    public Gender Gender { get; set; }
+    
     public string? EmergencyContactName { get; set; }
     public string? EmergencyContactPhone { get; set; }
-    public DateTime? DateOfBirth { get; set; }
-    public string? Grade { get; set; }
+    
+    [Required]
+    public DateTime DateOfBirth { get; set; }
+    
+    [Required]
+    public GradeLevel GradeLevel { get; set; }
+    
     public CreateAthleteProfileDto? Profile { get; set; }
 } 

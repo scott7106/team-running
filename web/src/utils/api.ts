@@ -224,6 +224,10 @@ export const teamsApi = {
       method: 'DELETE',
     });
   },
+
+  getGradeLevels: async (): Promise<Array<{value: number, name: string, displayName: string}>> => {
+    return apiRequest<Array<{value: number, name: string, displayName: string}>>('/api/teams/gradelevels');
+  },
 };
 
 interface ApplicationRole {

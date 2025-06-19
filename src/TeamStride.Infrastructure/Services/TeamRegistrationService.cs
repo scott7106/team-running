@@ -356,6 +356,7 @@ public class TeamRegistrationService : ITeamRegistrationService
                 _context.UserTeams.Add(athleteTeam);
 
                 // Create athlete profile
+                // TODO: Update this section when team registration integration is implemented
                 var athleteProfile = new Athlete
                 {
                     UserId = athleteUser.Id,
@@ -363,7 +364,8 @@ public class TeamRegistrationService : ITeamRegistrationService
                     FirstName = athlete.FirstName,
                     LastName = athlete.LastName,
                     DateOfBirth = athlete.Birthdate,
-                    Grade = athlete.GradeLevel,
+                    GradeLevel = GradeLevel.Other, // Temporary default value
+                    Gender = Gender.NS, // Temporary default value
                     CreatedOn = DateTime.UtcNow
                 };
                 _context.Athletes.Add(athleteProfile);

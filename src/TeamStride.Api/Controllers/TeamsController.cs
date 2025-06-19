@@ -270,4 +270,62 @@ public class TeamsController : BaseApiController
             return HandleError(ex, $"Failed to check athlete capacity for team {teamId}");
         }
     }
+
+    /// <summary>
+    /// Gets available grade levels for teams
+    /// </summary>
+    /// <returns>List of grade levels</returns>
+    [HttpGet("gradelevels")]
+    [RequireTeamAccess(TeamRole.TeamMember, requireTeamIdFromRoute: false)]
+    [ProducesResponseType(typeof(IEnumerable<object>), 200)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(403)]
+    public IActionResult GetGradeLevels()
+    {
+        try
+        {
+            // TODO: Filter this list based on team settings when that feature is implemented
+            var gradeLevels = Enum.GetValues<GradeLevel>()
+                .Select(g => new { 
+                    Value = (int)g, 
+                    Name = g.ToString(),
+                    DisplayName = GetGradeLevelDisplayName(g)
+                })
+                .OrderBy(g => g.Value)
+                .ToList();
+
+            return Ok(gradeLevels);
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex, "Failed to retrieve grade levels");
+        }
+    }
+
+    private static string GetGradeLevelDisplayName(GradeLevel gradeLevel)
+    {
+        return gradeLevel switch
+        {
+            GradeLevel.K => "Kindergarten",
+            GradeLevel.First => "1st Grade",
+            GradeLevel.Second => "2nd Grade", 
+            GradeLevel.Third => "3rd Grade",
+            GradeLevel.Fourth => "4th Grade",
+            GradeLevel.Fifth => "5th Grade",
+            GradeLevel.Sixth => "6th Grade",
+            GradeLevel.Seventh => "7th Grade",
+            GradeLevel.Eighth => "8th Grade",
+            GradeLevel.Ninth => "9th Grade",
+            GradeLevel.Tenth => "10th Grade",
+            GradeLevel.Eleventh => "11th Grade",
+            GradeLevel.Twelfth => "12th Grade",
+            GradeLevel.Other => "Other",
+            GradeLevel.Redshirt => "Redshirt",
+            GradeLevel.Freshman => "Freshman",
+            GradeLevel.Sophomore => "Sophomore",
+            GradeLevel.Junior => "Junior",
+            GradeLevel.Senior => "Senior",
+            _ => gradeLevel.ToString()
+        };
+    }
 } 

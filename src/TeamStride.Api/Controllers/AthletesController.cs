@@ -30,6 +30,12 @@ public class AthletesController : BaseApiController
     /// </summary>
     /// <param name="pageNumber">Page number (default: 1)</param>
     /// <param name="pageSize">Page size (default: 10)</param>
+    /// <param name="searchQuery">Search query for first name, last name, or email</param>
+    /// <param name="role">Filter by athlete role</param>
+    /// <param name="gender">Filter by gender</param>
+    /// <param name="gradeLevel">Filter by grade level</param>
+    /// <param name="hasPhysical">Filter by physical status</param>
+    /// <param name="hasWaiver">Filter by waiver status</param>
     /// <returns>Paginated list of athletes</returns>
     [HttpGet]
     [RequireTeamAccess(TeamRole.TeamMember, requireTeamIdFromRoute: false)]
@@ -38,11 +44,18 @@ public class AthletesController : BaseApiController
     [ProducesResponseType(403)]
     public async Task<IActionResult> GetTeamRoster(
         [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? searchQuery = null,
+        [FromQuery] AthleteRole? role = null,
+        [FromQuery] Gender? gender = null,
+        [FromQuery] GradeLevel? gradeLevel = null,
+        [FromQuery] bool? hasPhysical = null,
+        [FromQuery] bool? hasWaiver = null)
     {
         try
         {
-            var athletes = await _athleteService.GetTeamRosterAsync(pageNumber, pageSize);
+            var athletes = await _athleteService.GetTeamRosterAsync(
+                pageNumber, pageSize, searchQuery, role, gender, gradeLevel, hasPhysical, hasWaiver);
             return Ok(athletes);
         }
         catch (UnauthorizedAccessException ex)
